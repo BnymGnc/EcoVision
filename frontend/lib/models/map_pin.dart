@@ -10,6 +10,7 @@ class MapPin {
     required this.createdById,
     required this.createdByName,
     required this.createdAt,
+    this.distanceKm,
   });
 
   final int id;
@@ -20,6 +21,7 @@ class MapPin {
   final int createdById;
   final String createdByName;
   final DateTime createdAt;
+  final double? distanceKm;
 
   LatLng get point => LatLng(latitude, longitude);
 
@@ -35,6 +37,7 @@ class MapPin {
       createdAt:
           DateTime.tryParse((json['createdAt'] ?? '').toString()) ??
           DateTime.now(),
+      distanceKm: (json['distanceKm'] as num?)?.toDouble(),
     );
   }
 }

@@ -17,9 +17,13 @@ class ScanResult {
     return ScanResult(
       material: (json['material'] ?? json['materialType'] ?? 'Unknown material')
           .toString(),
-      isRecyclable: _readBool(json['is_recyclable'] ?? json['recyclable']),
-      decayYears: (json['decay_years'] ?? 'Unknown').toString(),
-      recycledInto: (json['recycled_into'] ?? 'Unknown').toString(),
+      isRecyclable: _readBool(
+        json['is_recyclable'] ?? json['isRecyclable'] ?? json['recyclable'],
+      ),
+      decayYears: (json['decay_years'] ?? json['decayYears'] ?? 'Unknown')
+          .toString(),
+      recycledInto: (json['recycled_into'] ?? json['recycledInto'] ?? 'Unknown')
+          .toString(),
       scannedAt: json['scannedAt'] == null
           ? DateTime.now()
           : DateTime.tryParse(json['scannedAt'].toString()) ?? DateTime.now(),
@@ -34,10 +38,6 @@ class ScanResult {
       'recycled_into': recycledInto,
       'scanned_at': scannedAt.toIso8601String(),
     };
-  }
-
-  Map<String, dynamic> toBackendJson() {
-    return {'materialType': material, 'recyclable': isRecyclable};
   }
 
   static bool _readBool(Object? value) {

@@ -1,5 +1,6 @@
 package com.ecovision.backend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -40,6 +41,7 @@ public class Event {
         return id;
     }
 
+    @JsonIgnore
     public AppUser getCreator() {
         return creator;
     }

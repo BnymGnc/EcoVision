@@ -30,6 +30,7 @@ PUBLIC_BASE_URL=http://localhost:8080
 - `POST /api/auth/me/profile-picture`
 - `GET /api/scans`
 - `POST /api/scans`
+- `POST /api/scans/analyze` with JSON body `{"detected_class": "plastic waste"}`
 - `GET /api/events`
 - `POST /api/events`
 - `POST /api/events/multipart`

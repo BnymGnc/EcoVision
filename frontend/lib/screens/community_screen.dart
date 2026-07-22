@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../core/constants.dart';
 import '../models/cleanup_event.dart';
 import '../services/api_service.dart';
+import '../services/location_service.dart';
 import '../widgets/eco_lottie.dart';
 import 'event_chat_screen.dart';
 
@@ -26,7 +27,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _eventsFuture = widget.apiService.fetchEvents());
+    setState(() {
+      _eventsFuture = widget.apiService.fetchEvents();
+    });
     await _eventsFuture;
   }
 
@@ -112,17 +115,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 return ListView(
                   padding: const EdgeInsets.all(24),
                   children: [
-                    const SizedBox(height: 120),
-                    const Icon(Icons.cloud_off_outlined, size: 42),
-                    const SizedBox(height: 12),
-                    Text(
-                      snapshot.error.toString(),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: _refresh,
-                      child: const Text('Retry'),
+                    const SizedBox(height: 80),
+                    _CommunityStateCard(
+                      icon: Icons.cloud_off_outlined,
+                      title: 'Community is taking a breather',
+                      message:
+                          'Events could not be loaded right now. Pull to refresh or try again.',
+                      actionLabel: 'Retry',
+                      onAction: _refresh,
                     ),
                   ],
                 );
@@ -169,13 +169,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   ),
                   const SizedBox(height: 12),
                   if (events.isEmpty)
-                    const Card(
-                      child: Padding(
-                        padding: EdgeInsets.all(18),
-                        child: Text(
-                          'No cleanup events yet. Create the first one.',
-                        ),
-                      ),
+                    _CommunityStateCard(
+                      icon: Icons.event_available_outlined,
+                      title: 'No events found',
+                      message:
+                          'Create the first cleanup event and invite the community.',
+                      actionLabel: 'Report Waste',
+                      onAction: _openReportSheet,
                     )
                   else
                     for (final event in events)
@@ -198,6 +198,60 @@ class _CommunityScreenState extends State<CommunityScreen> {
               );
             },
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CommunityStateCard extends StatelessWidget {
+  const _CommunityStateCard({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          children: [
+            EcoLottie(
+              url: AppConstants.loadingLottieUrl,
+              fallbackIcon: icon,
+              size: 132,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.black54),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onAction,
+              icon: Icon(icon),
+              label: Text(actionLabel),
+            ),
+          ],
         ),
       ),
     );
@@ -324,10 +378,12 @@ class _ReportCleanupSheetState extends State<_ReportCleanupSheet> {
   final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
   final ImagePicker _imagePicker = ImagePicker();
+  final LocationService _locationService = LocationService();
 
   XFile? _photo;
   DateTime _eventDate = DateTime.now().add(const Duration(days: 2));
   bool _isSaving = false;
+  bool _isLocating = false;
 
   @override
   void dispose() {
@@ -377,6 +433,22 @@ class _ReportCleanupSheetState extends State<_ReportCleanupSheet> {
         time.minute,
       );
     });
+  }
+
+  Future<void> _useCurrentLocation() async {
+    setState(() => _isLocating = true);
+    try {
+      final location = await _locationService.getCurrentOrFallbackLocation();
+      if (!mounted) {
+        return;
+      }
+      _locationController.text =
+          '${location.latitude.toStringAsFixed(6)}, ${location.longitude.toStringAsFixed(6)}';
+    } finally {
+      if (mounted) {
+        setState(() => _isLocating = false);
+      }
+    }
   }
 
   Future<void> _submit() async {
@@ -480,6 +552,22 @@ class _ReportCleanupSheetState extends State<_ReportCleanupSheet> {
               validator: (value) => value == null || value.trim().isEmpty
                   ? 'Location is required'
                   : null,
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _isSaving || _isLocating
+                    ? null
+                    : _useCurrentLocation,
+                icon: _isLocating
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.my_location_outlined),
+                label: const Text('Use My Current Location'),
+              ),
             ),
             const SizedBox(height: 14),
             OutlinedButton.icon(

@@ -1,5 +1,6 @@
 package com.ecovision.backend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -44,6 +45,7 @@ public class ChatMessage {
         return id;
     }
 
+    @JsonIgnore
     public Event getEvent() {
         return event;
     }
@@ -52,6 +54,7 @@ public class ChatMessage {
         this.event = event;
     }
 
+    @JsonIgnore
     public AppUser getSender() {
         return sender;
     }

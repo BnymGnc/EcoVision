@@ -8,6 +8,8 @@ public record ScanResponse(
         Long userId,
         String materialType,
         Boolean recyclable,
+        String decayYears,
+        String recycledInto,
         Instant scannedAt
 ) {
     public static ScanResponse from(ScanHistory scan) {
@@ -16,6 +18,8 @@ public record ScanResponse(
                 scan.getUser().getId(),
                 scan.getMaterialType(),
                 scan.getIsRecyclable(),
+                scan.getDecayYears(),
+                scan.getRecycledInto(),
                 scan.getScannedAt()
         );
     }

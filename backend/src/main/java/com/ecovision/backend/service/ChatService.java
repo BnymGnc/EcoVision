@@ -21,6 +21,7 @@ public class ChatService {
         this.eventRepository = eventRepository;
     }
 
+    @Transactional(readOnly = true)
     public List<ChatMessageResponse> getMessages(Long eventId) {
         return chatMessageRepository.findByEventIdOrderByTimestampAsc(eventId)
                 .stream()

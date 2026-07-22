@@ -18,10 +18,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminService {
     private final AppUserRepository userRepository;
     private final MapPinRepository mapPinRepository;
+    private final OverpassMapPinService overpassMapPinService;
 
-    public AdminService(AppUserRepository userRepository, MapPinRepository mapPinRepository) {
+    public AdminService(
+            AppUserRepository userRepository,
+            MapPinRepository mapPinRepository,
+            OverpassMapPinService overpassMapPinService
+    ) {
         this.userRepository = userRepository;
         this.mapPinRepository = mapPinRepository;
+        this.overpassMapPinService = overpassMapPinService;
     }
 
     public List<UserResponse> getUsers() {
@@ -50,10 +56,54 @@ public class AdminService {
         return MapPinResponse.from(mapPinRepository.save(pin));
     }
 
+    @Transactional(readOnly = true)
     public List<MapPinResponse> getMapPins() {
         return mapPinRepository.findAllByOrderByCreatedAtDesc()
                 .stream()
                 .map(MapPinResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<MapPinResponse> getNearestMapPins(
+            double latitude,
+            double longitude,
+            Double radiusKm,
+            Integer limit
+    ) {
+        List<MapPinResponse> localPins = mapPinRepository.findAll()
+                .stream()
+                .map(pin -> new PinDistance(pin, haversineKm(
+                        latitude,
+                        longitude,
+                        pin.getLatitude(),
+                        pin.getLongitude()
+                )))
+                .filter(item -> radiusKm == null || item.distanceKm() <= radiusKm)
+                .sorted((left, right) -> Double.compare(left.distanceKm(), right.distanceKm()))
+                .limit(limit == null || limit <= 0 ? Long.MAX_VALUE : limit)
+                .map(item -> MapPinResponse.from(item.pin(), item.distanceKm()))
+                .toList();
+
+        if (!localPins.isEmpty()) {
+            return localPins;
+        }
+
+        return overpassMapPinService.findNearest(latitude, longitude, radiusKm, limit);
+    }
+
+    private double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+        final double earthRadiusKm = 6371.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1))
+                * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2)
+                * Math.sin(dLon / 2);
+        return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    private record PinDistance(MapPin pin, double distanceKm) {
     }
 }

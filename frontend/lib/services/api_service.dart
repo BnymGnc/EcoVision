@@ -8,12 +8,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants.dart';
 import '../models/chat_message.dart';
 import '../models/cleanup_event.dart';
+import '../models/gamification_state.dart';
 import '../models/map_pin.dart';
 import '../models/scan_result.dart';
 import '../models/user_profile.dart';
 
 class ApiService {
   static const _tokenKey = 'ecovision.jwt';
+  static const _googleWebClientId =
+      'dummy-client-id.apps.googleusercontent.com';
 
   final http.Client _client;
   final ValueNotifier<int> _pointsNotifier = ValueNotifier<int>(0);
@@ -126,9 +129,19 @@ class ApiService {
     return _currentUser!;
   }
 
-  Future<void> saveScanResult(ScanResult result) async {
-    await _postJson('/api/scans', result.toBackendJson());
-    await fetchCurrentUser();
+  Future<ScanResult> claimScanPoints(String detectedClass) async {
+    final json = await _postJson('/api/scans/analyze', {
+      'detected_class': detectedClass,
+    });
+
+    final result = ScanResult.fromJson(json);
+    final updatedPoints = json['updated_user_points'];
+    if (updatedPoints is num) {
+      _pointsNotifier.value = updatedPoints.toInt();
+    } else {
+      await fetchCurrentUser();
+    }
+    return result;
   }
 
   Future<int> getUserPoints() async {
@@ -139,6 +152,25 @@ class ApiService {
   Future<List<ScanResult>> getRecentScans() async {
     final json = await _getJsonList('/api/scans');
     return json.map((item) => ScanResult.fromJson(item)).toList();
+  }
+
+  Future<GamificationState> fetchGamificationState() async {
+    final json = await _getJson('/api/gamification');
+    return _applyGamificationState(json);
+  }
+
+  Future<GamificationState> completeCarbonFootprint(int score) async {
+    final json = await _postJson('/api/gamification/carbon-footprint', {
+      'score': score,
+    });
+    return _applyGamificationState(json);
+  }
+
+  Future<GamificationState> redeemReward(String rewardKey) async {
+    final json = await _postJson('/api/gamification/redeem', {
+      'rewardKey': rewardKey,
+    });
+    return _applyGamificationState(json);
   }
 
   Future<List<CleanupEvent>> fetchEvents() async {
@@ -161,6 +193,30 @@ class ApiService {
   Future<List<MapPin>> fetchMapPins() async {
     final json = await _getJsonList('/api/map-pins');
     return json.map((item) => MapPin.fromJson(item)).toList();
+  }
+
+  Future<List<MapPin>> fetchNearestMapPins({
+    required double latitude,
+    required double longitude,
+    double? radiusKm,
+    int? limit,
+  }) async {
+    final query = <String, String>{
+      'lat': latitude.toString(),
+      'lng': longitude.toString(),
+      if (radiusKm != null) 'radiusKm': radiusKm.toString(),
+      if (limit != null) 'limit': limit.toString(),
+    };
+    final uri = _uri('/api/map-pins/nearest').replace(queryParameters: query);
+    final response = await _client.get(uri, headers: _authHeaders());
+    final decoded = _decodeAnyResponse(response);
+    if (decoded is List) {
+      return decoded
+          .cast<Map<String, dynamic>>()
+          .map((item) => MapPin.fromJson(item))
+          .toList();
+    }
+    throw ApiException('Expected a list response from nearest pins.');
   }
 
   Future<MapPin> addOfficialMapPin({
@@ -221,6 +277,12 @@ class ApiService {
   Future<Map<String, dynamic>> _getJson(String path) async {
     final response = await _client.get(_uri(path), headers: _authHeaders());
     return _decodeResponse(response);
+  }
+
+  GamificationState _applyGamificationState(Map<String, dynamic> json) {
+    final state = GamificationState.fromJson(json);
+    _pointsNotifier.value = state.totalPoints;
+    return state;
   }
 
   Future<List<Map<String, dynamic>>> _getJsonList(String path) async {
@@ -300,7 +362,7 @@ class ApiService {
     if (_googleInitialized) {
       return;
     }
-    await GoogleSignIn.instance.initialize();
+    await GoogleSignIn.instance.initialize(clientId: _googleWebClientId);
     _googleInitialized = true;
   }
 

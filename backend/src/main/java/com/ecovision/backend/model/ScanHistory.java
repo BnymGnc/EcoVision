@@ -1,5 +1,6 @@
 package com.ecovision.backend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -29,6 +30,10 @@ public class ScanHistory {
     @Column(name = "is_recyclable", nullable = false)
     private Boolean isRecyclable;
 
+    private String decayYears;
+
+    private String recycledInto;
+
     @Column(nullable = false)
     private Instant scannedAt;
 
@@ -43,6 +48,7 @@ public class ScanHistory {
         return id;
     }
 
+    @JsonIgnore
     public AppUser getUser() {
         return user;
     }
@@ -65,6 +71,22 @@ public class ScanHistory {
 
     public void setIsRecyclable(Boolean isRecyclable) {
         this.isRecyclable = isRecyclable;
+    }
+
+    public String getDecayYears() {
+        return decayYears;
+    }
+
+    public void setDecayYears(String decayYears) {
+        this.decayYears = decayYears;
+    }
+
+    public String getRecycledInto() {
+        return recycledInto;
+    }
+
+    public void setRecycledInto(String recycledInto) {
+        this.recycledInto = recycledInto;
     }
 
     public Instant getScannedAt() {

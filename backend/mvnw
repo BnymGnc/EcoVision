@@ -1,5 +1,13 @@
 #!/bin/sh
 BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+if [ "$1" = "spring-boot:run" ]; then
+  java -Dmaven.multiModuleProjectDirectory="$BASE_DIR" \
+    -cp "$BASE_DIR/.mvn/wrapper/maven-wrapper.jar" \
+    org.apache.maven.wrapper.MavenWrapperMain -DskipTests package || exit $?
+  exec java -jar "$BASE_DIR/target/backend-0.0.1-SNAPSHOT.jar"
+fi
+
 exec java -Dmaven.multiModuleProjectDirectory="$BASE_DIR" \
   -cp "$BASE_DIR/.mvn/wrapper/maven-wrapper.jar" \
   org.apache.maven.wrapper.MavenWrapperMain "$@"

@@ -4,7 +4,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../core/constants.dart';
 import '../services/api_service.dart';
-import '../services/gemini_service.dart';
+import '../services/tflite_service.dart';
 import '../widgets/eco_lottie.dart';
 import 'result_screen.dart';
 
@@ -24,8 +24,15 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final ImagePicker _imagePicker = ImagePicker();
-  final GeminiService _geminiService = GeminiService();
+  final TfliteService _tfliteService = TfliteService();
   bool _isScanning = false;
+  String _scanStatus = 'Analyzing locally...';
+
+  @override
+  void dispose() {
+    _tfliteService.close();
+    super.dispose();
+  }
 
   Future<void> _pickAndAnalyze(ImageSource source) async {
     try {
@@ -39,9 +46,18 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      setState(() => _isScanning = true);
-      final result = await _geminiService.analyzeWasteImage(image);
-      await widget.apiService.saveScanResult(result);
+      setState(() {
+        _isScanning = true;
+        _scanStatus = 'Analyzing locally...';
+      });
+      final detectedClass = await _tfliteService.runModelOnImage(image.path);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() => _scanStatus = 'Claiming points...');
+      final result = await widget.apiService.claimScanPoints(detectedClass);
 
       if (!mounted) {
         return;
@@ -114,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ),
-        if (_isScanning) const _ScanningOverlay(),
+        if (_isScanning) _ScanningOverlay(message: _scanStatus),
       ],
     );
   }
@@ -211,7 +227,7 @@ class _HowItWorksCard extends StatelessWidget {
             const _StepRow(
               icon: Icons.psychology_alt_outlined,
               title: 'Understand',
-              subtitle: 'Gemini returns material, decay time, and reuse ideas.',
+              subtitle: 'The on-device model identifies the waste material.',
             ),
             _StepRow(
               icon: Icons.add_location_alt_outlined,
@@ -268,7 +284,9 @@ class _StepRow extends StatelessWidget {
 }
 
 class _ScanningOverlay extends StatelessWidget {
-  const _ScanningOverlay();
+  const _ScanningOverlay({required this.message});
+
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -288,13 +306,13 @@ class _ScanningOverlay extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Analyzing material',
+                  message,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text('A cleaner answer is sprouting...'),
+                const Text('Keeping the scan private on this device.'),
               ],
             ),
           ),

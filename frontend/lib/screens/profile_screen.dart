@@ -2,9 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/constants.dart';
+import '../models/gamification_state.dart';
 import '../models/scan_result.dart';
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
+import '../widgets/admin_panel.dart';
+import 'change_password_screen.dart';
+import 'eco_market_screen.dart';
+import 'edit_profile_screen.dart';
+import 'education_guide_screen.dart';
+import 'leaderboard_screen.dart';
+import 'login_screen.dart';
+import 'missions_screen.dart';
+import 'scan_history_screen.dart';
+import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({required this.apiService, super.key});
@@ -27,14 +38,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<_ProfileData> _loadProfile() async {
-    final user = await widget.apiService.fetchCurrentUser();
-    final scans = await widget.apiService.getRecentScans();
-    return _ProfileData(user: user, scans: scans);
+    final results = await Future.wait([
+      widget.apiService.fetchCurrentUser(),
+      widget.apiService.getRecentScans(),
+      widget.apiService.fetchGamificationState(),
+    ]);
+    return _ProfileData(
+      user: results[0] as UserProfile,
+      scans: results[1] as List<ScanResult>,
+      gamification: results[2] as GamificationState,
+    );
   }
 
   Future<void> _refresh() async {
-    setState(() => _profileFuture = _loadProfile());
-    await _profileFuture;
+    final next = _loadProfile();
+    setState(() {
+      _profileFuture = next;
+    });
+    await next;
   }
 
   Future<void> _uploadPicture() async {
@@ -64,16 +85,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _logout() async {
+    await widget.apiService.logout();
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(
+        builder: (_) => LoginScreen(apiService: widget.apiService),
+      ),
+      (_) => false,
+    );
+  }
+
+  void _open(Widget screen) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        title: const Text(
+          'Profile',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+      ),
       body: SafeArea(
         child: FutureBuilder<_ProfileData>(
           future: _profileFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const _ProfileLoadingState();
             }
             if (snapshot.hasError) {
               return _ErrorState(
@@ -83,71 +126,112 @@ class _ProfileScreenState extends State<ProfileScreen> {
             }
 
             final data = snapshot.requireData;
-            return RefreshIndicator(
-              onRefresh: _refresh,
-              child: ListView(
-                padding: const EdgeInsets.all(20),
-                children: [
-                  _ProfileHeader(
-                    user: data.user,
-                    isUploading: _isUploading,
-                    onUpload: _uploadPicture,
-                  ),
-                  const SizedBox(height: 18),
-                  _BadgesCard(points: data.user.totalPoints),
-                  if (data.user.isSuperuser) ...[
-                    const SizedBox(height: 18),
-                    _AdminPanel(apiService: widget.apiService),
-                  ],
-                  const SizedBox(height: 18),
-                  Text(
-                    'Scan history',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (data.scans.isEmpty)
-                    const Card(
-                      child: Padding(
-                        padding: EdgeInsets.all(18),
-                        child: Text(
-                          'No scans yet. Your first scan appears here.',
-                        ),
-                      ),
-                    )
-                  else
-                    for (final scan in data.scans)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Card(
-                          child: ListTile(
-                            leading: Icon(
-                              scan.isRecyclable
-                                  ? Icons.recycling_rounded
-                                  : Icons.delete_outline,
-                            ),
-                            title: Text(scan.material),
-                            subtitle: Text(
-                              scan.scannedAt
-                                  .toLocal()
-                                  .toString()
-                                  .split('.')
-                                  .first,
-                            ),
-                            trailing: Icon(
-                              scan.isRecyclable
-                                  ? Icons.check_circle
-                                  : Icons.cancel_outlined,
-                              color: scan.isRecyclable
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Theme.of(context).colorScheme.error,
+            return ValueListenableBuilder<int>(
+              valueListenable: widget.apiService.pointsListenable,
+              builder: (context, livePoints, _) {
+                final points = livePoints;
+                return RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                        children: [
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 900),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _ProfileHeader(
+                                    user: data.user,
+                                    points: points,
+                                    isUploading: _isUploading,
+                                    onUpload: _uploadPicture,
+                                  ),
+                                  const SizedBox(height: 24),
+                                  const _SectionTitle(
+                                    title: 'Your Eco Impact',
+                                    subtitle:
+                                        'Every scan adds up to a cleaner future',
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _ImpactStats(scans: data.scans),
+                                  const SizedBox(height: 26),
+                                  const _SectionTitle(
+                                    title: 'Rozetler',
+                                    subtitle:
+                                        'Milestones from your zero-waste journey',
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _BadgesRow(
+                                    points: points,
+                                    carbonFootprintCompleted: data
+                                        .gamification
+                                        .carbonFootprintCompleted,
+                                  ),
+                                  const SizedBox(height: 14),
+                                  _LeaderboardSnippet(
+                                    onTap: () =>
+                                        _open(const LeaderboardScreen()),
+                                  ),
+                                  const SizedBox(height: 26),
+                                  const _SectionTitle(title: 'Account'),
+                                  const SizedBox(height: 12),
+                                  _ProfileMenu(
+                                    onEditProfile: () =>
+                                        _open(const EditProfileScreen()),
+                                    onChangePassword: () =>
+                                        _open(const ChangePasswordScreen()),
+                                    onMissions: () async {
+                                      await Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => MissionsScreen(
+                                            points: points,
+                                            apiService: widget.apiService,
+                                          ),
+                                        ),
+                                      );
+                                      if (mounted) {
+                                        await _refresh();
+                                      }
+                                    },
+                                    onEcoMarket: () => _open(
+                                      EcoMarketScreen(
+                                        apiService: widget.apiService,
+                                      ),
+                                    ),
+                                    onEducationGuide: () =>
+                                        _open(const EducationGuideScreen()),
+                                    onLeaderboard: () =>
+                                        _open(const LeaderboardScreen()),
+                                    onHistory: () => _open(
+                                      ScanHistoryScreen(scans: data.scans),
+                                    ),
+                                    onSettings: () =>
+                                        _open(const SettingsScreen()),
+                                    onLogout: _logout,
+                                  ),
+                                  if (data.user.isSuperuser) ...[
+                                    const SizedBox(height: 26),
+                                    const _SectionTitle(
+                                      title: 'Platform Administration',
+                                      subtitle: 'Superuser controls',
+                                    ),
+                                    const SizedBox(height: 12),
+                                    AdminPanel(apiService: widget.apiService),
+                                  ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                ],
-              ),
+                        ],
+                      );
+                    },
+                  ),
+                );
+              },
             );
           },
         ),
@@ -159,153 +243,534 @@ class _ProfileScreenState extends State<ProfileScreen> {
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({
     required this.user,
+    required this.points,
     required this.isUploading,
     required this.onUpload,
   });
 
   final UserProfile user;
+  final int points;
   final bool isUploading;
   final VoidCallback onUpload;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final colors = Theme.of(context).colorScheme;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: colorScheme.primaryContainer,
-                  backgroundImage: user.profilePictureUrl == null
-                      ? null
-                      : NetworkImage(user.profilePictureUrl!),
-                  child: user.profilePictureUrl == null
-                      ? Icon(
-                          Icons.person,
-                          size: 42,
-                          color: colorScheme.onPrimaryContainer,
-                        )
-                      : null,
-                ),
-                IconButton.filled(
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: colors.primary,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: colors.shadow.withAlpha(36),
+            blurRadius: 20,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Wrap(
+        spacing: 18,
+        runSpacing: 18,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              CircleAvatar(
+                radius: 46,
+                backgroundColor: colors.surface,
+                backgroundImage: user.profilePictureUrl == null
+                    ? null
+                    : NetworkImage(user.profilePictureUrl!),
+                child: user.profilePictureUrl == null
+                    ? Text(
+                        _initials(user),
+                        style: TextStyle(
+                          color: colors.primary,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      )
+                    : null,
+              ),
+              Positioned(
+                right: -4,
+                bottom: -4,
+                child: IconButton.filled(
+                  tooltip: 'Change profile photo',
                   onPressed: isUploading ? null : onUpload,
+                  style: IconButton.styleFrom(
+                    backgroundColor: colors.secondary,
+                    foregroundColor: colors.onSecondary,
+                  ),
                   icon: isUploading
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                      ? SizedBox.square(
+                          dimension: 17,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: colors.onSecondary,
+                          ),
                         )
-                      : const Icon(Icons.camera_alt_outlined, size: 18),
+                      : const Icon(Icons.camera_alt_outlined, size: 19),
+                ),
+              ),
+            ],
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 190, maxWidth: 430),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.fullName.isEmpty ? 'EcoVision Member' : user.fullName,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: colors.onPrimary,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  user.email,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: colors.onPrimary.withAlpha(205)),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.onPrimary.withAlpha(30),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: colors.onPrimary.withAlpha(48)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.eco_rounded,
+                        size: 20,
+                        color: colors.tertiaryContainer,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$points Eco Points',
+                        style: TextStyle(
+                          color: colors.onPrimary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    user.fullName,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    user.email,
-                    style: const TextStyle(color: Colors.black54),
-                  ),
-                  const SizedBox(height: 10),
-                  Chip(
-                    avatar: const Icon(Icons.stars_rounded, size: 18),
-                    label: Text('${user.totalPoints} points'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+  }
+
+  String _initials(UserProfile user) {
+    final first = user.name.isEmpty ? 'E' : user.name[0];
+    final last = user.surname.isEmpty ? 'V' : user.surname[0];
+    return '${first.toUpperCase()}${last.toUpperCase()}';
+  }
+}
+
+class _ImpactStats extends StatelessWidget {
+  const _ImpactStats({required this.scans});
+
+  final List<ScanResult> scans;
+
+  @override
+  Widget build(BuildContext context) {
+    final recycled = scans.where((scan) => scan.isRecyclable).length;
+    final stats = [
+      _ImpactData(
+        label: 'CO₂ Saved',
+        value: '${(recycled * 0.3).toStringAsFixed(1)} kg',
+        icon: Icons.cloud_outlined,
+        color: const Color(0xFF1976D2),
+        background: const Color(0xFFE3F2FD),
+      ),
+      _ImpactData(
+        label: 'Items Recycled',
+        value: '$recycled',
+        icon: Icons.recycling_rounded,
+        color: const Color(0xFF2E7D32),
+        background: const Color(0xFFE8F5E9),
+      ),
+      _ImpactData(
+        label: 'Water Saved',
+        value: '${(recycled * 3.6).round()} L',
+        icon: Icons.water_drop_outlined,
+        color: const Color(0xFF00838F),
+        background: const Color(0xFFE0F7FA),
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 680) {
+          return Row(
+            children: [
+              for (var index = 0; index < stats.length; index++) ...[
+                Expanded(child: _ImpactCard(data: stats[index])),
+                if (index < stats.length - 1) const SizedBox(width: 12),
+              ],
+            ],
+          );
+        }
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (var index = 0; index < stats.length; index++) ...[
+                SizedBox(width: 178, child: _ImpactCard(data: stats[index])),
+                if (index < stats.length - 1) const SizedBox(width: 10),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }
 
-class _BadgesCard extends StatelessWidget {
-  const _BadgesCard({required this.points});
+class _ImpactCard extends StatelessWidget {
+  const _ImpactCard({required this.data});
 
-  final int points;
+  final _ImpactData data;
 
   @override
   Widget build(BuildContext context) {
-    final progress = (points / AppConstants.ecoHeroThreshold).clamp(0.0, 1.0);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Badges',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 14),
-            LinearProgressIndicator(
-              value: progress,
-              minHeight: 10,
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      height: 126,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: data.background,
               borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(height: 12),
-            _BadgeTile(
-              title: 'Green Step',
-              subtitle: 'Complete your first successful scan',
-              unlocked: points > 0,
+            child: Icon(data.icon, color: data.color, size: 21),
+          ),
+          Text(
+            data.value,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+          ),
+          Text(
+            data.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BadgesRow extends StatelessWidget {
+  const _BadgesRow({
+    required this.points,
+    required this.carbonFootprintCompleted,
+  });
+
+  final int points;
+  final bool carbonFootprintCompleted;
+
+  @override
+  Widget build(BuildContext context) {
+    final badges = [
+      _BadgeData(
+        title: 'Green Step',
+        icon: Icons.directions_walk_outlined,
+        color: const Color(0xFF43A047),
+        unlocked: points > 0,
+      ),
+      _BadgeData(
+        title: 'Eco Hero',
+        icon: Icons.workspace_premium_outlined,
+        color: const Color(0xFFF9A825),
+        unlocked: points >= AppConstants.ecoHeroThreshold,
+      ),
+      _BadgeData(
+        title: 'Planet Ally',
+        icon: Icons.public_rounded,
+        color: const Color(0xFF1976D2),
+        unlocked: points >= 100,
+      ),
+      _BadgeData(
+        title: 'Carbon Conscious',
+        icon: Icons.co2_rounded,
+        color: const Color(0xFF00838F),
+        unlocked: carbonFootprintCompleted,
+      ),
+    ];
+
+    return SizedBox(
+      height: 142,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: badges.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (context, index) => _BadgeCard(data: badges[index]),
+      ),
+    );
+  }
+}
+
+class _BadgeCard extends StatelessWidget {
+  const _BadgeCard({required this.data});
+
+  final _BadgeData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      width: 132,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: data.unlocked ? colors.surface : colors.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: data.unlocked ? data.color.withAlpha(80) : Colors.transparent,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: data.unlocked
+                  ? data.color.withAlpha(25)
+                  : colors.surfaceContainerHighest,
+              shape: BoxShape.circle,
             ),
-            _BadgeTile(
-              title: 'Eco Hero',
-              subtitle: 'Reach ${AppConstants.ecoHeroThreshold} points',
-              unlocked: points >= AppConstants.ecoHeroThreshold,
+            child: Icon(
+              data.unlocked ? data.icon : Icons.lock_outline,
+              color: data.unlocked ? data.color : colors.onSurfaceVariant,
             ),
-          ],
+          ),
+          const Spacer(),
+          Text(
+            data.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            data.unlocked ? 'Unlocked' : 'Locked',
+            style: TextStyle(
+              color: data.unlocked ? data.color : colors.onSurfaceVariant,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LeaderboardSnippet extends StatelessWidget {
+  const _LeaderboardSnippet({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFFFF8E1),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(Icons.emoji_events_rounded, color: Color(0xFFF9A825)),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Rank: #4 in Your City',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Just 30 points from the top three',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF6D5A00)),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Color(0xFF8D6E00)),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _BadgeTile extends StatelessWidget {
-  const _BadgeTile({
-    required this.title,
-    required this.subtitle,
-    required this.unlocked,
+class _ProfileMenu extends StatelessWidget {
+  const _ProfileMenu({
+    required this.onEditProfile,
+    required this.onChangePassword,
+    required this.onMissions,
+    required this.onEcoMarket,
+    required this.onEducationGuide,
+    required this.onLeaderboard,
+    required this.onHistory,
+    required this.onSettings,
+    required this.onLogout,
   });
 
-  final String title;
-  final String subtitle;
-  final bool unlocked;
+  final VoidCallback onEditProfile;
+  final VoidCallback onChangePassword;
+  final VoidCallback onMissions;
+  final VoidCallback onEcoMarket;
+  final VoidCallback onEducationGuide;
+  final VoidCallback onLeaderboard;
+  final VoidCallback onHistory;
+  final VoidCallback onSettings;
+  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        unlocked ? Icons.workspace_premium : Icons.lock_outline,
-        color: unlocked ? colorScheme.primary : Colors.black38,
+    final colors = Theme.of(context).colorScheme;
+    final items = [
+      _MenuData('Edit Profile', Icons.person_outline, onEditProfile),
+      _MenuData('Change Password', Icons.lock_outline, onChangePassword),
+      _MenuData('Görevlerim', Icons.flag_outlined, onMissions),
+      _MenuData('Eco-Market', Icons.storefront_outlined, onEcoMarket),
+      _MenuData(
+        'Waste Encyclopedia',
+        Icons.menu_book_outlined,
+        onEducationGuide,
       ),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: unlocked
-          ? const Icon(Icons.check_circle, color: Color(0xFF2E7D32))
-          : null,
+      _MenuData('Liderlik Tablosu', Icons.leaderboard_outlined, onLeaderboard),
+      _MenuData('Tarama Geçmişi', Icons.history_rounded, onHistory),
+      _MenuData('Ayarlar', Icons.settings_outlined, onSettings),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var index = 0; index < items.length; index++) ...[
+            _MenuTile(data: items[index]),
+            const Divider(height: 1, indent: 62),
+          ],
+          _MenuTile(
+            data: _MenuData(
+              'Çıkış Yap',
+              Icons.logout_rounded,
+              onLogout,
+              destructive: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuTile extends StatelessWidget {
+  const _MenuTile({required this.data});
+
+  final _MenuData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final color = data.destructive ? colors.error : colors.onSurface;
+    return ListTile(
+      minTileHeight: 58,
+      leading: Icon(data.icon, color: color),
+      title: Text(
+        data.title,
+        style: TextStyle(color: color, fontWeight: FontWeight.w700),
+      ),
+      trailing: data.destructive
+          ? null
+          : Icon(Icons.chevron_right, color: Colors.grey.shade500),
+      onTap: data.onTap,
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title, this.subtitle});
+
+  final String title;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 3),
+          Text(subtitle!, style: TextStyle(color: colors.onSurfaceVariant)),
+        ],
+      ],
+    );
+  }
+}
+
+class _ProfileLoadingState extends StatelessWidget {
+  const _ProfileLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 14),
+          Text('Building your eco dashboard...'),
+        ],
+      ),
     );
   }
 }
@@ -318,170 +783,30 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_outlined, size: 42),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AdminPanel extends StatefulWidget {
-  const _AdminPanel({required this.apiService});
-
-  final ApiService apiService;
-
-  @override
-  State<_AdminPanel> createState() => _AdminPanelState();
-}
-
-class _AdminPanelState extends State<_AdminPanel> {
-  final _emailController = TextEditingController();
-  late Future<List<UserProfile>> _usersFuture;
-  bool _isAssigning = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _usersFuture = widget.apiService.fetchAdminUsers();
-  }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _refreshUsers() async {
-    setState(() => _usersFuture = widget.apiService.fetchAdminUsers());
-    await _usersFuture;
-  }
-
-  Future<void> _assignAdmin() async {
-    final email = _emailController.text.trim();
-    if (email.isEmpty) {
-      return;
-    }
-
-    setState(() => _isAssigning = true);
-    try {
-      await widget.apiService.assignAdminRole(email);
-      _emailController.clear();
-      await _refreshUsers();
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Admin role assigned.')));
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isAssigning = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.admin_panel_settings_outlined,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'Admin Panel',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
+            const Icon(Icons.cloud_off_outlined, size: 48),
             const SizedBox(height: 14),
-            TextField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Grant admin by email',
-                prefixIcon: Icon(Icons.mail_outline),
-                border: OutlineInputBorder(),
-              ),
+            const Text(
+              'We could not load your profile',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: colors.onSurfaceVariant),
+            ),
+            const SizedBox(height: 16),
             FilledButton.icon(
-              onPressed: _isAssigning ? null : _assignAdmin,
-              icon: _isAssigning
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.verified_user_outlined),
-              label: const Text('Assign Admin'),
-            ),
-            const Divider(height: 28),
-            FutureBuilder<List<UserProfile>>(
-              future: _usersFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(snapshot.error.toString()),
-                      const SizedBox(height: 8),
-                      OutlinedButton(
-                        onPressed: _refreshUsers,
-                        child: const Text('Retry users'),
-                      ),
-                    ],
-                  );
-                }
-
-                final users = snapshot.requireData;
-                return Column(
-                  children: [
-                    for (final user in users.take(8))
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(
-                          backgroundImage: user.profilePictureUrl == null
-                              ? null
-                              : NetworkImage(user.profilePictureUrl!),
-                          child: user.profilePictureUrl == null
-                              ? Text(user.name.isEmpty ? '?' : user.name[0])
-                              : null,
-                        ),
-                        title: Text(user.fullName),
-                        subtitle: Text(user.email),
-                        trailing: Chip(label: Text(user.role)),
-                      ),
-                  ],
-                );
-              },
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try Again'),
             ),
           ],
         ),
@@ -491,8 +816,57 @@ class _AdminPanelState extends State<_AdminPanel> {
 }
 
 class _ProfileData {
-  const _ProfileData({required this.user, required this.scans});
+  const _ProfileData({
+    required this.user,
+    required this.scans,
+    required this.gamification,
+  });
 
   final UserProfile user;
   final List<ScanResult> scans;
+  final GamificationState gamification;
+}
+
+class _ImpactData {
+  const _ImpactData({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.background,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final Color background;
+}
+
+class _BadgeData {
+  const _BadgeData({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.unlocked,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color color;
+  final bool unlocked;
+}
+
+class _MenuData {
+  const _MenuData(
+    this.title,
+    this.icon,
+    this.onTap, {
+    this.destructive = false,
+  });
+
+  final String title;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool destructive;
 }

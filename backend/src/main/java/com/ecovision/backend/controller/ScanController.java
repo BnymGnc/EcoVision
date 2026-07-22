@@ -1,5 +1,7 @@
 package com.ecovision.backend.controller;
 
+import com.ecovision.backend.dto.ScanAnalysisResponse;
+import com.ecovision.backend.dto.ScanAnalysisRequest;
 import com.ecovision.backend.dto.ScanRequest;
 import com.ecovision.backend.dto.ScanResponse;
 import com.ecovision.backend.service.CurrentUserService;
@@ -31,5 +33,10 @@ public class ScanController {
     @PostMapping
     public ScanResponse saveScan(@Valid @RequestBody ScanRequest request) {
         return scanService.saveScan(currentUserService.currentUser(), request);
+    }
+
+    @PostMapping("/analyze")
+    public ScanAnalysisResponse analyze(@Valid @RequestBody ScanAnalysisRequest request) {
+        return scanService.analyzeAndSave(currentUserService.currentUser(), request);
     }
 }

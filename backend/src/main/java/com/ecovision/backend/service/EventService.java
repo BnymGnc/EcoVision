@@ -21,6 +21,7 @@ public class EventService {
         this.fileStorageService = fileStorageService;
     }
 
+    @Transactional(readOnly = true)
     public List<EventResponse> getEvents() {
         return eventRepository.findAllByOrderByEventDateAsc()
                 .stream()

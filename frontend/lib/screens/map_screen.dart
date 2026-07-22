@@ -19,11 +19,15 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   final LocationService _locationService = LocationService();
   final Distance _distance = const Distance();
+  final MapController _mapController = MapController();
 
   LatLng? _currentLocation;
   List<MapPin> _officialPins = [];
   bool _isLoading = true;
   bool _isAddingPin = false;
+  bool _mapReady = false;
+  double? _radiusKm = 5;
+  int? _limit = 5;
 
   bool get _canAddPins => widget.apiService.currentUser?.isAdmin ?? false;
 
@@ -37,7 +41,12 @@ class _MapScreenState extends State<MapScreen> {
     setState(() => _isLoading = true);
     try {
       final location = await _locationService.getCurrentOrFallbackLocation();
-      final pins = await widget.apiService.fetchMapPins();
+      final pins = await widget.apiService.fetchNearestMapPins(
+        latitude: location.latitude,
+        longitude: location.longitude,
+        radiusKm: _radiusKm,
+        limit: _limit,
+      );
       if (!mounted) {
         return;
       }
@@ -46,6 +55,7 @@ class _MapScreenState extends State<MapScreen> {
         _officialPins = pins;
         _isLoading = false;
       });
+      _moveMapTo(location);
     } catch (error) {
       if (!mounted) {
         return;
@@ -58,6 +68,17 @@ class _MapScreenState extends State<MapScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text(error.toString())));
     }
+  }
+
+  void _moveMapTo(LatLng location) {
+    if (!_mapReady) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _mapController.move(location, 15);
+      }
+    });
   }
 
   Future<void> _addOfficialPin(LatLng point) async {
@@ -114,6 +135,102 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  Future<void> _openFilterSheet() async {
+    final selected =
+        await showModalBottomSheet<({double? radiusKm, int? limit})>(
+          context: context,
+          showDragHandle: true,
+          builder: (context) {
+            double? tempRadius = _radiusKm;
+            int? tempLimit = _limit;
+
+            return StatefulBuilder(
+              builder: (context, setModalState) {
+                ChoiceChip radiusChip(String label, double? value) {
+                  return ChoiceChip(
+                    label: Text(label),
+                    selected: tempRadius == value,
+                    onSelected: (_) => setModalState(() => tempRadius = value),
+                  );
+                }
+
+                ChoiceChip limitChip(String label, int? value) {
+                  return ChoiceChip(
+                    label: Text(label),
+                    selected: tempLimit == value,
+                    onSelected: (_) => setModalState(() => tempLimit = value),
+                  );
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Nearest bin filters',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text('Radius'),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          radiusChip('1 km', 1),
+                          radiusChip('5 km', 5),
+                          radiusChip('Unlimited', null),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      const Text('Limit'),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          limitChip('3', 3),
+                          limitChip('5', 5),
+                          limitChip('Unlimited', null),
+                        ],
+                      ),
+                      const SizedBox(height: 22),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () => Navigator.of(
+                            context,
+                          ).pop((radiusKm: tempRadius, limit: tempLimit)),
+                          icon: const Icon(Icons.filter_alt_outlined),
+                          label: const Text('Apply Filters'),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+
+    if (selected == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _radiusKm = selected.radiusKm;
+      _limit = selected.limit;
+    });
+    await _loadMap();
+  }
+
+  String get _radiusLabel =>
+      _radiusKm == null ? 'All distances' : '${_radiusKm!.round()} km';
+
+  String get _limitLabel => _limit == null ? 'All bins' : 'Top $_limit';
+
   @override
   Widget build(BuildContext context) {
     final location = _currentLocation ?? AppConstants.sanliurfaFallback;
@@ -122,6 +239,11 @@ class _MapScreenState extends State<MapScreen> {
       appBar: AppBar(
         title: const Text('Recycling Bins'),
         actions: [
+          IconButton(
+            tooltip: 'Filter nearest bins',
+            onPressed: _isLoading ? null : _openFilterSheet,
+            icon: const Icon(Icons.filter_alt_outlined),
+          ),
           IconButton(
             tooltip: 'Refresh pins',
             onPressed: _isLoading ? null : _loadMap,
@@ -136,10 +258,15 @@ class _MapScreenState extends State<MapScreen> {
               child: Stack(
                 children: [
                   FlutterMap(
+                    mapController: _mapController,
                     options: MapOptions(
                       initialCenter: location,
                       initialZoom: 14.6,
                       minZoom: 3,
+                      onMapReady: () {
+                        _mapReady = true;
+                        _moveMapTo(location);
+                      },
                       onLongPress: (_, point) => _addOfficialPin(point),
                     ),
                     children: [
@@ -166,6 +293,9 @@ class _MapScreenState extends State<MapScreen> {
               currentLocation: location,
               distance: _distance,
               canAddPins: _canAddPins,
+              radiusLabel: _radiusLabel,
+              limitLabel: _limitLabel,
+              onFilter: _openFilterSheet,
             ),
           ],
         ),
@@ -189,8 +319,10 @@ class _MapScreenState extends State<MapScreen> {
           point: pin.point,
           width: 54,
           height: 54,
-          child: const _MapMarker(
-            icon: Icons.recycling_rounded,
+          child: _MapMarker(
+            icon: pin.type.contains('WASTE_BASKET')
+                ? Icons.delete_outline
+                : Icons.recycling_rounded,
             color: Color(0xFF2E7D32),
           ),
         ),
@@ -229,12 +361,18 @@ class _PinList extends StatelessWidget {
     required this.currentLocation,
     required this.distance,
     required this.canAddPins,
+    required this.radiusLabel,
+    required this.limitLabel,
+    required this.onFilter,
   });
 
   final List<MapPin> pins;
   final LatLng currentLocation;
   final Distance distance;
   final bool canAddPins;
+  final String radiusLabel;
+  final String limitLabel;
+  final VoidCallback onFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -247,7 +385,7 @@ class _PinList extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Official recycling bins',
+            'Nearest recycling bins',
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -259,11 +397,32 @@ class _PinList extends StatelessWidget {
                 : 'Verified locations added by EcoVision admins.',
             style: const TextStyle(color: Colors.black54),
           ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Chip(
+                avatar: const Icon(Icons.near_me_outlined, size: 18),
+                label: Text(radiusLabel),
+              ),
+              Chip(
+                avatar: const Icon(Icons.format_list_numbered, size: 18),
+                label: Text(limitLabel),
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.tune_outlined, size: 18),
+                label: const Text('Filters'),
+                onPressed: onFilter,
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           if (pins.isEmpty)
-            const Text('No official bins have been added yet.')
+            const Text('No official bins match these filters yet.')
           else
-            for (final pin in pins.take(3))
+            for (final pin in pins)
               _PinTile(
                 pin: pin,
                 distanceMeters: distance(currentLocation, pin.point).round(),
@@ -314,9 +473,18 @@ class _PinTile extends StatelessWidget {
               ],
             ),
           ),
-          Text('${distanceMeters}m'),
+          Text(_distanceLabel),
         ],
       ),
     );
+  }
+
+  String get _distanceLabel {
+    if (pin.distanceKm != null) {
+      return '${pin.distanceKm!.toStringAsFixed(1)}km';
+    }
+    return distanceMeters >= 1000
+        ? '${(distanceMeters / 1000).toStringAsFixed(1)}km'
+        : '${distanceMeters}m';
   }
 }
