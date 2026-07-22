@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -7,11 +8,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants.dart';
 import '../models/chat_message.dart';
+import '../models/avatar_tier.dart';
 import '../models/cleanup_event.dart';
 import '../models/gamification_state.dart';
+import '../models/leaderboard_entry.dart';
+import '../models/group_mission.dart';
+import '../models/event_member.dart';
+import '../models/group_waste_report.dart';
 import '../models/map_pin.dart';
 import '../models/scan_result.dart';
 import '../models/user_profile.dart';
+import '../models/social_models.dart';
+import '../models/app_notification.dart';
+import '../models/moderation_report.dart';
 
 class ApiService {
   static const _tokenKey = 'ecovision.jwt';
@@ -73,13 +82,13 @@ class ApiService {
   Future<bool> loginWithGoogle() async {
     await _initializeGoogleSignIn();
     if (!GoogleSignIn.instance.supportsAuthenticate()) {
-      throw ApiException('Google Sign-In is not supported on this platform.');
+      throw ApiException('Google ile giriş bu platformda desteklenmiyor.');
     }
 
     final account = await GoogleSignIn.instance.authenticate();
     final idToken = account.authentication.idToken;
     if (idToken == null || idToken.isEmpty) {
-      throw ApiException('Google did not return an ID token.');
+      throw ApiException('Google geçerli bir kimlik anahtarı döndürmedi.');
     }
 
     final names = _splitDisplayName(account.displayName);
@@ -108,9 +117,46 @@ class ApiService {
 
   Future<UserProfile> fetchCurrentUser() async {
     final json = await _getJson('/api/auth/me');
-    _currentUser = UserProfile.fromJson(json);
-    _pointsNotifier.value = _currentUser!.totalPoints;
-    return _currentUser!;
+    return _applyUser(json);
+  }
+
+  Future<UserProfile> updateProfile({
+    required String name,
+    required String surname,
+    required int? age,
+    required String city,
+    required String district,
+    required String neighborhood,
+  }) async {
+    final json = await _putJson('/api/users/profile', {
+      'name': name.trim(),
+      'surname': surname.trim(),
+      'age': age,
+      'city': city.trim(),
+      'district': district.trim(),
+      'neighborhood': neighborhood.trim(),
+    });
+    return _applyUser(json);
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _putJson('/api/users/password', {
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+    });
+  }
+
+  Future<List<LeaderboardEntry>> fetchCityLeaderboard() async {
+    final json = await _getJsonList('/api/leaderboard/city');
+    return json.map(LeaderboardEntry.fromJson).toList();
+  }
+
+  Future<UserProfile> purchaseMarketItem(String itemId) async {
+    final json = await _postJson('/api/market/purchase/$itemId', const {});
+    return _applyUser(json);
   }
 
   Future<UserProfile> uploadProfilePicture(String imagePath) async {
@@ -124,9 +170,7 @@ class ApiService {
     final streamed = await _client.send(request);
     final response = await http.Response.fromStream(streamed);
     final json = _decodeResponse(response);
-    _currentUser = UserProfile.fromJson(json);
-    _pointsNotifier.value = _currentUser!.totalPoints;
-    return _currentUser!;
+    return _applyUser(json);
   }
 
   Future<ScanResult> claimScanPoints(String detectedClass) async {
@@ -173,9 +217,89 @@ class ApiService {
     return _applyGamificationState(json);
   }
 
-  Future<List<CleanupEvent>> fetchEvents() async {
-    final json = await _getJsonList('/api/events');
+  Future<List<AvatarTier>> fetchAvatarTiers() async {
+    final json = await _getJsonList('/api/gamification/avatar-tiers');
+    return json.map(AvatarTier.fromJson).toList();
+  }
+
+  Future<UserProfile> equipAvatar(int level) async {
+    final json = await _putJson(
+      '/api/gamification/avatar/$level/equip',
+      const {},
+    );
+    return _applyUser(json);
+  }
+
+  Future<List<CleanupEvent>> fetchEvents({String query = ''}) async {
+    final encoded = Uri.encodeQueryComponent(query.trim());
+    final json = await _getJsonList('/api/events?query=$encoded');
     return json.map((item) => CleanupEvent.fromJson(item)).toList();
+  }
+
+  Future<CleanupEvent> joinEvent(int eventId, {String? joinCode}) async {
+    final json = await _postJson('/api/events/$eventId/join', {
+      if (joinCode != null) 'joinCode': joinCode,
+    });
+    return CleanupEvent.fromJson(json);
+  }
+
+  Future<List<EventMember>> fetchEventMembers(int eventId) async {
+    final json = await _getJsonList('/api/events/$eventId/members');
+    return json.map(EventMember.fromJson).toList();
+  }
+
+  Future<EventMember> promoteEventAdmin(int eventId, int userId) async {
+    final json = await _postJson(
+      '/api/events/$eventId/members/$userId/admin',
+      const {},
+    );
+    return EventMember.fromJson(json);
+  }
+
+  Future<List<GroupWasteReport>> fetchGroupWasteReports(int eventId) async {
+    final json = await _getJsonList('/api/events/$eventId/waste-reports');
+    return json.map(GroupWasteReport.fromJson).toList();
+  }
+
+  Future<GroupWasteReport> createGroupWasteReport({
+    required int eventId,
+    required String materialType,
+    required int itemCount,
+  }) async {
+    final json = await _postJson('/api/events/$eventId/waste-reports', {
+      'materialType': materialType,
+      'itemCount': itemCount,
+    });
+    return GroupWasteReport.fromJson(json);
+  }
+
+  Future<List<GroupMission>> fetchGroupMissions(int eventId) async {
+    final json = await _getJsonList('/api/events/$eventId/missions');
+    return json.map(GroupMission.fromJson).toList();
+  }
+
+  Future<GroupMission> createGroupMission({
+    required int eventId,
+    required String title,
+    required int targetAmount,
+    required String unit,
+  }) async {
+    final json = await _postJson('/api/events/$eventId/missions', {
+      'title': title.trim(),
+      'targetAmount': targetAmount,
+      'unit': unit.trim(),
+    });
+    return GroupMission.fromJson(json);
+  }
+
+  Future<void> deleteEvent(int eventId) async {
+    final response = await _client.delete(
+      _uri('/api/events/$eventId'),
+      headers: _authHeaders(),
+    );
+    if (response.statusCode != 204) {
+      _decodeAnyResponse(response);
+    }
   }
 
   Future<List<UserProfile>> fetchAdminUsers() async {
@@ -235,33 +359,45 @@ class ApiService {
   Future<CleanupEvent> createCleanupEvent({
     required String title,
     required String description,
-    required String location,
+    required String city,
+    required String district,
+    required String neighborhood,
     required DateTime eventDate,
-    String? photoPath,
+    int memberLimit = 20,
+    String? joinCode,
   }) async {
-    final request = http.MultipartRequest(
-      'POST',
-      _uri('/api/events/multipart'),
-    );
-    request.headers.addAll(_authHeaders(includeJson: false));
-    request.fields.addAll({
+    final json = await _postJson('/api/events', {
       'title': title,
       'description': description,
-      'location': location,
+      'city': city,
+      'district': district,
+      'neighborhood': neighborhood,
       'eventDate': eventDate.toUtc().toIso8601String(),
+      'memberLimit': memberLimit,
+      if (joinCode != null && joinCode.trim().isNotEmpty)
+        'joinCode': joinCode.trim(),
     });
-    if (photoPath != null) {
-      request.files.add(await http.MultipartFile.fromPath('image', photoPath));
-    }
-
-    final streamed = await _client.send(request);
-    final response = await http.Response.fromStream(streamed);
-    return CleanupEvent.fromJson(_decodeResponse(response));
+    return CleanupEvent.fromJson(json);
   }
 
-  Future<List<ChatMessage>> fetchMessages(int eventId) async {
-    final json = await _getJsonList('/api/chat/events/$eventId');
+  Future<List<ChatMessage>> fetchMessages(
+    int eventId, {
+    int limit = 30,
+    int offset = 0,
+  }) async {
+    final json = await _getJsonList(
+      '/api/chat/events/$eventId?limit=$limit&offset=$offset',
+    );
     return json.map((item) => ChatMessage.fromJson(item)).toList();
+  }
+
+  Future<int> fetchUnreadCommunityCount() async {
+    final json = await _getJson('/api/chat/unread-count');
+    return (json['count'] as num? ?? 0).toInt();
+  }
+
+  Future<void> markCommunityRead() async {
+    await _postJson('/api/chat/read', const {});
   }
 
   Future<ChatMessage> sendMessage({
@@ -272,6 +408,114 @@ class ApiService {
       'message': message,
     });
     return ChatMessage.fromJson(json);
+  }
+
+  Future<ChatMessage> sendChatImage({
+    required int eventId,
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    if (bytes.length > 2 * 1024 * 1024)
+      throw const ApiException('Fotoğraf 2 MB\'den küçük olmalıdır.');
+    final request = http.MultipartRequest(
+      'POST',
+      _uri('/api/chat/events/$eventId/media'),
+    );
+    request.headers.addAll(_authHeaders(includeJson: false));
+    request.files.add(
+      http.MultipartFile.fromBytes('image', bytes, filename: fileName),
+    );
+    final response = await http.Response.fromStream(
+      await _client.send(request),
+    );
+    return ChatMessage.fromJson(_decodeResponse(response));
+  }
+
+  Future<PublicProfile> fetchPublicProfile(int userId) async =>
+      PublicProfile.fromJson(await _getJson('/api/social/users/$userId'));
+  Future<void> likeProfile(int userId) async =>
+      _postJson('/api/social/users/$userId/like', const {});
+  Future<void> unlikeProfile(int userId) async =>
+      _deleteJson('/api/social/users/$userId/like');
+  Future<void> sendFriendRequest(int userId) async =>
+      _postJson('/api/social/friends/$userId/request', const {});
+  Future<List<SocialUser>> fetchFriends() async => (await _getJsonList(
+    '/api/social/friends',
+  )).map(SocialUser.fromJson).toList();
+  Future<List<FriendRequest>> fetchFriendRequests() async =>
+      (await _getJsonList(
+        '/api/social/friends/requests',
+      )).map(FriendRequest.fromJson).toList();
+  Future<void> acceptFriendRequest(int id) async =>
+      _postJson('/api/social/friends/requests/$id/accept', const {});
+  Future<List<GroupInviteModel>> fetchGroupInvites() async =>
+      (await _getJsonList(
+        '/api/social/group-invites',
+      )).map(GroupInviteModel.fromJson).toList();
+  Future<void> inviteFriendToGroup(int eventId, int friendId) async =>
+      _postJson('/api/social/groups/$eventId/invites/$friendId', const {});
+  Future<void> acceptGroupInvite(int id) async =>
+      _postJson('/api/social/group-invites/$id/accept', const {});
+  Future<void> reportUser(int userId, String reason) async =>
+      _postJson('/api/social/reports/users/$userId', {'reason': reason});
+  Future<void> reportGroup(int eventId, String reason) async =>
+      _postJson('/api/social/reports/groups/$eventId', {'reason': reason});
+  Future<void> blockUser(int userId) async =>
+      _postJson('/api/social/blocks/$userId', const {});
+  Future<void> unblockUser(int userId) async =>
+      _deleteJson('/api/social/blocks/$userId');
+
+  Future<List<AppNotification>> fetchNotifications({int limit = 50}) async =>
+      (await _getJsonList(
+        '/api/notifications?limit=$limit',
+      )).map(AppNotification.fromJson).toList();
+  Future<int> fetchUnreadNotificationCount() async =>
+      ((await _getJson('/api/notifications/unread-count'))['count'] as num? ??
+              0)
+          .toInt();
+  Future<void> markAllNotificationsRead() async {
+    await _postJson('/api/notifications/read-all', const {});
+  }
+
+  Future<List<ModerationReport>> fetchModerationReports() async =>
+      (await _getJsonList(
+        '/api/superuser/reports',
+      )).map(ModerationReport.fromJson).toList();
+  Future<List<ChatMessage>> auditGroupChat(int groupId) async =>
+      (await _getJsonList(
+        '/api/superuser/audit/chat/$groupId',
+      )).map(ChatMessage.fromJson).toList();
+  Future<List<ChatMessage>> auditUserChat(int userId) async =>
+      (await _getJsonList(
+        '/api/superuser/audit/user/$userId',
+      )).map(ChatMessage.fromJson).toList();
+  Future<int> sendGlobalBroadcast({
+    required String title,
+    required String message,
+  }) async =>
+      ((await _postJson('/api/superuser/broadcast', {
+                    'title': title.trim(),
+                    'message': message.trim(),
+                  }))['recipients']
+                  as num? ??
+              0)
+          .toInt();
+  Future<UserProfile> banUser(int userId) async => UserProfile.fromJson(
+    await _postJson('/api/superuser/users/$userId/ban', const {}),
+  );
+  Future<UserProfile> unbanUser(int userId) async => UserProfile.fromJson(
+    await _postJson('/api/superuser/users/$userId/unban', const {}),
+  );
+  Future<UserProfile> suspendUser(int userId, int days) async =>
+      UserProfile.fromJson(
+        await _postJson('/api/superuser/users/$userId/suspend', {'days': days}),
+      );
+  Future<void> superuserDeleteGroup(int groupId) async {
+    final response = await _client.delete(
+      _uri('/api/superuser/groups/$groupId'),
+      headers: _authHeaders(),
+    );
+    if (response.statusCode != 204) _decodeAnyResponse(response);
   }
 
   Future<Map<String, dynamic>> _getJson(String path) async {
@@ -285,13 +529,20 @@ class ApiService {
     return state;
   }
 
+  UserProfile _applyUser(Map<String, dynamic> json) {
+    final user = UserProfile.fromJson(json);
+    _currentUser = user;
+    _pointsNotifier.value = user.totalPoints;
+    return user;
+  }
+
   Future<List<Map<String, dynamic>>> _getJsonList(String path) async {
     final response = await _client.get(_uri(path), headers: _authHeaders());
     final decoded = _decodeAnyResponse(response);
     if (decoded is List) {
       return decoded.cast<Map<String, dynamic>>();
     }
-    throw ApiException('Expected a list response from $path.');
+    throw ApiException('$path için liste yanıtı alınamadı.');
   }
 
   Future<Map<String, dynamic>> _postJson(
@@ -309,6 +560,23 @@ class ApiService {
     return _decodeResponse(response);
   }
 
+  Future<Map<String, dynamic>> _putJson(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final response = await _client.put(
+      _uri(path),
+      headers: _authHeaders(),
+      body: jsonEncode(body),
+    );
+    return _decodeResponse(response);
+  }
+
+  Future<Map<String, dynamic>> _deleteJson(String path) async {
+    final response = await _client.delete(_uri(path), headers: _authHeaders());
+    return _decodeResponse(response);
+  }
+
   Object? _decodeAnyResponse(http.Response response) {
     final decoded = response.body.isEmpty
         ? <String, dynamic>{}
@@ -318,8 +586,8 @@ class ApiService {
     }
 
     final message = decoded is Map<String, dynamic>
-        ? (decoded['message'] ?? 'Request failed').toString()
-        : 'Request failed';
+        ? (decoded['message'] ?? 'İstek tamamlanamadı.').toString()
+        : 'İstek tamamlanamadı.';
     throw ApiException(message, statusCode: response.statusCode);
   }
 
@@ -328,14 +596,14 @@ class ApiService {
     if (decoded is Map<String, dynamic>) {
       return decoded;
     }
-    throw ApiException('Expected an object response.');
+    throw ApiException('Sunucudan geçerli bir nesne yanıtı alınamadı.');
   }
 
   Future<void> _persistAuthResponse(Map<String, dynamic> json) async {
     final token = json['token']?.toString();
     final userJson = json['user'];
     if (token == null || token.isEmpty || userJson is! Map<String, dynamic>) {
-      throw ApiException('Authentication response was invalid.');
+      throw ApiException('Kimlik doğrulama yanıtı geçersiz.');
     }
 
     _jwt = token;
@@ -350,7 +618,7 @@ class ApiService {
 
   Map<String, String> _authHeaders({bool includeJson = true}) {
     if (_jwt == null) {
-      throw ApiException('You are not signed in.');
+      throw ApiException('Bu işlem için giriş yapmalısınız.');
     }
     return {
       if (includeJson) 'Content-Type': 'application/json',

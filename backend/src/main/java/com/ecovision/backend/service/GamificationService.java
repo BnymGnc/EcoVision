@@ -1,7 +1,10 @@
 package com.ecovision.backend.service;
 
 import com.ecovision.backend.dto.GamificationResponse;
+import com.ecovision.backend.dto.AvatarTierResponse;
+import com.ecovision.backend.dto.UserResponse;
 import com.ecovision.backend.model.AppUser;
+import com.ecovision.backend.model.AvatarTier;
 import com.ecovision.backend.model.GamificationAction;
 import com.ecovision.backend.repository.AppUserRepository;
 import com.ecovision.backend.repository.GamificationActionRepository;
@@ -10,6 +13,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Arrays;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +38,29 @@ public class GamificationService {
     public GamificationResponse state(AppUser currentUser) {
         List<GamificationAction> actions = actionRepository
                 .findByUserIdOrderByCreatedAtAsc(currentUser.getId());
-        return response(currentUser, actions, 0, null, "Gamification state loaded");
+        return response(currentUser, actions, 0, null, "Oyunlaştırma durumu yüklendi");
+    }
+
+    @Transactional(readOnly = true)
+    public List<AvatarTierResponse> avatarTiers(AppUser user) {
+        return Arrays.stream(AvatarTier.values())
+                .map(tier -> AvatarTierResponse.from(
+                        tier,
+                        user.getLifetimePoints(),
+                        user.getEquippedAvatarLevel()
+                ))
+                .toList();
+    }
+
+    @Transactional
+    public UserResponse equipAvatar(AppUser currentUser, int level) {
+        AvatarTier tier = AvatarTier.fromLevel(level);
+        AppUser user = lockUser(currentUser.getId());
+        if (user.getLifetimePoints() < tier.requiredLifetimePoints()) {
+            throw new IllegalArgumentException("Bu avatar seviyesi henüz kilitli");
+        }
+        user.setEquippedAvatarLevel(level);
+        return UserResponse.from(userRepository.save(user));
     }
 
     @Transactional
@@ -45,12 +71,13 @@ public class GamificationService {
                     user,
                     actions(user),
                     0,
-                    "Carbon Conscious",
-                    "Carbon footprint reward was already claimed"
+                    "Karbon Bilinci",
+                    "Karbon ayak izi ödülü daha önce alındı"
             );
         }
 
         user.setTotalPoints(user.getTotalPoints() + CARBON_MISSION_POINTS);
+        user.setLifetimePoints(user.getLifetimePoints() + CARBON_MISSION_POINTS);
         userRepository.save(user);
         saveAction(user, CARBON_MISSION_KEY, "MISSION", CARBON_MISSION_POINTS);
 
@@ -58,8 +85,8 @@ public class GamificationService {
                 user,
                 actions(user),
                 CARBON_MISSION_POINTS,
-                "Carbon Conscious",
-                "Carbon footprint mission completed with score " + score
+                "Karbon Bilinci",
+                "Karbon ayak izi görevi " + score + " puanla tamamlandı"
         );
     }
 
@@ -67,22 +94,22 @@ public class GamificationService {
     public GamificationResponse redeem(AppUser currentUser, String rewardKey) {
         RewardDefinition reward = REWARD_CATALOG.get(rewardKey);
         if (reward == null) {
-            throw new IllegalArgumentException("Unknown Eco-Market reward");
+            throw new IllegalArgumentException("Eco-Market ödülü bulunamadı");
         }
 
         AppUser user = lockUser(currentUser.getId());
         if (actionRepository.existsByUserIdAndActionKey(user.getId(), rewardKey)) {
-            throw new IllegalArgumentException("This reward is already unlocked");
+            throw new IllegalArgumentException("Bu ödül zaten açıldı");
         }
         if (reward.requiredRewardKey() != null
                 && !actionRepository.existsByUserIdAndActionKey(
                         user.getId(),
                         reward.requiredRewardKey()
                 )) {
-            throw new IllegalArgumentException("Unlock the previous avatar level first");
+            throw new IllegalArgumentException("Önce bir önceki avatar seviyesini açın");
         }
         if (user.getTotalPoints() < reward.cost()) {
-            throw new IllegalArgumentException("You need more Eco Points for this reward");
+            throw new IllegalArgumentException("Bu ödül için daha fazla Eko Puan gerekiyor");
         }
 
         user.setTotalPoints(user.getTotalPoints() - reward.cost());
@@ -94,13 +121,13 @@ public class GamificationService {
                 actions(user),
                 0,
                 null,
-                reward.title() + " unlocked"
+                reward.title() + " açıldı"
         );
     }
 
     private AppUser lockUser(Long userId) {
         return userRepository.findByIdForUpdate(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Kullanıcı bulunamadı"));
     }
 
     private List<GamificationAction> actions(AppUser user) {
@@ -148,12 +175,12 @@ public class GamificationService {
         Map<String, RewardDefinition> catalog = new LinkedHashMap<>();
         catalog.put(
                 "avatar_eco_warrior",
-                new RewardDefinition("Eco-Warrior", 150, "AVATAR", null)
+                new RewardDefinition("Eko Savaşçı", 150, "AVATAR", null)
         );
         catalog.put(
                 "avatar_planet_guardian",
                 new RewardDefinition(
-                        "Planet Guardian",
+                        "Gezegen Muhafızı",
                         400,
                         "AVATAR",
                         "avatar_eco_warrior"
@@ -161,11 +188,11 @@ public class GamificationService {
         );
         catalog.put(
                 "impact_coffee",
-                new RewardDefinition("Free Coffee", 300, "IMPACT", null)
+                new RewardDefinition("Ücretsiz Kahve", 300, "IMPACT", null)
         );
         catalog.put(
                 "impact_tree",
-                new RewardDefinition("Plant a Tree", 500, "IMPACT", null)
+                new RewardDefinition("Bir Ağaç Dik", 500, "IMPACT", null)
         );
         return Map.copyOf(catalog);
     }

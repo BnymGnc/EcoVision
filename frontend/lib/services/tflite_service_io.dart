@@ -22,20 +22,69 @@ class TfliteService {
     final imageBytes = await File(imagePath).readAsBytes();
     final decoded = img.decodeImage(imageBytes);
     if (decoded == null) {
-      throw StateError('Could not decode selected image.');
+      throw StateError('Seçilen görsel okunamadı.');
     }
 
     final interpreter = _interpreter!;
     final inputTensor = interpreter.getInputTensor(0);
-    final outputTensor = interpreter.getOutputTensor(0);
     final input = _buildInput(decoded, inputTensor);
+    final outputTensors = interpreter.getOutputTensors();
+    if (_isObjectDetectionModel(outputTensors)) {
+      return _runObjectDetection(interpreter, input, outputTensors);
+    }
+
+    final outputTensor = outputTensors.first;
     final output = _emptyTensor(outputTensor.shape, outputTensor.type);
-
     interpreter.run(input, output);
+    return _highestConfidenceLabel(_flattenNumbers(output));
+  }
 
-    final scores = _flattenNumbers(output);
+  bool _isObjectDetectionModel(List<Tensor> outputs) {
+    return outputs.length >= 4 &&
+        outputs[0].shape.length == 3 &&
+        outputs[0].shape.last == 4;
+  }
+
+  String _runObjectDetection(
+    Interpreter interpreter,
+    Object input,
+    List<Tensor> tensors,
+  ) {
+    final outputs = <int, Object>{};
+    for (var index = 0; index < tensors.length; index++) {
+      outputs[index] = _emptyTensor(tensors[index].shape, tensors[index].type);
+    }
+    interpreter.runForMultipleInputs([input], outputs);
+
+    final classes = _flattenNumbers(outputs[1]!);
+    final scores = _flattenNumbers(outputs[2]!);
+    final detectedCount =
+        _flattenNumbers(outputs[3]!).firstOrNull?.round() ?? 0;
+    final candidateCount = detectedCount.clamp(
+      0,
+      classes.length < scores.length ? classes.length : scores.length,
+    );
+    if (candidateCount == 0) {
+      throw StateError('Görselde tanımlanabilir bir atık bulunamadı.');
+    }
+
+    var bestDetection = 0;
+    for (var index = 1; index < candidateCount; index++) {
+      if (scores[index] > scores[bestDetection]) bestDetection = index;
+    }
+    final labelIndex = classes[bestDetection].round();
+    if (labelIndex < 0 || labelIndex >= _labels.length) {
+      throw StateError('Model geçersiz bir atık etiketi döndürdü.');
+    }
+    _logger.i(
+      '${_labels[labelIndex]} etiketi ${scores[bestDetection]} güvenle algılandı',
+    );
+    return _labels[labelIndex];
+  }
+
+  String _highestConfidenceLabel(List<double> scores) {
     if (scores.isEmpty) {
-      throw StateError('The TFLite model returned no scores.');
+      throw StateError('TFLite modeli bir tahmin puanı döndürmedi.');
     }
 
     int bestIndex = 0;
@@ -52,11 +101,11 @@ class TfliteService {
         'TFLite output index $bestIndex has no matching label. '
         'labels=${_labels.length}, scores=${scores.length}',
       );
-      return 'unknown waste';
+      return 'bilinmeyen atık';
     }
 
     final label = _labels[bestIndex];
-    _logger.i('Detected $label with confidence $bestScore');
+    _logger.i('$label etiketi $bestScore güvenle algılandı');
     return label;
   }
 
@@ -74,14 +123,14 @@ class TfliteService {
         .toList(growable: false);
 
     if (_labels.isEmpty) {
-      throw StateError('labels.txt is empty.');
+      throw StateError('labels.txt dosyası boş.');
     }
   }
 
   Object _buildInput(img.Image source, Tensor inputTensor) {
     final shape = inputTensor.shape;
     if (shape.length != 4) {
-      throw StateError('Expected a 4D image input tensor, got shape $shape.');
+      throw StateError('Modelin görsel giriş biçimi desteklenmiyor: $shape.');
     }
 
     final isNchw = shape[1] == 1 || shape[1] == 3;
@@ -89,7 +138,7 @@ class TfliteService {
     final width = isNchw ? shape[3] : shape[2];
     final channels = isNchw ? shape[1] : shape[3];
     if (channels != 1 && channels != 3) {
-      throw StateError('Expected 1 or 3 image channels, got $channels.');
+      throw StateError('Model 1 veya 3 görsel kanalı kullanmalı: $channels.');
     }
 
     final resized = img.copyResize(source, width: width, height: height);

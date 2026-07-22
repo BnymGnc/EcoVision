@@ -14,6 +14,8 @@ public record ScanAnalysisResponse(
         @JsonProperty("recycled_into")
         String recycledInto,
         Instant scannedAt,
+        @JsonProperty("points_awarded")
+        Integer pointsAwarded,
         @JsonProperty("updated_user_points")
         Integer updatedUserPoints
 ) {
@@ -25,6 +27,7 @@ public record ScanAnalysisResponse(
                 scan.getDecayYears(),
                 scan.getRecycledInto(),
                 scan.getScannedAt(),
+                scan.getPointsAwarded(),
                 scan.getUser().getTotalPoints()
         );
     }

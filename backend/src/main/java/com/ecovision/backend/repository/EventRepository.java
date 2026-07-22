@@ -8,4 +8,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface EventRepository extends JpaRepository<Event, Long> {
     @EntityGraph(attributePaths = "creator")
     List<Event> findAllByOrderByEventDateAsc();
+
+    @EntityGraph(attributePaths = "creator")
+    List<Event> findByCityIgnoreCaseAndTitleContainingIgnoreCaseOrderByEventDateAsc(
+            String city,
+            String title
+    );
 }

@@ -31,6 +31,8 @@ public class ChatMessage {
     @Column(nullable = false, length = 2000)
     private String message;
 
+    private String imageUrl;
+
     @Column(nullable = false)
     private Instant timestamp;
 
@@ -70,6 +72,9 @@ public class ChatMessage {
     public void setMessage(String message) {
         this.message = message;
     }
+
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 
     public Instant getTimestamp() {
         return timestamp;

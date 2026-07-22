@@ -17,29 +17,29 @@ class MissionsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final missions = <_MissionData>[
       _MissionData(
-        title: 'Scan 5 plastic bottles',
-        description: 'Keep recyclable plastic out of landfill.',
+        title: '5 plastik şişe tara',
+        description: 'Geri dönüştürülebilir plastiği doğadan uzak tut.',
         icon: Icons.local_drink_outlined,
         progress: (points / 50).clamp(0, 1),
-        progressLabel: '${(points ~/ 10).clamp(0, 5)} / 5 scans',
+        progressLabel: '${(points ~/ 10).clamp(0, 5)} / 5 tarama',
         reward: 50,
         unlocked: true,
       ),
       const _MissionData(
-        title: 'Attend 1 community event',
-        description: 'Join your neighbors for a cleaner city.',
+        title: '1 topluluk etkinliğine katıl',
+        description: 'Daha temiz bir şehir için komşularınla buluş.',
         icon: Icons.groups_2_outlined,
         progress: 0,
-        progressLabel: '0 / 1 event',
+        progressLabel: '0 / 1 etkinlik',
         reward: 100,
         unlocked: true,
       ),
       _MissionData(
-        title: 'Become an Eco Hero',
-        description: 'Reach 100 points to unlock this mission.',
+        title: 'Eko Kahraman ol',
+        description: 'Bu görevi açmak için 100 puana ulaş.',
         icon: Icons.workspace_premium_outlined,
         progress: (points / 100).clamp(0, 1),
-        progressLabel: '${points.clamp(0, 100)} / 100 points',
+        progressLabel: '${points.clamp(0, 100)} / 100 puan',
         reward: 150,
         unlocked: points >= 50,
       ),
@@ -51,15 +51,18 @@ class MissionsScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
           Text(
-            'Small actions, lasting impact',
+            'Küçük adımlar, kalıcı etki',
             style: Theme.of(
               context,
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 6),
           Text(
-            'Complete eco tasks to earn points and unlock new badges.',
-            style: TextStyle(color: Colors.grey.shade700, height: 1.4),
+            'Puan kazanmak ve rozet açmak için eko görevleri tamamla.',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 22),
           _CarbonFootprintMission(
@@ -117,7 +120,7 @@ class _CarbonFootprintMission extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Calculate Your Carbon Footprint',
+                      'Karbon Ayak İzini Hesapla',
                       style: TextStyle(
                         color: colors.onPrimaryContainer,
                         fontWeight: FontWeight.w900,
@@ -126,7 +129,7 @@ class _CarbonFootprintMission extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '4 quick questions  •  +75 points',
+                      '4 kısa soru • +75 puan',
                       style: TextStyle(
                         color: colors.onPrimaryContainer.withAlpha(190),
                         fontWeight: FontWeight.w600,
@@ -168,14 +171,14 @@ class _MissionCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: mission.unlocked
                         ? colors.primaryContainer
-                        : Colors.grey.shade200,
+                        : colors.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     mission.unlocked ? mission.icon : Icons.lock_outline,
                     color: mission.unlocked
                         ? colors.onPrimaryContainer
-                        : Colors.grey.shade600,
+                        : colors.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -192,7 +195,7 @@ class _MissionCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        '+${mission.reward} points',
+                        '+${mission.reward} puan',
                         style: TextStyle(
                           color: colors.primary,
                           fontWeight: FontWeight.w700,
@@ -203,21 +206,21 @@ class _MissionCard extends StatelessWidget {
                 ),
                 Icon(
                   complete ? Icons.check_circle : Icons.lock_open_outlined,
-                  color: complete ? colors.primary : Colors.grey.shade500,
+                  color: complete ? colors.primary : colors.onSurfaceVariant,
                 ),
               ],
             ),
             const SizedBox(height: 14),
             Text(
               mission.description,
-              style: TextStyle(color: Colors.grey.shade700),
+              style: TextStyle(color: colors.onSurfaceVariant),
             ),
             const SizedBox(height: 14),
             LinearProgressIndicator(
               value: mission.progress,
               minHeight: 8,
               borderRadius: BorderRadius.circular(8),
-              backgroundColor: Colors.grey.shade200,
+              backgroundColor: colors.surfaceContainerHighest,
             ),
             const SizedBox(height: 8),
             Align(
@@ -225,7 +228,7 @@ class _MissionCard extends StatelessWidget {
               child: Text(
                 mission.progressLabel,
                 style: TextStyle(
-                  color: Colors.grey.shade700,
+                  color: colors.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
                 ),

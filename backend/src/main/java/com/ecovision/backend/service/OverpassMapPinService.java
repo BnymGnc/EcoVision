@@ -95,8 +95,8 @@ public class OverpassMapPinService {
                 String title = tags.path("name").asText();
                 if (title.isBlank()) {
                     title = "waste_basket".equals(amenity)
-                            ? "Public Waste Basket"
-                            : "Recycling Point";
+                            ? "Kamusal Atık Kutusu"
+                            : "Geri Dönüşüm Noktası";
                 }
 
                 String type = "waste_basket".equals(amenity)

@@ -34,6 +34,8 @@ public class ScanHistory {
 
     private String recycledInto;
 
+    private Integer pointsAwarded;
+
     @Column(nullable = false)
     private Instant scannedAt;
 
@@ -87,6 +89,14 @@ public class ScanHistory {
 
     public void setRecycledInto(String recycledInto) {
         this.recycledInto = recycledInto;
+    }
+
+    public Integer getPointsAwarded() {
+        return pointsAwarded == null ? 0 : pointsAwarded;
+    }
+
+    public void setPointsAwarded(Integer pointsAwarded) {
+        this.pointsAwarded = pointsAwarded;
     }
 
     public Instant getScannedAt() {

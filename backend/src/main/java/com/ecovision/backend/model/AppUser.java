@@ -1,25 +1,34 @@
 package com.ecovision.backend.model;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalDate;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "users")
 public class AppUser implements UserDetails {
+    public static final String DEFAULT_CITY = "Şanlıurfa";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -40,12 +49,45 @@ public class AppUser implements UserDetails {
 
     private String profilePictureUrl;
 
+    private String city = DEFAULT_CITY;
+
+    private String district;
+
+    private String neighborhood;
+
+    private Integer equippedAvatarLevel = 1;
+
+    private Instant communityReadAt;
+
+    private LocalDate lastLoginDate;
+
+    private LocalDate lastScanDate;
+
+    private Integer streakCount = 0;
+
+    private Integer streakFreezeCount = 0;
+
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean banned = false;
+
+    private Instant suspendedUntil;
+
     @Column(nullable = false)
     private Integer totalPoints = 0;
+
+    private Integer lifetimePoints = 0;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role = Role.USER;
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "user_market_items",
+            joinColumns = @JoinColumn(name = "user_id")
+    )
+    @Column(name = "item_id", nullable = false)
+    private Set<String> ownedMarketItems = new LinkedHashSet<>();
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -112,6 +154,61 @@ public class AppUser implements UserDetails {
         this.profilePictureUrl = profilePictureUrl;
     }
 
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getDistrict() {
+        return district;
+    }
+
+    public void setDistrict(String district) {
+        this.district = district;
+    }
+
+    public String getNeighborhood() {
+        return neighborhood;
+    }
+
+    public void setNeighborhood(String neighborhood) {
+        this.neighborhood = neighborhood;
+    }
+
+    public Integer getEquippedAvatarLevel() {
+        return equippedAvatarLevel == null ? 1 : equippedAvatarLevel;
+    }
+
+    public void setEquippedAvatarLevel(Integer equippedAvatarLevel) {
+        this.equippedAvatarLevel = equippedAvatarLevel;
+    }
+
+    public Instant getCommunityReadAt() {
+        return communityReadAt;
+    }
+
+    public void setCommunityReadAt(Instant communityReadAt) {
+        this.communityReadAt = communityReadAt;
+    }
+
+    public LocalDate getLastLoginDate() { return lastLoginDate; }
+    public void setLastLoginDate(LocalDate lastLoginDate) { this.lastLoginDate = lastLoginDate; }
+    public LocalDate getLastScanDate() { return lastScanDate; }
+    public void setLastScanDate(LocalDate lastScanDate) { this.lastScanDate = lastScanDate; }
+    public Integer getStreakCount() { return streakCount == null ? 0 : streakCount; }
+    public void setStreakCount(Integer streakCount) { this.streakCount = streakCount; }
+    public Integer getStreakFreezeCount() { return streakFreezeCount == null ? 0 : streakFreezeCount; }
+    public void setStreakFreezeCount(Integer streakFreezeCount) { this.streakFreezeCount = streakFreezeCount; }
+    public boolean isAdult() { return age != null && age >= 18; }
+    public boolean isBanned() { return banned; }
+    public void setBanned(boolean banned) { this.banned = banned; }
+    public Instant getSuspendedUntil() { return suspendedUntil; }
+    public void setSuspendedUntil(Instant suspendedUntil) { this.suspendedUntil = suspendedUntil; }
+    public boolean isSuspended() { return suspendedUntil != null && suspendedUntil.isAfter(Instant.now()); }
+
     public Integer getTotalPoints() {
         return totalPoints;
     }
@@ -120,12 +217,28 @@ public class AppUser implements UserDetails {
         this.totalPoints = totalPoints;
     }
 
+    public Integer getLifetimePoints() {
+        return lifetimePoints == null ? totalPoints : lifetimePoints;
+    }
+
+    public void setLifetimePoints(Integer lifetimePoints) {
+        this.lifetimePoints = lifetimePoints;
+    }
+
     public Role getRole() {
         return role;
     }
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    public Set<String> getOwnedMarketItems() {
+        return ownedMarketItems;
+    }
+
+    public void setOwnedMarketItems(Set<String> ownedMarketItems) {
+        this.ownedMarketItems = ownedMarketItems;
     }
 
     public Instant getCreatedAt() {
@@ -149,7 +262,7 @@ public class AppUser implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return true;
+        return !banned && !isSuspended();
     }
 
     @Override

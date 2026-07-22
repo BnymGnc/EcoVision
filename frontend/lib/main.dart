@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'screens/login_screen.dart';
 import 'services/api_service.dart';
@@ -41,6 +42,9 @@ class _EcoVisionAppState extends State<EcoVisionApp> {
           child: MaterialApp(
             title: 'EcoVision',
             debugShowCheckedModeBanner: false,
+            locale: const Locale('tr', 'TR'),
+            supportedLocales: const [Locale('tr', 'TR')],
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
             theme: _themeController.themeData,
             home: LoginScreen(apiService: _apiService),
           ),

@@ -9,23 +9,33 @@ class ScanHistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entries = scans.isEmpty ? _demoScans : scans;
-
     return Scaffold(
       appBar: AppBar(title: const Text('Tarama Geçmişi')),
-      body: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-        itemCount: entries.length + 1,
-        separatorBuilder: (_, index) => index == 0
-            ? const SizedBox(height: 20)
-            : const SizedBox(height: 10),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return _HistorySummary(scanCount: entries.length);
-          }
-          return _ScanHistoryTile(scan: entries[index - 1]);
-        },
-      ),
+      body: scans.isEmpty
+          ? const Center(child: Text('Henüz tarama geçmişin yok.'))
+          : _HistoryList(entries: scans),
+    );
+  }
+}
+
+class _HistoryList extends StatelessWidget {
+  const _HistoryList({required this.entries});
+
+  final List<ScanResult> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      itemCount: entries.length + 1,
+      separatorBuilder: (_, index) =>
+          index == 0 ? const SizedBox(height: 20) : const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _HistorySummary(scanCount: entries.length);
+        }
+        return _ScanHistoryTile(scan: entries[index - 1]);
+      },
     );
   }
 }
@@ -53,7 +63,7 @@ class _HistorySummary extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$scanCount items identified',
+                  '$scanCount atık tanımlandı',
                   style: TextStyle(
                     color: colors.onPrimary,
                     fontWeight: FontWeight.w800,
@@ -62,7 +72,7 @@ class _HistorySummary extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Your recycling journey, newest first',
+                  'Geri dönüşüm yolculuğun, en yeniden eskiye',
                   style: TextStyle(color: colors.onPrimary.withAlpha(210)),
                 ),
               ],
@@ -107,10 +117,13 @@ class _ScanHistoryTile extends StatelessWidget {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(
-            '${scan.isRecyclable ? '+10 Points' : 'Not recyclable'}  •  ${_formatDate(scan.scannedAt)}',
+            '${scan.pointsAwarded > 0 ? '+${scan.pointsAwarded} puan' : 'Puan verilmedi'} • ${_formatDate(scan.scannedAt)}',
           ),
         ),
-        trailing: Icon(Icons.chevron_right, color: Colors.grey.shade500),
+        trailing: Icon(
+          Icons.chevron_right,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
     );
   }
@@ -125,32 +138,8 @@ class _ScanHistoryTile extends StatelessWidget {
     final time =
         '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
     if (sameDay) {
-      return 'Today $time';
+      return 'Bugün $time';
     }
     return '${local.day.toString().padLeft(2, '0')}.${local.month.toString().padLeft(2, '0')}.${local.year} $time';
   }
 }
-
-final _demoScans = <ScanResult>[
-  ScanResult(
-    material: 'Plastic Bottle',
-    isRecyclable: true,
-    decayYears: '450 years',
-    recycledInto: 'Textile fiber',
-    scannedAt: DateTime.now().subtract(const Duration(hours: 1)),
-  ),
-  ScanResult(
-    material: 'Glass Jar',
-    isRecyclable: true,
-    decayYears: '1 million years',
-    recycledInto: 'New glass containers',
-    scannedAt: DateTime.now().subtract(const Duration(days: 1, hours: 2)),
-  ),
-  ScanResult(
-    material: 'Cardboard Box',
-    isRecyclable: true,
-    decayYears: '2 months',
-    recycledInto: 'Paper products',
-    scannedAt: DateTime.now().subtract(const Duration(days: 3)),
-  ),
-];

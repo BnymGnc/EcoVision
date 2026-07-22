@@ -40,7 +40,7 @@ public class AdminService {
     @Transactional
     public UserResponse assignAdmin(AssignAdminRequest request) {
         AppUser user = userRepository.findByEmail(request.email().trim().toLowerCase())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Kullanıcı bulunamadı"));
         user.setRole(Role.ADMIN);
         return UserResponse.from(userRepository.save(user));
     }

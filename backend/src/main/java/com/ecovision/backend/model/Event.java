@@ -32,10 +32,24 @@ public class Event {
     @Column(nullable = false)
     private String location;
 
+    private String city;
+
+    private String district;
+
+    private String neighborhood;
+
     @Column(nullable = false)
     private Instant eventDate;
 
     private String imageUrl;
+
+    private Double latitude;
+
+    private Double longitude;
+
+    private Integer memberLimit = 20;
+
+    private String joinCodeHash;
 
     public Long getId() {
         return id;
@@ -74,6 +88,13 @@ public class Event {
         this.location = location;
     }
 
+    public String getCity() { return city; }
+    public void setCity(String city) { this.city = city; }
+    public String getDistrict() { return district; }
+    public void setDistrict(String district) { this.district = district; }
+    public String getNeighborhood() { return neighborhood; }
+    public void setNeighborhood(String neighborhood) { this.neighborhood = neighborhood; }
+
     public Instant getEventDate() {
         return eventDate;
     }
@@ -88,5 +109,41 @@ public class Event {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+
+    public Integer getMemberLimit() {
+        return memberLimit == null ? 20 : memberLimit;
+    }
+
+    public void setMemberLimit(Integer memberLimit) {
+        this.memberLimit = memberLimit;
+    }
+
+    public String getJoinCodeHash() {
+        return joinCodeHash;
+    }
+
+    public void setJoinCodeHash(String joinCodeHash) {
+        this.joinCodeHash = joinCodeHash;
+    }
+
+    public boolean isPrivateGroup() {
+        return joinCodeHash != null && !joinCodeHash.isBlank();
     }
 }

@@ -2,17 +2,21 @@ import 'package:flutter/material.dart';
 
 import '../core/constants.dart';
 import '../models/scan_result.dart';
+import '../services/share_service.dart';
 import '../widgets/eco_lottie.dart';
+import '../widgets/mascot_celebration.dart';
 
 class ResultScreen extends StatefulWidget {
   const ResultScreen({
     required this.result,
     required this.onFindBins,
+    this.earnedBadge = false,
     super.key,
   });
 
   final ScanResult result;
   final VoidCallback onFindBins;
+  final bool earnedBadge;
 
   @override
   State<ResultScreen> createState() => _ResultScreenState();
@@ -30,6 +34,13 @@ class _ResultScreenState extends State<ResultScreen> {
       return;
     }
 
+    if (widget.earnedBadge) {
+      await MascotCelebration.show(
+        context,
+        detail: 'Yeni rozetin açıldı ve profilindeki yerini aldı.',
+      );
+      return;
+    }
     await showDialog<void>(
       context: context,
       builder: (context) {
@@ -45,19 +56,26 @@ class _ResultScreenState extends State<ResultScreen> {
                 repeat: false,
               ),
               Text(
-                '+${AppConstants.pointsPerScan} points',
+                widget.result.pointsAwarded > 0
+                    ? '+${widget.result.pointsAwarded} points'
+                    : 'Sınıflandırma kaydedildi',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 6),
-              const Text('Nice scan. Your badge progress moved up.'),
+              Text(
+                widget.result.pointsAwarded > 0
+                    ? 'Harika tarama! Rozet ilerlemen yükseldi.'
+                    : 'Tanınmayan malzeme için puan verilmedi.',
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Continue'),
+              child: const Text('Devam Et'),
             ),
           ],
         );
@@ -76,7 +94,7 @@ class _ResultScreenState extends State<ResultScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan Result')),
+      appBar: AppBar(title: const Text('Tarama Sonucu')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -120,8 +138,8 @@ class _ResultScreenState extends State<ResultScreen> {
                               const SizedBox(height: 4),
                               Text(
                                 result.isRecyclable
-                                    ? 'Recyclable'
-                                    : 'Not commonly recyclable',
+                                    ? 'Geri dönüştürülebilir'
+                                    : 'Genellikle geri dönüştürülemez',
                                 style: TextStyle(
                                   color: result.isRecyclable
                                       ? colorScheme.primary
@@ -137,18 +155,18 @@ class _ResultScreenState extends State<ResultScreen> {
                     const SizedBox(height: 22),
                     _ResultMetric(
                       icon: Icons.hourglass_bottom_outlined,
-                      label: 'Decay time',
+                      label: 'Doğada çözünme süresi',
                       value: result.decayYears,
                     ),
                     _ResultMetric(
                       icon: Icons.auto_awesome_motion_outlined,
-                      label: 'Can become',
+                      label: 'Dönüşebileceği ürün',
                       value: result.recycledInto,
                     ),
                     _ResultMetric(
                       icon: Icons.stars_outlined,
-                      label: 'Reward',
-                      value: '+${AppConstants.pointsPerScan} EcoVision points',
+                      label: 'Ödül',
+                      value: '+${result.pointsAwarded} EcoVision puanı',
                     ),
                   ],
                 ),
@@ -158,13 +176,19 @@ class _ResultScreenState extends State<ResultScreen> {
             FilledButton.icon(
               onPressed: _openBins,
               icon: const Icon(Icons.location_on_outlined),
-              label: const Text('Find Recycling Bins'),
+              label: const Text('Geri Dönüşüm Kutusu Bul'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: EcoShareService.shareEcoUpgrade,
+              icon: const Icon(Icons.share_outlined),
+              label: const Text('Eko İlerlememi Paylaş'),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => Navigator.of(context).pop(),
               icon: const Icon(Icons.camera_alt_outlined),
-              label: const Text('Scan Another Item'),
+              label: const Text('Başka Bir Atık Tara'),
             ),
           ],
         ),
@@ -197,7 +221,12 @@ class _ResultMetric extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(color: Colors.black54)),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
                 const SizedBox(height: 2),
                 Text(
                   value,

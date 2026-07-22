@@ -8,7 +8,10 @@ public record ChatMessageResponse(
         Long eventId,
         Long senderId,
         String senderName,
+        Integer senderAvatarLevel,
+        String senderProfilePictureUrl,
         String message,
+        String imageUrl,
         Instant timestamp
 ) {
     public static ChatMessageResponse from(ChatMessage message) {
@@ -17,7 +20,10 @@ public record ChatMessageResponse(
                 message.getEvent().getId(),
                 message.getSender().getId(),
                 message.getSender().getName() + " " + message.getSender().getSurname(),
+                message.getSender().getEquippedAvatarLevel(),
+                message.getSender().getProfilePictureUrl(),
                 message.getMessage(),
+                message.getImageUrl(),
                 message.getTimestamp()
         );
     }

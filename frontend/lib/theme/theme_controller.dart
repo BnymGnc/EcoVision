@@ -5,17 +5,17 @@ enum AppThemeKind { forest, ocean, sunset, darkEco }
 
 extension AppThemeKindDetails on AppThemeKind {
   String get label => switch (this) {
-    AppThemeKind.forest => 'Forest',
-    AppThemeKind.ocean => 'Ocean',
-    AppThemeKind.sunset => 'Sunset',
-    AppThemeKind.darkEco => 'Dark Eco',
+    AppThemeKind.forest => 'Orman',
+    AppThemeKind.ocean => 'Okyanus',
+    AppThemeKind.sunset => 'Gün Batımı',
+    AppThemeKind.darkEco => 'Karanlık Eko',
   };
 
   String get description => switch (this) {
-    AppThemeKind.forest => 'Grounded greens',
-    AppThemeKind.ocean => 'Clear coastal blues',
-    AppThemeKind.sunset => 'Warm coral energy',
-    AppThemeKind.darkEco => 'Neon after dark',
+    AppThemeKind.forest => 'Doğadan gelen yeşil tonları',
+    AppThemeKind.ocean => 'Ferah kıyı mavileri',
+    AppThemeKind.sunset => 'Sıcak mercan tonları',
+    AppThemeKind.darkEco => 'Karanlık zeminde canlı yeşil',
   };
 
   Color get swatch => switch (this) {
@@ -27,23 +27,37 @@ extension AppThemeKindDetails on AppThemeKind {
 }
 
 class ThemeController extends ChangeNotifier {
-  static const _storageKey = 'ecovision.theme';
+  static const _storagePrefix = 'ecovision.theme';
 
   AppThemeKind _selected = AppThemeKind.forest;
+  int? _activeUserId;
 
   AppThemeKind get selected => _selected;
   ThemeData get themeData => AppThemes.forKind(_selected);
 
   Future<void> load() async {
+    _selected = AppThemeKind.forest;
+    notifyListeners();
+  }
+
+  Future<void> bindToUser(int userId) async {
+    _activeUserId = userId;
     final preferences = await SharedPreferences.getInstance();
-    final stored = preferences.getString(_storageKey);
+    final stored = preferences.getString('$_storagePrefix.$userId');
+    _selected = AppThemeKind.forest;
     for (final theme in AppThemeKind.values) {
       if (theme.name == stored) {
         _selected = theme;
-        notifyListeners();
-        return;
+        break;
       }
     }
+    notifyListeners();
+  }
+
+  void unbindUser() {
+    _activeUserId = null;
+    _selected = AppThemeKind.forest;
+    notifyListeners();
   }
 
   Future<void> select(AppThemeKind theme) async {
@@ -52,8 +66,10 @@ class ThemeController extends ChangeNotifier {
     }
     _selected = theme;
     notifyListeners();
+    final userId = _activeUserId;
+    if (userId == null) return;
     final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(_storageKey, theme.name);
+    await preferences.setString('$_storagePrefix.$userId', theme.name);
   }
 }
 
@@ -128,12 +144,33 @@ class AppThemes {
       surface: brightness == Brightness.dark
           ? const Color(0xFF171D18)
           : Colors.white,
+      onSurface: brightness == Brightness.dark
+          ? const Color(0xFFF1F7F1)
+          : const Color(0xFF172018),
+      onSurfaceVariant: brightness == Brightness.dark
+          ? const Color(0xFFC7D2C7)
+          : const Color(0xFF465147),
+      surfaceContainerLowest: brightness == Brightness.dark
+          ? const Color(0xFF0A0F0B)
+          : const Color(0xFFFFFFFF),
+      surfaceContainerLow: brightness == Brightness.dark
+          ? const Color(0xFF141A15)
+          : const Color(0xFFF7FAF6),
+      surfaceContainerHighest: brightness == Brightness.dark
+          ? const Color(0xFF29312A)
+          : const Color(0xFFE8EEE7),
+    );
+
+    final textTheme = ThemeData(brightness: brightness).textTheme.apply(
+      bodyColor: scheme.onSurface,
+      displayColor: scheme.onSurface,
     );
 
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
+      textTheme: textTheme,
       scaffoldBackgroundColor: scaffold,
       appBarTheme: AppBarTheme(
         centerTitle: false,
@@ -156,6 +193,11 @@ class AppThemes {
         indicatorColor: scheme.primaryContainer,
         elevation: 2,
       ),
+      listTileTheme: ListTileThemeData(
+        textColor: scheme.onSurface,
+        iconColor: scheme.onSurfaceVariant,
+      ),
+      iconTheme: IconThemeData(color: scheme.onSurfaceVariant),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: scheme.surfaceContainerHighest.withAlpha(110),
@@ -178,6 +220,10 @@ class AppThemes {
         ),
       ),
       dividerTheme: DividerThemeData(color: scheme.outlineVariant),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: scheme.inverseSurface,
+        contentTextStyle: TextStyle(color: scheme.onInverseSurface),
+      ),
     );
   }
 }

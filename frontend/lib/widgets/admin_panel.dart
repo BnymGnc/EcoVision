@@ -50,7 +50,7 @@ class _AdminPanelState extends State<AdminPanel> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Admin role assigned.')));
+        ).showSnackBar(const SnackBar(content: Text('Yönetici rolü atandı.')));
       }
     } catch (error) {
       if (mounted) {
@@ -94,13 +94,13 @@ class _AdminPanelState extends State<AdminPanel> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Admin Panel',
+                        'Yönetici Paneli',
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        'Manage platform roles',
-                        style: TextStyle(color: Colors.grey.shade700),
+                        'Platform rollerini yönet',
+                        style: TextStyle(color: colors.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -112,7 +112,7 @@ class _AdminPanelState extends State<AdminPanel> {
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
-                labelText: 'Grant admin by email',
+                labelText: 'E-postayla yönetici ata',
                 prefixIcon: Icon(Icons.mail_outline),
                 border: OutlineInputBorder(),
               ),
@@ -126,7 +126,7 @@ class _AdminPanelState extends State<AdminPanel> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.verified_user_outlined),
-              label: const Text('Assign Admin'),
+              label: const Text('Yönetici Ata'),
             ),
             const Divider(height: 30),
             FutureBuilder<List<UserProfile>>(
@@ -138,10 +138,10 @@ class _AdminPanelState extends State<AdminPanel> {
                 if (snapshot.hasError) {
                   return Row(
                     children: [
-                      const Expanded(child: Text('Could not load users.')),
+                      const Expanded(child: Text('Kullanıcılar yüklenemedi.')),
                       TextButton(
                         onPressed: _refreshUsers,
-                        child: const Text('Retry'),
+                        child: const Text('Tekrar Dene'),
                       ),
                     ],
                   );
@@ -163,7 +163,7 @@ class _AdminPanelState extends State<AdminPanel> {
                         ),
                         title: Text(user.fullName),
                         subtitle: Text(user.email),
-                        trailing: Chip(label: Text(user.role)),
+                        trailing: Chip(label: Text(_roleLabel(user.role))),
                       ),
                   ],
                 );
@@ -175,3 +175,9 @@ class _AdminPanelState extends State<AdminPanel> {
     );
   }
 }
+
+String _roleLabel(String role) => switch (role) {
+  'SUPERUSER' => 'Süper Kullanıcı',
+  'ADMIN' => 'Yönetici',
+  _ => 'Kullanıcı',
+};

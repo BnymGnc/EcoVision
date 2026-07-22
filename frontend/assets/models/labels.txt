@@ -1,0 +1,5 @@
+open_litter
+dustbin_waste
+plastic_waste
+bio_waste
+hospital_waste

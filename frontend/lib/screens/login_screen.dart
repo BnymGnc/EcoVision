@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import 'main_tab_navigator.dart';
+import 'onboarding_screen.dart';
+import '../theme/theme_controller.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -76,10 +78,16 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _openApp() {
+  Future<void> _openApp() async {
+    final user = widget.apiService.currentUser!;
+    await ThemeScope.of(context).bindToUser(user.id);
+    final hasSeenOnboarding = await OnboardingScreen.hasSeenForUser(user.id);
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (_) => MainTabNavigator(apiService: widget.apiService),
+        builder: (_) => hasSeenOnboarding
+            ? MainTabNavigator(apiService: widget.apiService)
+            : OnboardingScreen(apiService: widget.apiService),
       ),
     );
   }
@@ -128,27 +136,26 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 22),
                   Text(
-                    'Welcome to EcoVision',
+                    "EcoVision'a Hoş Geldin",
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Scan, recycle, earn badges, and join local cleanup events.',
-                    style: TextStyle(color: Colors.black54),
+                    'Atıkları tara, puan kazan ve yerel temizlik hareketlerine katıl.',
                   ),
                   const SizedBox(height: 28),
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
-                      labelText: 'Email',
+                      labelText: 'E-posta',
                       prefixIcon: Icon(Icons.mail_outline),
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Email is required'
+                        ? 'E-posta zorunludur'
                         : null,
                   ),
                   const SizedBox(height: 14),
@@ -156,12 +163,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _passwordController,
                     obscureText: true,
                     decoration: const InputDecoration(
-                      labelText: 'Password',
+                      labelText: 'Parola',
                       prefixIcon: Icon(Icons.lock_outline),
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) => value == null || value.isEmpty
-                        ? 'Password is required'
+                        ? 'Parola zorunludur'
                         : null,
                   ),
                   const SizedBox(height: 20),
@@ -173,18 +180,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.login),
-                    label: const Text('Login'),
+                    label: const Text('Giriş Yap'),
                   ),
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
                     onPressed: _isLoading ? null : _loginWithGoogle,
                     icon: const Icon(Icons.g_mobiledata),
-                    label: const Text('Continue with Google'),
+                    label: const Text('Google ile Devam Et'),
                   ),
                   const SizedBox(height: 10),
                   TextButton(
                     onPressed: _isLoading ? null : _openRegister,
-                    child: const Text('Create an account'),
+                    child: const Text('Hesap Oluştur'),
                   ),
                 ],
               ),

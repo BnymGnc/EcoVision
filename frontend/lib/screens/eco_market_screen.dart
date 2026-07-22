@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../models/gamification_state.dart';
+import '../models/user_profile.dart';
 import '../services/api_service.dart';
+import '../services/share_service.dart';
 
 class EcoMarketScreen extends StatefulWidget {
   const EcoMarketScreen({required this.apiService, super.key});
@@ -13,137 +14,161 @@ class EcoMarketScreen extends StatefulWidget {
 }
 
 class _EcoMarketScreenState extends State<EcoMarketScreen> {
-  late Future<GamificationState> _stateFuture;
-  String? _redeemingKey;
+  late Future<UserProfile> _userFuture;
+  String? _purchasingItemId;
 
   @override
   void initState() {
     super.initState();
-    _stateFuture = widget.apiService.fetchGamificationState();
+    _userFuture = widget.apiService.fetchCurrentUser();
   }
 
-  Future<void> _reload() async {
-    final next = widget.apiService.fetchGamificationState();
+  Future<void> _refresh() async {
+    final next = widget.apiService.fetchCurrentUser();
     setState(() {
-      _stateFuture = next;
+      _userFuture = next;
     });
     await next;
   }
 
-  Future<void> _redeem(_MarketItem item) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(item.title),
-        content: Text('Use ${item.cost} Eco Points to unlock ${item.title}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Not Now'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Unlock'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) {
-      return;
-    }
-
-    setState(() => _redeemingKey = item.key);
+  Future<void> _purchase(_MarketItem item) async {
+    setState(() => _purchasingItemId = item.id);
     try {
-      final state = await widget.apiService.redeemReward(item.key);
+      final user = await widget.apiService.purchaseMarketItem(item.id);
       if (!mounted) {
         return;
       }
       setState(() {
-        _stateFuture = Future.value(state);
-        _redeemingKey = null;
+        _purchasingItemId = null;
+        _userFuture = Future.value(user);
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(state.message),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (error) {
-      if (mounted) {
-        setState(() => _redeemingKey = null);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error.toString()),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      await _showPurchaseSuccess(item, user.totalPoints);
+    } on ApiException catch (error) {
+      if (!mounted) {
+        return;
       }
+      setState(() => _purchasingItemId = null);
+      await _showPurchaseError(error.message);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _purchasingItemId = null);
+      await _showPurchaseError(error.toString());
     }
+  }
+
+  Future<void> _showPurchaseSuccess(_MarketItem item, int points) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        final colors = Theme.of(context).colorScheme;
+        return AlertDialog(
+          icon: Icon(Icons.check_circle, color: colors.primary, size: 48),
+          title: const Text('Avatarın gelişti!'),
+          content: Text(
+            '${item.title} koleksiyonuna eklendi. Kalan Eko Puanın: $points.',
+            textAlign: TextAlign.center,
+          ),
+          actions: [
+            TextButton.icon(
+              onPressed: EcoShareService.shareEcoUpgrade,
+              icon: const Icon(Icons.share_outlined),
+              label: const Text('Paylaş'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Tamam'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showPurchaseError(String message) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: Icon(
+          Icons.warning_amber_rounded,
+          color: Theme.of(context).colorScheme.error,
+          size: 44,
+        ),
+        title: Text(
+          message.toLowerCase().contains('yeterli')
+              ? 'Yeterli puanın yok'
+              : 'Satın alma başarısız',
+        ),
+        content: Text(message, textAlign: TextAlign.center),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Kapat'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Eco-Market')),
-      body: FutureBuilder<GamificationState>(
-        future: _stateFuture,
+      body: FutureBuilder<UserProfile>(
+        future: _userFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return _MarketError(onRetry: _reload);
+            return _MarketError(onRetry: _refresh);
           }
 
-          final state = snapshot.requireData;
+          final user = snapshot.requireData;
           return RefreshIndicator(
-            onRefresh: _reload,
+            onRefresh: _refresh,
             child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
-                _MarketHero(points: state.totalPoints),
+                _PointsWallet(points: user.totalPoints),
                 const SizedBox(height: 26),
-                const _SectionHeading(
-                  title: 'Avatar Evolution',
-                  subtitle: 'Grow your character as your impact grows.',
+                Text(
+                  'Avatar Çerçeveleri',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 270,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _avatarItems.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      final item = _avatarItems[index];
-                      final owned = item.cost == 0 || state.hasReward(item.key);
-                      return _AvatarCard(
-                        item: item,
-                        owned: owned,
-                        current: _isCurrentAvatar(state, item),
-                        canAfford: state.totalPoints >= item.cost,
-                        loading: _redeemingKey == item.key,
-                        onUnlock: () => _redeem(item),
-                      );
-                    },
+                const SizedBox(height: 4),
+                Text(
+                  'Tarzına uygun çerçeveyi Eko Puanlarınla aç.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 28),
-                const _SectionHeading(
-                  title: 'Rewards With Real Impact',
-                  subtitle: 'Turn earned points into something tangible.',
-                ),
-                const SizedBox(height: 12),
-                for (final item in _impactItems) ...[
-                  _ImpactRewardCard(
-                    item: item,
-                    owned: state.hasReward(item.key),
-                    canAfford: state.totalPoints >= item.cost,
-                    loading: _redeemingKey == item.key,
-                    onRedeem: () => _redeem(item),
+                const SizedBox(height: 16),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _items.length,
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 280,
+                    mainAxisExtent: 318,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
                   ),
-                  const SizedBox(height: 12),
-                ],
+                  itemBuilder: (context, index) {
+                    final item = _items[index];
+                    return _MarketItemCard(
+                      item: item,
+                      owned: user.ownedMarketItems.contains(item.id),
+                      canAfford: user.totalPoints >= item.price,
+                      loading: _purchasingItemId == item.id,
+                      onPurchase: () => _purchase(item),
+                    );
+                  },
+                ),
               ],
             ),
           );
@@ -151,20 +176,10 @@ class _EcoMarketScreenState extends State<EcoMarketScreen> {
       ),
     );
   }
-
-  bool _isCurrentAvatar(GamificationState state, _MarketItem item) {
-    if (state.hasReward('avatar_planet_guardian')) {
-      return item.key == 'avatar_planet_guardian';
-    }
-    if (state.hasReward('avatar_eco_warrior')) {
-      return item.key == 'avatar_eco_warrior';
-    }
-    return item.key == 'avatar_stickman';
-  }
 }
 
-class _MarketHero extends StatelessWidget {
-  const _MarketHero({required this.points});
+class _PointsWallet extends StatelessWidget {
+  const _PointsWallet({required this.points});
 
   final int points;
 
@@ -186,11 +201,7 @@ class _MarketHero extends StatelessWidget {
               color: colors.onPrimary.withAlpha(28),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              Icons.storefront_outlined,
-              color: colors.onPrimary,
-              size: 30,
-            ),
+            child: Icon(Icons.stars_rounded, color: colors.onPrimary, size: 32),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -198,147 +209,41 @@ class _MarketHero extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Your Eco Wallet',
+                  'Kullanılabilir bakiye',
                   style: TextStyle(color: colors.onPrimary.withAlpha(205)),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
                 Text(
-                  '$points points',
+                  '$points Eko Puan',
                   style: TextStyle(
                     color: colors.onPrimary,
+                    fontSize: 25,
                     fontWeight: FontWeight.w900,
-                    fontSize: 26,
                   ),
                 ),
               ],
             ),
           ),
-          Icon(Icons.eco_rounded, color: colors.tertiaryContainer, size: 34),
         ],
       ),
     );
   }
 }
 
-class _AvatarCard extends StatelessWidget {
-  const _AvatarCard({
-    required this.item,
-    required this.owned,
-    required this.current,
-    required this.canAfford,
-    required this.loading,
-    required this.onUnlock,
-  });
-
-  final _MarketItem item;
-  final bool owned;
-  final bool current;
-  final bool canAfford;
-  final bool loading;
-  final VoidCallback onUnlock;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Container(
-      width: 210,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: current ? colors.primary : colors.outlineVariant,
-          width: current ? 2 : 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: item.color.withAlpha(30),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(item.icon, color: item.color, size: 70),
-                  if (!owned)
-                    Positioned(
-                      right: 10,
-                      top: 10,
-                      child: Icon(
-                        Icons.lock_rounded,
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(item.title, style: const TextStyle(fontWeight: FontWeight.w900)),
-          const SizedBox(height: 2),
-          Text(
-            item.subtitle,
-            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
-          ),
-          const SizedBox(height: 10),
-          if (owned)
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Icon(
-                  current ? Icons.check_circle : Icons.inventory_2_outlined,
-                  color: colors.primary,
-                  size: 19,
-                ),
-                Text(
-                  current ? 'Current' : 'Owned',
-                  style: TextStyle(
-                    color: colors.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            )
-          else
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.tonal(
-                onPressed: loading || !canAfford ? null : onUnlock,
-                child: loading
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text('${item.cost} pts'),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ImpactRewardCard extends StatelessWidget {
-  const _ImpactRewardCard({
+class _MarketItemCard extends StatelessWidget {
+  const _MarketItemCard({
     required this.item,
     required this.owned,
     required this.canAfford,
     required this.loading,
-    required this.onRedeem,
+    required this.onPurchase,
   });
 
   final _MarketItem item;
   final bool owned;
   final bool canAfford;
   final bool loading;
-  final VoidCallback onRedeem;
+  final VoidCallback onPurchase;
 
   @override
   Widget build(BuildContext context) {
@@ -346,81 +251,66 @@ class _ImpactRewardCard extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                color: item.color.withAlpha(28),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(item.icon, color: item.color, size: 28),
-            ),
-            const SizedBox(width: 14),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    style: const TextStyle(fontWeight: FontWeight.w900),
+              child: Container(
+                width: double.infinity,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: item.color.withAlpha(25),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Container(
+                  width: 104,
+                  height: 104,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: item.color, width: 7),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    item.subtitle,
-                    style: TextStyle(
-                      color: colors.onSurfaceVariant,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
+                  child: Icon(item.icon, color: item.color, size: 48),
+                ),
               ),
             ),
-            const SizedBox(width: 10),
-            if (owned)
-              Chip(
-                avatar: const Icon(Icons.check, size: 16),
-                label: const Text('Redeemed'),
-              )
-            else
-              FilledButton.tonal(
-                onPressed: loading || !canAfford ? null : onRedeem,
-                child: loading
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text('${item.cost} pts'),
-              ),
+            const SizedBox(height: 14),
+            Text(
+              item.title,
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              item.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: owned
+                  ? FilledButton.tonalIcon(
+                      onPressed: null,
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: const Text('Alındı'),
+                    )
+                  : FilledButton(
+                      onPressed: loading ? null : onPurchase,
+                      child: loading
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(
+                              canAfford
+                                  ? '${item.price} puan'
+                                  : '${item.price} puan gerekli',
+                            ),
+                    ),
+            ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _SectionHeading extends StatelessWidget {
-  const _SectionHeading({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 3),
-        Text(subtitle, style: TextStyle(color: colors.onSurfaceVariant)),
-      ],
     );
   }
 }
@@ -439,11 +329,11 @@ class _MarketError extends StatelessWidget {
           const Icon(Icons.storefront_outlined, size: 52),
           const SizedBox(height: 12),
           const Text(
-            'The market is unavailable right now',
+            'Market yüklenemedi',
             style: TextStyle(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 12),
-          FilledButton(onPressed: onRetry, child: const Text('Try Again')),
+          FilledButton(onPressed: onRetry, child: const Text('Tekrar Dene')),
         ],
       ),
     );
@@ -452,64 +342,53 @@ class _MarketError extends StatelessWidget {
 
 class _MarketItem {
   const _MarketItem({
-    required this.key,
+    required this.id,
     required this.title,
-    required this.subtitle,
-    required this.cost,
+    required this.description,
+    required this.price,
     required this.icon,
     required this.color,
   });
 
-  final String key;
+  final String id;
   final String title;
-  final String subtitle;
-  final int cost;
+  final String description;
+  final int price;
   final IconData icon;
   final Color color;
 }
 
-const _avatarItems = [
+const _items = [
   _MarketItem(
-    key: 'avatar_stickman',
-    title: 'Level 1: Stickman',
-    subtitle: 'Every climate hero starts somewhere.',
-    cost: 0,
-    icon: Icons.accessibility_new_rounded,
-    color: Color(0xFF607D8B),
+    id: 'streak_freeze',
+    title: 'Seri Dondurucu',
+    description: 'Bir gün taramayı kaçırdığında serini otomatik olarak korur.',
+    price: 250,
+    icon: Icons.ac_unit_rounded,
+    color: Color(0xFF0087A8),
   ),
   _MarketItem(
-    key: 'avatar_eco_warrior',
-    title: 'Level 2: Eco-Warrior',
-    subtitle: 'Equipped for everyday action.',
-    cost: 150,
-    icon: Icons.shield_outlined,
+    id: 'leaf_frame',
+    title: 'Yaprak Çerçeve',
+    description: 'Günlük doğa başarıları için taze yeşil çerçeve.',
+    price: 100,
+    icon: Icons.eco_rounded,
     color: Color(0xFF2E7D32),
   ),
   _MarketItem(
-    key: 'avatar_planet_guardian',
-    title: 'Level 3: Planet Guardian',
-    subtitle: 'A champion for the whole planet.',
-    cost: 400,
+    id: 'ocean_frame',
+    title: 'Okyanus Çerçeve',
+    description: 'Temiz denizlerden ilham alan mavi çerçeve.',
+    price: 200,
+    icon: Icons.water_drop_rounded,
+    color: Color(0xFF0277BD),
+  ),
+  _MarketItem(
+    id: 'earth_frame',
+    title: 'Dünya Çerçeve',
+    description: 'Etki liderleri için özel gezegen çerçevesi.',
+    price: 300,
     icon: Icons.public_rounded,
-    color: Color(0xFF1565C0),
-  ),
-];
-
-const _impactItems = [
-  _MarketItem(
-    key: 'impact_tree',
-    title: 'Plant a Tree',
-    subtitle: 'Fund one verified tree planting action.',
-    cost: 500,
-    icon: Icons.park_outlined,
-    color: Color(0xFF2E7D32),
-  ),
-  _MarketItem(
-    key: 'impact_coffee',
-    title: 'Free Coffee',
-    subtitle: 'Redeem a reusable-cup coffee with a partner café.',
-    cost: 300,
-    icon: Icons.coffee_outlined,
-    color: Color(0xFF8D6E63),
+    color: Color(0xFF6A1B9A),
   ),
 ];

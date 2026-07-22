@@ -10,6 +10,7 @@ public record ScanResponse(
         Boolean recyclable,
         String decayYears,
         String recycledInto,
+        Integer pointsAwarded,
         Instant scannedAt
 ) {
     public static ScanResponse from(ScanHistory scan) {
@@ -20,6 +21,7 @@ public record ScanResponse(
                 scan.getIsRecyclable(),
                 scan.getDecayYears(),
                 scan.getRecycledInto(),
+                scan.getPointsAwarded(),
                 scan.getScannedAt()
         );
     }

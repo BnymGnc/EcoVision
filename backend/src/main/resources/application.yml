@@ -27,3 +27,10 @@ app:
   storage:
     public-base-url: ${PUBLIC_BASE_URL:http://localhost:8080}
     upload-dir: ${UPLOAD_DIR:uploads}
+
+logging:
+  level:
+    root: INFO
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/gamification_state.dart';
 import '../services/api_service.dart';
+import '../widgets/mascot_celebration.dart';
 
 class CarbonFootprintScreen extends StatefulWidget {
   const CarbonFootprintScreen({required this.apiService, super.key});
@@ -28,7 +29,7 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
   Future<void> _continue() async {
     if (_answers[_currentPage] == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Choose an answer to continue.')),
+        const SnackBar(content: Text('Devam etmek için bir yanıt seç.')),
       );
       return;
     }
@@ -57,6 +58,13 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
           _result = result;
           _isSubmitting = false;
         });
+        if (result.pointsAwarded > 0) {
+          await MascotCelebration.show(
+            context,
+            detail:
+                'Karbon ayak izi görevini tamamladın ve yeni rozet kazandın.',
+          );
+        }
       }
     } catch (error) {
       if (mounted) {
@@ -84,7 +92,7 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Carbon Footprint')),
+      appBar: AppBar(title: const Text('Karbon Ayak İzi')),
       body: SafeArea(
         child: _result == null ? _buildSurvey(context) : _buildResult(context),
       ),
@@ -102,7 +110,7 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
               Row(
                 children: [
                   Text(
-                    'Question ${_currentPage + 1} of ${_questions.length}',
+                    'Soru ${_currentPage + 1} / ${_questions.length}',
                     style: TextStyle(
                       color: colors.onSurfaceVariant,
                       fontWeight: FontWeight.w700,
@@ -147,7 +155,7 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _isSubmitting ? null : _back,
                   icon: const Icon(Icons.arrow_back),
-                  label: Text(_currentPage == 0 ? 'Cancel' : 'Back'),
+                  label: Text(_currentPage == 0 ? 'Vazgeç' : 'Geri'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -166,8 +174,8 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
                         ),
                   label: Text(
                     _currentPage == _questions.length - 1
-                        ? 'Calculate'
-                        : 'Continue',
+                        ? 'Hesapla'
+                        : 'Devam Et',
                   ),
                 ),
               ),
@@ -185,10 +193,10 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
     );
     final colors = Theme.of(context).colorScheme;
     final rating = score <= 30
-        ? 'Low-impact lifestyle'
+        ? 'Düşük etkili yaşam'
         : score <= 60
-        ? 'Climate-conscious starter'
-        : 'Room to grow';
+        ? 'İklim bilinçli başlangıç'
+        : 'Gelişim için alan var';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
@@ -218,7 +226,7 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Your footprint score is $score / 100. Lower is better.',
+          'Ayak izi puanın $score / 100. Düşük puan daha iyidir.',
           textAlign: TextAlign.center,
           style: TextStyle(color: colors.onSurfaceVariant),
         ),
@@ -234,7 +242,7 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
                     const SizedBox(width: 10),
                     const Expanded(
                       child: Text(
-                        'Carbon Conscious Badge',
+                        'Karbon Bilinci Rozeti',
                         style: TextStyle(fontWeight: FontWeight.w900),
                       ),
                     ),
@@ -249,8 +257,8 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
                     Expanded(
                       child: Text(
                         _result!.pointsAwarded > 0
-                            ? '+${_result!.pointsAwarded} Eco Points awarded'
-                            : 'One-time reward already claimed',
+                            ? '+${_result!.pointsAwarded} Eko Puan kazandın'
+                            : 'Tek seferlik ödül daha önce alındı',
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),
@@ -269,8 +277,8 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
           ),
           child: Text(
             score <= 30
-                ? 'Keep leading by example and invite someone to a community cleanup.'
-                : 'Try replacing one weekly car trip with walking, cycling, or public transport.',
+                ? 'Örnek olmaya devam et ve bir arkadaşını topluluk temizliğine davet et.'
+                : 'Haftada bir araba yolculuğunu yürüyüş, bisiklet veya toplu taşımayla değiştir.',
             style: TextStyle(
               color: colors.onSecondaryContainer,
               fontWeight: FontWeight.w700,
@@ -282,7 +290,7 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
         FilledButton.icon(
           onPressed: () => Navigator.of(context).pop(true),
           icon: const Icon(Icons.check),
-          label: const Text('Finish Mission'),
+          label: const Text('Görevi Bitir'),
         ),
       ],
     );
@@ -421,48 +429,60 @@ class _SurveyOption {
 
 const _questions = [
   _SurveyQuestion(
-    title: 'How do you usually commute?',
-    subtitle: 'Choose the option that best represents a typical week.',
+    title: 'Genellikle nasıl ulaşım sağlıyorsun?',
+    subtitle: 'Tipik bir haftanı en iyi anlatan seçeneği işaretle.',
     icon: Icons.commute_outlined,
     options: [
-      _SurveyOption('Walk or cycle', 0, Icons.directions_bike_outlined),
-      _SurveyOption('Public transport', 10, Icons.directions_bus_outlined),
-      _SurveyOption('Electric or shared car', 20, Icons.electric_car_outlined),
-      _SurveyOption('Petrol or diesel car', 30, Icons.directions_car_outlined),
+      _SurveyOption('Yürüyüş veya bisiklet', 0, Icons.directions_bike_outlined),
+      _SurveyOption('Toplu taşıma', 10, Icons.directions_bus_outlined),
+      _SurveyOption(
+        'Elektrikli veya paylaşımlı araç',
+        20,
+        Icons.electric_car_outlined,
+      ),
+      _SurveyOption(
+        'Benzinli veya dizel araç',
+        30,
+        Icons.directions_car_outlined,
+      ),
     ],
   ),
   _SurveyQuestion(
-    title: 'What best describes your diet?',
-    subtitle: 'Food choices affect land use, water, and emissions.',
+    title: 'Beslenme biçimini hangisi anlatıyor?',
+    subtitle: 'Gıda seçimleri arazi, su ve emisyonları etkiler.',
     icon: Icons.restaurant_outlined,
     options: [
-      _SurveyOption('Mostly plant-based', 5, Icons.eco_outlined),
-      _SurveyOption('Balanced and seasonal', 15, Icons.ramen_dining_outlined),
-      _SurveyOption('Meat most days', 30, Icons.lunch_dining_outlined),
+      _SurveyOption('Çoğunlukla bitkisel', 5, Icons.eco_outlined),
+      _SurveyOption('Dengeli ve mevsimsel', 15, Icons.ramen_dining_outlined),
+      _SurveyOption('Çoğu gün et', 30, Icons.lunch_dining_outlined),
     ],
   ),
   _SurveyQuestion(
-    title: 'How is your home powered?',
-    subtitle: 'An estimate is enough for this quick footprint check.',
+    title: 'Evinin enerjisi nasıl sağlanıyor?',
+    subtitle: 'Bu hızlı ölçüm için yaklaşık yanıt yeterlidir.',
     icon: Icons.home_work_outlined,
     options: [
-      _SurveyOption('Mostly renewable energy', 5, Icons.solar_power_outlined),
       _SurveyOption(
-        'A mixed energy plan',
+        'Çoğunlukla yenilenebilir enerji',
+        5,
+        Icons.solar_power_outlined,
+      ),
+      _SurveyOption(
+        'Karma enerji planı',
         12,
         Icons.energy_savings_leaf_outlined,
       ),
-      _SurveyOption('Standard grid energy', 20, Icons.bolt_outlined),
+      _SurveyOption('Standart şebeke enerjisi', 20, Icons.bolt_outlined),
     ],
   ),
   _SurveyQuestion(
-    title: 'How consistently do you recycle?',
-    subtitle: 'Think about plastics, paper, glass, and special waste.',
+    title: 'Ne kadar düzenli geri dönüştürüyorsun?',
+    subtitle: 'Plastik, kağıt, cam ve özel atıkları düşün.',
     icon: Icons.recycling_rounded,
     options: [
-      _SurveyOption('Always', 0, Icons.check_circle_outline),
-      _SurveyOption('Sometimes', 10, Icons.autorenew_rounded),
-      _SurveyOption('Rarely', 20, Icons.delete_outline),
+      _SurveyOption('Her zaman', 0, Icons.check_circle_outline),
+      _SurveyOption('Bazen', 10, Icons.autorenew_rounded),
+      _SurveyOption('Nadiren', 20, Icons.delete_outline),
     ],
   ),
 ];

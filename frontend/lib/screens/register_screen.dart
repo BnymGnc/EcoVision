@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
-import 'main_tab_navigator.dart';
+import 'onboarding_screen.dart';
+import '../theme/theme_controller.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({required this.apiService, super.key});
@@ -49,9 +50,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) {
         return;
       }
+      await ThemeScope.of(
+        context,
+      ).bindToUser(widget.apiService.currentUser!.id);
+      if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(
-          builder: (_) => MainTabNavigator(apiService: widget.apiService),
+          builder: (_) => OnboardingScreen(apiService: widget.apiService),
         ),
         (_) => false,
       );
@@ -68,22 +73,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Account')),
+      appBar: AppBar(title: const Text('Hesap Oluştur')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
             Text(
-              'Start your green streak',
+              'Yeşil yolculuğuna başla',
               style: Theme.of(
                 context,
               ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Your account is stored securely through the EcoVision backend.',
-              style: TextStyle(color: Colors.black54),
-            ),
+            const Text('Hesabın EcoVision sunucusunda güvenle korunur.'),
             const SizedBox(height: 26),
             Form(
               key: _formKey,
@@ -93,12 +95,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _nameController,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
-                      labelText: 'Name',
+                      labelText: 'Ad',
                       prefixIcon: Icon(Icons.badge_outlined),
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Name is required'
+                        ? 'Ad zorunludur'
                         : null,
                   ),
                   const SizedBox(height: 14),
@@ -106,12 +108,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _surnameController,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
-                      labelText: 'Surname',
+                      labelText: 'Soyad',
                       prefixIcon: Icon(Icons.badge_outlined),
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Surname is required'
+                        ? 'Soyad zorunludur'
                         : null,
                   ),
                   const SizedBox(height: 14),
@@ -119,12 +121,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
-                      labelText: 'Email',
+                      labelText: 'E-posta',
                       prefixIcon: Icon(Icons.mail_outline),
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Email is required'
+                        ? 'E-posta zorunludur'
                         : null,
                   ),
                   const SizedBox(height: 14),
@@ -133,7 +135,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     obscureText: true,
                     onChanged: (value) => setState(() => _password = value),
                     decoration: const InputDecoration(
-                      labelText: 'Password',
+                      labelText: 'Parola',
                       prefixIcon: Icon(Icons.lock_outline),
                       border: OutlineInputBorder(),
                     ),
@@ -146,13 +148,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _ageController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                      labelText: 'Age',
+                      labelText: 'Yaş',
                       prefixIcon: Icon(Icons.cake_outlined),
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) {
                       final age = int.tryParse(value ?? '');
-                      return age == null || age < 1 ? 'Enter your age' : null;
+                      return age == null || age < 1
+                          ? 'Geçerli bir yaş girin'
+                          : null;
                     },
                   ),
                   const SizedBox(height: 20),
@@ -164,7 +168,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.person_add_alt_1),
-                    label: const Text('Register'),
+                    label: const Text('Kayıt Ol'),
                   ),
                 ],
               ),
@@ -178,16 +182,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _validatePassword(String? value) {
     final password = value ?? '';
     if (password.length < 8) {
-      return 'Use at least 8 characters';
+      return 'En az 8 karakter kullanın';
     }
     if (!RegExp(r'[A-Z]').hasMatch(password)) {
-      return 'Add at least one uppercase letter';
+      return 'En az bir büyük harf ekleyin';
     }
     if (!RegExp(r'[0-9]').hasMatch(password)) {
-      return 'Add at least one number';
+      return 'En az bir rakam ekleyin';
     }
     if (!RegExp(r'[!@#$%^&*(),.?":{}|<>_\-+=;]').hasMatch(password)) {
-      return 'Add at least one special character';
+      return 'En az bir özel karakter ekleyin';
     }
     return null;
   }
@@ -215,9 +219,9 @@ class _PasswordStrengthIndicator extends StatelessWidget {
       _ => Theme.of(context).colorScheme.primary,
     };
     final label = switch (score) {
-      0 || 1 => 'Weak',
-      2 || 3 => 'Getting stronger',
-      _ => 'Strong',
+      0 || 1 => 'Zayıf',
+      2 || 3 => 'Güçleniyor',
+      _ => 'Güçlü',
     };
 
     return Column(
@@ -231,7 +235,7 @@ class _PasswordStrengthIndicator extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          '$label password: 8+ chars, uppercase, number, special character',
+          '$label parola: 8+ karakter, büyük harf, rakam ve özel karakter',
           style: TextStyle(color: color, fontSize: 12),
         ),
       ],

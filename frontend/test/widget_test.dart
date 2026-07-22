@@ -1,15 +1,102 @@
-import 'package:flutter_test/flutter_test.dart';
-
 import 'package:ecovision/main.dart';
+import 'package:ecovision/models/user_profile.dart';
+import 'package:ecovision/screens/login_screen.dart';
+import 'package:ecovision/screens/onboarding_screen.dart';
+import 'package:ecovision/services/api_service.dart';
+import 'package:ecovision/theme/theme_controller.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('EcoVision app starts at login', (WidgetTester tester) async {
+  testWidgets('uygulama ilk açılışta doğrudan giriş ekranını gösterir', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const EcoVisionApp());
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('Welcome to EcoVision'), findsOneWidget);
-    expect(find.text('Login'), findsOneWidget);
-    expect(find.text('Continue with Google'), findsOneWidget);
-    expect(find.text('Create an account'), findsOneWidget);
+    expect(find.text("EcoVision'a Hoş Geldin"), findsOneWidget);
+    expect(find.text('Giriş Yap'), findsOneWidget);
+    expect(find.text('Google ile Devam Et'), findsOneWidget);
+    expect(find.text('Hesap Oluştur'), findsOneWidget);
+    expect(find.text('Merhaba Kahraman! 🌍'), findsNothing);
   });
+
+  test('onboarding tercihi her kullanıcı için ayrı saklanır', () async {
+    SharedPreferences.setMockInitialValues({});
+
+    expect(await OnboardingScreen.hasSeenForUser(41), isFalse);
+    expect(await OnboardingScreen.hasSeenForUser(72), isFalse);
+
+    await OnboardingScreen.markSeenForUser(41);
+
+    expect(await OnboardingScreen.hasSeenForUser(41), isTrue);
+    expect(await OnboardingScreen.hasSeenForUser(72), isFalse);
+    expect(OnboardingScreen.preferenceKey(41), 'hasSeenOnboarding_41');
+  });
+
+  testWidgets('ilk giriş başarılı olunca hesap hikâyeye yönlendirilir', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final apiService = _LoginApiService();
+    final themeController = ThemeController();
+
+    await tester.pumpWidget(
+      ThemeScope(
+        controller: themeController,
+        child: MaterialApp(home: LoginScreen(apiService: apiService)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byType(TextFormField).at(0),
+      'kahraman@ecovision.test',
+    );
+    await tester.enterText(find.byType(TextFormField).at(1), 'Test123!');
+    await tester.tap(find.text('Giriş Yap'));
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+
+    expect(find.text('Merhaba Kahraman! 🌍'), findsOneWidget);
+    expect(await OnboardingScreen.hasSeenForUser(314), isFalse);
+
+    for (var page = 0; page < 3; page++) {
+      await tester.drag(find.byType(PageView), const Offset(-700, 0));
+      await tester.pump(const Duration(milliseconds: 600));
+    }
+    expect(find.text('Hemen Başla'), findsOneWidget);
+
+    await tester.tap(find.text('Hemen Başla'));
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(await OnboardingScreen.hasSeenForUser(314), isTrue);
+    expect(find.text('Tarayıcı'), findsOneWidget);
+  });
+}
+
+class _LoginApiService extends ApiService {
+  static const _user = UserProfile(
+    id: 314,
+    name: 'Dünya',
+    surname: 'Kahramanı',
+    email: 'kahraman@ecovision.test',
+    totalPoints: 0,
+    role: 'USER',
+    city: 'Şanlıurfa',
+    ownedMarketItems: {},
+  );
+
+  @override
+  UserProfile? get currentUser => _user;
+
+  @override
+  Future<void> loadStoredSession() async {}
+
+  @override
+  Future<bool> login({required String email, required String password}) async {
+    return true;
+  }
 }

@@ -5,6 +5,7 @@ class ScanResult {
     required this.decayYears,
     required this.recycledInto,
     required this.scannedAt,
+    this.pointsAwarded = 0,
   });
 
   final String material;
@@ -12,6 +13,7 @@ class ScanResult {
   final String decayYears;
   final String recycledInto;
   final DateTime scannedAt;
+  final int pointsAwarded;
 
   factory ScanResult.fromJson(Map<String, dynamic> json) {
     return ScanResult(
@@ -27,6 +29,9 @@ class ScanResult {
       scannedAt: json['scannedAt'] == null
           ? DateTime.now()
           : DateTime.tryParse(json['scannedAt'].toString()) ?? DateTime.now(),
+      pointsAwarded:
+          (json['points_awarded'] as num? ?? json['pointsAwarded'] as num? ?? 0)
+              .toInt(),
     );
   }
 
@@ -37,6 +42,7 @@ class ScanResult {
       'decay_years': decayYears,
       'recycled_into': recycledInto,
       'scanned_at': scannedAt.toIso8601String(),
+      'points_awarded': pointsAwarded,
     };
   }
 

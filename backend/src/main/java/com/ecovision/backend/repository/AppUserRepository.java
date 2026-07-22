@@ -3,15 +3,26 @@ package com.ecovision.backend.repository;
 import com.ecovision.backend.model.AppUser;
 import jakarta.persistence.LockModeType;
 import java.util.Optional;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface AppUserRepository extends JpaRepository<AppUser, Long> {
+    @EntityGraph(attributePaths = "ownedMarketItems")
     Optional<AppUser> findByEmail(String email);
 
+    @Override
+    @EntityGraph(attributePaths = "ownedMarketItems")
+    List<AppUser> findAll();
+
     boolean existsByEmail(String email);
+
+    List<AppUser> findByCityIgnoreCaseOrderByTotalPointsDescNameAsc(String city);
+
+    List<AppUser> findByCityIgnoreCase(String city);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select user from AppUser user where user.id = :id")

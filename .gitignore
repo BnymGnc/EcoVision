@@ -9,6 +9,7 @@ frontend/build/
 
 # Spring Boot / Java build outputs
 backend/target/
+backend/*.log
 *.jar
 !backend/.mvn/wrapper/maven-wrapper.jar
 *.class

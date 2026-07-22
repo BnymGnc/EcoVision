@@ -48,7 +48,7 @@ public class FileStorageService {
 
             return publicBaseUrl + "/uploads/" + folder + "/" + fileName;
         } catch (IOException exception) {
-            throw new IllegalStateException("Could not store upload", exception);
+            throw new IllegalStateException("Yüklenen dosya kaydedilemedi", exception);
         }
     }
 }

@@ -7,16 +7,26 @@ import '../services/api_service.dart';
 import '../services/tflite_service.dart';
 import '../widgets/eco_lottie.dart';
 import 'result_screen.dart';
+import '../widgets/notification_bell.dart';
+import 'missions_screen.dart';
+import 'eco_market_screen.dart';
+import 'avatar_evolution_screen.dart';
+import 'education_guide_screen.dart';
+import 'leaderboard_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.apiService,
     required this.onOpenMap,
+    this.notificationCount = 0,
+    this.onNotifications,
     super.key,
   });
 
   final ApiService apiService;
   final VoidCallback onOpenMap;
+  final int notificationCount;
+  final VoidCallback? onNotifications;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -26,7 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ImagePicker _imagePicker = ImagePicker();
   final TfliteService _tfliteService = TfliteService();
   bool _isScanning = false;
-  String _scanStatus = 'Analyzing locally...';
+  String _scanStatus = 'Cihazda analiz ediliyor...';
 
   @override
   void dispose() {
@@ -48,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {
         _isScanning = true;
-        _scanStatus = 'Analyzing locally...';
+        _scanStatus = 'Cihazda analiz ediliyor...';
       });
       final detectedClass = await _tfliteService.runModelOnImage(image.path);
 
@@ -56,8 +66,13 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      setState(() => _scanStatus = 'Claiming points...');
+      setState(() => _scanStatus = 'Puanlar işleniyor...');
+      final previousPoints = widget.apiService.pointsListenable.value;
       final result = await widget.apiService.claimScanPoints(detectedClass);
+      final currentPoints = widget.apiService.pointsListenable.value;
+      final earnedBadge =
+          (previousPoints == 0 && currentPoints > 0) ||
+          (previousPoints < 50 && currentPoints >= 50);
 
       if (!mounted) {
         return;
@@ -66,8 +81,11 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _isScanning = false);
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) =>
-              ResultScreen(result: result, onFindBins: widget.onOpenMap),
+          builder: (_) => ResultScreen(
+            result: result,
+            onFindBins: widget.onOpenMap,
+            earnedBadge: earnedBadge,
+          ),
         ),
       );
     } catch (error) {
@@ -76,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Could not analyze this image. ${error.toString()}'),
+          content: Text('Görüntü analiz edilemedi. ${error.toString()}'),
         ),
       );
     } finally {
@@ -94,8 +112,13 @@ class _HomeScreenState extends State<HomeScreen> {
           appBar: AppBar(
             title: const Text('EcoVision'),
             actions: [
+              if (widget.onNotifications != null)
+                NotificationBell(
+                  count: widget.notificationCount,
+                  onPressed: widget.onNotifications!,
+                ),
               IconButton(
-                tooltip: 'Open recycling bins',
+                tooltip: 'Geri dönüşüm kutularını aç',
                 onPressed: widget.onOpenMap,
                 icon: const Icon(Icons.map_outlined),
               ),
@@ -114,7 +137,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? null
                       : () => _pickAndAnalyze(ImageSource.camera),
                   icon: const Icon(Icons.photo_camera_outlined),
-                  label: const Text('Take Photo'),
+                  label: const Text('Fotoğraf Çek'),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
@@ -122,15 +145,118 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? null
                       : () => _pickAndAnalyze(ImageSource.gallery),
                   icon: const Icon(Icons.photo_library_outlined),
-                  label: const Text('Upload Gallery'),
+                  label: const Text('Galeriden Seç'),
                 ),
                 const SizedBox(height: 24),
+                _EcoCenter(apiService: widget.apiService),
+                const SizedBox(height: 18),
                 const _HowItWorksCard(),
               ],
             ),
           ),
         ),
         if (_isScanning) _ScanningOverlay(message: _scanStatus),
+      ],
+    );
+  }
+}
+
+class _EcoCenter extends StatelessWidget {
+  const _EcoCenter({required this.apiService});
+  final ApiService apiService;
+  @override
+  Widget build(BuildContext context) {
+    final actions = [
+      (
+        'Görevlerim',
+        Icons.flag_outlined,
+        () => MissionsScreen(
+          points: apiService.pointsListenable.value,
+          apiService: apiService,
+        ),
+      ),
+      (
+        'Eco-Market',
+        Icons.storefront_outlined,
+        () => EcoMarketScreen(apiService: apiService),
+      ),
+      (
+        'Avatar Yolu',
+        Icons.account_tree_outlined,
+        () => AvatarEvolutionScreen(apiService: apiService),
+      ),
+      (
+        'Atık Rehberi',
+        Icons.menu_book_outlined,
+        () => const EducationGuideScreen(),
+      ),
+      (
+        'Liderlik',
+        Icons.leaderboard_outlined,
+        () => LeaderboardScreen(apiService: apiService),
+      ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Eco Merkezi',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 10),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: actions.length,
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 220,
+            mainAxisExtent: 92,
+            crossAxisSpacing: 9,
+            mainAxisSpacing: 9,
+          ),
+          itemBuilder: (context, index) {
+            final item = actions[index];
+            return Material(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(8),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(builder: (_) => item.$3()),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        item.$2,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(height: 7),
+                      Text(
+                        item.$1,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
       ],
     );
   }
@@ -149,7 +275,7 @@ class _HeroPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: colorScheme.primary.withValues(alpha: 0.12)),
       ),
@@ -176,7 +302,7 @@ class _HeroPanel extends StatelessWidget {
                 builder: (context, points, _) {
                   return Chip(
                     avatar: const Icon(Icons.stars_rounded, size: 18),
-                    label: Text('$points pts'),
+                    label: Text('$points puan'),
                   );
                 },
               ),
@@ -184,16 +310,17 @@ class _HeroPanel extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            'Scan waste. Learn its impact. Earn greener habits.',
+            'Atığı tara. Etkisini öğren. Doğa için puan kazan.',
             style: textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF16351D),
             ),
           ),
           const SizedBox(height: 10),
           Text(
-            'Use your camera or gallery to classify materials and find nearby recycling bins.',
-            style: textTheme.bodyLarge?.copyWith(color: Colors.black54),
+            'Kamera veya galeriyi kullanarak malzemeyi tanı ve yakındaki geri dönüşüm kutularını bul.',
+            style: textTheme.bodyLarge?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -213,7 +340,7 @@ class _HowItWorksCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Today\'s loop',
+              'Bugünün Döngüsü',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
@@ -221,19 +348,18 @@ class _HowItWorksCard extends StatelessWidget {
             const SizedBox(height: 14),
             const _StepRow(
               icon: Icons.center_focus_strong_outlined,
-              title: 'Capture',
-              subtitle: 'Take or upload a clear photo of one item.',
+              title: 'Görüntüle',
+              subtitle: 'Tek bir atığın net fotoğrafını çek veya yükle.',
             ),
             const _StepRow(
               icon: Icons.psychology_alt_outlined,
-              title: 'Understand',
-              subtitle: 'The on-device model identifies the waste material.',
+              title: 'Tanı',
+              subtitle: 'Cihazdaki model atık malzemesini belirler.',
             ),
             _StepRow(
               icon: Icons.add_location_alt_outlined,
-              title: 'Recycle',
-              subtitle:
-                  'Earn ${AppConstants.pointsPerScan} points and find a nearby bin.',
+              title: 'Geri Dönüştür',
+              subtitle: 'Malzemeye göre puan kazan ve yakındaki kutuyu bul.',
             ),
           ],
         ),
@@ -273,7 +399,12 @@ class _StepRow extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 2),
-                Text(subtitle, style: const TextStyle(color: Colors.black54)),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ],
             ),
           ),
@@ -312,7 +443,7 @@ class _ScanningOverlay extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text('Keeping the scan private on this device.'),
+                const Text('Tarama bu cihazda gizli tutuluyor.'),
               ],
             ),
           ),

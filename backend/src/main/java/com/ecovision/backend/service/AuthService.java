@@ -14,6 +14,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDate;
+import java.time.ZoneId;
 
 @Service
 public class AuthService {
@@ -21,23 +23,26 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final NotificationService notificationService;
 
     public AuthService(
             AppUserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            AuthenticationManager authenticationManager
+            AuthenticationManager authenticationManager,
+            NotificationService notificationService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
+        this.notificationService = notificationService;
     }
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
-            throw new IllegalArgumentException("Email is already registered");
+            throw new IllegalArgumentException("Bu e-posta adresi zaten kayıtlı");
         }
 
         AppUser user = new AppUser();
@@ -46,20 +51,26 @@ public class AuthService {
         user.setEmail(request.email().trim().toLowerCase());
         user.setPassword(passwordEncoder.encode(request.password()));
         user.setAge(request.age());
+        user.setCity(normalizeCity(request.city()));
         user.setTotalPoints(0);
         user.setRole(Role.USER);
+        user.setLastLoginDate(today());
 
         AppUser saved = userRepository.save(user);
         return response(saved);
     }
 
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         String email = request.email().trim().toLowerCase();
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(email, request.password())
         );
         AppUser user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Kullanıcı bulunamadı"));
+        user.setLastLoginDate(today());
+        userRepository.save(user);
+        notificationService.notifyStreakRisk(user);
         return response(user);
     }
 
@@ -70,11 +81,13 @@ public class AuthService {
                     AppUser newUser = new AppUser();
                     newUser.setEmail(request.email().trim().toLowerCase());
                     newUser.setName(defaultText(request.name(), "Google"));
-                    newUser.setSurname(defaultText(request.surname(), "User"));
+                    newUser.setSurname(defaultText(request.surname(), "Kullanıcı"));
                     newUser.setPassword(passwordEncoder.encode("GOOGLE:" + request.idToken().hashCode()));
                     newUser.setProfilePictureUrl(request.profilePictureUrl());
+                    newUser.setCity(AppUser.DEFAULT_CITY);
                     newUser.setTotalPoints(0);
                     newUser.setRole(Role.USER);
+                    newUser.setLastLoginDate(today());
                     return userRepository.save(newUser);
                 });
 
@@ -82,6 +95,9 @@ public class AuthService {
             user.setProfilePictureUrl(request.profilePictureUrl());
         }
 
+        user.setLastLoginDate(today());
+        userRepository.save(user);
+        notificationService.notifyStreakRisk(user);
         return response(user);
     }
 
@@ -91,5 +107,13 @@ public class AuthService {
 
     private String defaultText(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private String normalizeCity(String city) {
+        return city == null || city.isBlank() ? AppUser.DEFAULT_CITY : city.trim();
+    }
+
+    private LocalDate today() {
+        return LocalDate.now(ZoneId.of("Europe/Istanbul"));
     }
 }

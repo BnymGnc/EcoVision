@@ -6,11 +6,19 @@ import '../core/constants.dart';
 import '../models/map_pin.dart';
 import '../services/api_service.dart';
 import '../services/location_service.dart';
+import '../widgets/notification_bell.dart';
 
 class MapScreen extends StatefulWidget {
-  const MapScreen({required this.apiService, super.key});
+  const MapScreen({
+    required this.apiService,
+    this.notificationCount = 0,
+    this.onNotifications,
+    super.key,
+  });
 
   final ApiService apiService;
+  final int notificationCount;
+  final VoidCallback? onNotifications;
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -90,18 +98,18 @@ class _MapScreenState extends State<MapScreen> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: const Text('Add Official Recycling Bin'),
+        title: const Text('Resmî Geri Dönüşüm Kutusu Ekle'),
         content: Text(
-          'Create a verified bin at ${point.latitude.toStringAsFixed(5)}, ${point.longitude.toStringAsFixed(5)}?',
+          '${point.latitude.toStringAsFixed(5)}, ${point.longitude.toStringAsFixed(5)} konumuna doğrulanmış kutu eklensin mi?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Vazgeç'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Add Bin'),
+            child: const Text('Kutu Ekle'),
           ),
         ],
       ),
@@ -114,7 +122,7 @@ class _MapScreenState extends State<MapScreen> {
     setState(() => _isAddingPin = true);
     try {
       final pin = await widget.apiService.addOfficialMapPin(
-        title: 'Official Recycling Bin',
+        title: 'Resmî Geri Dönüşüm Kutusu',
         latitude: point.latitude,
         longitude: point.longitude,
       );
@@ -169,31 +177,31 @@ class _MapScreenState extends State<MapScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Nearest bin filters',
+                        'En Yakın Kutu Filtreleri',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(height: 16),
-                      const Text('Radius'),
+                      const Text('Yarıçap'),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
                         children: [
                           radiusChip('1 km', 1),
                           radiusChip('5 km', 5),
-                          radiusChip('Unlimited', null),
+                          radiusChip('Sınırsız', null),
                         ],
                       ),
                       const SizedBox(height: 18),
-                      const Text('Limit'),
+                      const Text('Sınır'),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
                         children: [
                           limitChip('3', 3),
                           limitChip('5', 5),
-                          limitChip('Unlimited', null),
+                          limitChip('Sınırsız', null),
                         ],
                       ),
                       const SizedBox(height: 22),
@@ -204,7 +212,7 @@ class _MapScreenState extends State<MapScreen> {
                             context,
                           ).pop((radiusKm: tempRadius, limit: tempLimit)),
                           icon: const Icon(Icons.filter_alt_outlined),
-                          label: const Text('Apply Filters'),
+                          label: const Text('Filtreleri Uygula'),
                         ),
                       ),
                     ],
@@ -227,9 +235,9 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   String get _radiusLabel =>
-      _radiusKm == null ? 'All distances' : '${_radiusKm!.round()} km';
+      _radiusKm == null ? 'Tüm uzaklıklar' : '${_radiusKm!.round()} km';
 
-  String get _limitLabel => _limit == null ? 'All bins' : 'Top $_limit';
+  String get _limitLabel => _limit == null ? 'Tüm kutular' : 'İlk $_limit';
 
   @override
   Widget build(BuildContext context) {
@@ -237,15 +245,20 @@ class _MapScreenState extends State<MapScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Recycling Bins'),
+        title: const Text('Geri Dönüşüm Kutuları'),
         actions: [
+          if (widget.onNotifications != null)
+            NotificationBell(
+              count: widget.notificationCount,
+              onPressed: widget.onNotifications!,
+            ),
           IconButton(
-            tooltip: 'Filter nearest bins',
+            tooltip: 'En yakın kutuları filtrele',
             onPressed: _isLoading ? null : _openFilterSheet,
             icon: const Icon(Icons.filter_alt_outlined),
           ),
           IconButton(
-            tooltip: 'Refresh pins',
+            tooltip: 'Konumları yenile',
             onPressed: _isLoading ? null : _loadMap,
             icon: const Icon(Icons.refresh),
           ),
@@ -278,7 +291,9 @@ class _MapScreenState extends State<MapScreen> {
                       MarkerLayer(markers: _buildMarkers(location)),
                       const RichAttributionWidget(
                         attributions: [
-                          TextSourceAttribution('OpenStreetMap contributors'),
+                          TextSourceAttribution(
+                            'OpenStreetMap katkıda bulunanları',
+                          ),
                         ],
                       ),
                     ],
@@ -379,13 +394,13 @@ class _PinList extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-      decoration: const BoxDecoration(color: Colors.white),
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Nearest recycling bins',
+            'En Yakın Geri Dönüşüm Kutuları',
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -393,9 +408,11 @@ class _PinList extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             canAddPins
-                ? 'Long-press the map to add a verified bin.'
-                : 'Verified locations added by EcoVision admins.',
-            style: const TextStyle(color: Colors.black54),
+                ? 'Doğrulanmış kutu eklemek için haritaya basılı tut.'
+                : 'EcoVision yöneticilerinin doğruladığı konumlar.',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 10),
           Wrap(
@@ -413,14 +430,14 @@ class _PinList extends StatelessWidget {
               ),
               ActionChip(
                 avatar: const Icon(Icons.tune_outlined, size: 18),
-                label: const Text('Filters'),
+                label: const Text('Filtreler'),
                 onPressed: onFilter,
               ),
             ],
           ),
           const SizedBox(height: 12),
           if (pins.isEmpty)
-            const Text('No official bins match these filters yet.')
+            const Text('Bu filtrelere uygun resmî kutu bulunamadı.')
           else
             for (final pin in pins)
               _PinTile(
@@ -467,8 +484,10 @@ class _PinTile extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 Text(
-                  'Added by ${pin.createdByName}',
-                  style: const TextStyle(color: Colors.black54),
+                  '${pin.createdByName} tarafından eklendi',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),

@@ -1,0 +1,9 @@
+package com.ecovision.backend.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record BroadcastRequest(
+        @NotBlank @Size(max = 140) String title,
+        @NotBlank @Size(max = 1000) String message
+) {}

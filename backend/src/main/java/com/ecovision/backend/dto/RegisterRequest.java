@@ -12,9 +12,10 @@ public record RegisterRequest(
         @Email @NotBlank String email,
         @Pattern(
                 regexp = "^(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*(),.?\\\":{}|<>_\\-+=;]).{8,}$",
-                message = "must be at least 8 characters and include uppercase, number, and special character"
+                message = "en az 8 karakter, bir büyük harf, bir rakam ve bir özel karakter içermelidir"
         )
         @Size(min = 6) String password,
-        @Min(1) Integer age
+        @Min(1) Integer age,
+        String city
 ) {
 }
