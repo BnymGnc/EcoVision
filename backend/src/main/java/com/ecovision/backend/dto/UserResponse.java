@@ -7,6 +7,7 @@ import java.time.Instant;
 
 public record UserResponse(
         Long id,
+        String username,
         String name,
         String surname,
         String email,
@@ -25,11 +26,13 @@ public record UserResponse(
         boolean banned,
         Instant suspendedUntil,
         String role,
+        String profileVisibility,
         Set<String> ownedMarketItems
 ) {
     public static UserResponse from(AppUser user) {
         return new UserResponse(
                 user.getId(),
+                user.getPublicUsername(),
                 user.getName(),
                 user.getSurname(),
                 user.getEmail(),
@@ -48,6 +51,7 @@ public record UserResponse(
                 user.isBanned(),
                 user.getSuspendedUntil(),
                 user.getRole().name(),
+                user.getProfileVisibility().name(),
                 Set.copyOf(user.getOwnedMarketItems())
         );
     }

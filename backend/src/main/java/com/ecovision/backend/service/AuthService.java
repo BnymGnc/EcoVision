@@ -24,19 +24,22 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final NotificationService notificationService;
+    private final UsernameService usernameService;
 
     public AuthService(
             AppUserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             AuthenticationManager authenticationManager,
-            NotificationService notificationService
+            NotificationService notificationService,
+            UsernameService usernameService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
         this.notificationService = notificationService;
+        this.usernameService = usernameService;
     }
 
     @Transactional
@@ -49,6 +52,7 @@ public class AuthService {
         user.setName(request.name());
         user.setSurname(request.surname());
         user.setEmail(request.email().trim().toLowerCase());
+        user.setPublicUsername(usernameService.createUnique(request.username(), user.getEmail()));
         user.setPassword(passwordEncoder.encode(request.password()));
         user.setAge(request.age());
         user.setCity(normalizeCity(request.city()));
@@ -80,6 +84,7 @@ public class AuthService {
                 .orElseGet(() -> {
                     AppUser newUser = new AppUser();
                     newUser.setEmail(request.email().trim().toLowerCase());
+                    newUser.setPublicUsername(usernameService.createUnique(null, newUser.getEmail()));
                     newUser.setName(defaultText(request.name(), "Google"));
                     newUser.setSurname(defaultText(request.surname(), "Kullanıcı"));
                     newUser.setPassword(passwordEncoder.encode("GOOGLE:" + request.idToken().hashCode()));

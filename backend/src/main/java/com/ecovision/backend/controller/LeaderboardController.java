@@ -26,4 +26,9 @@ public class LeaderboardController {
     public List<CityLeaderboardEntry> cityLeaderboard() {
         return leaderboardService.cityLeaderboard(currentUserService.currentUser());
     }
+
+    @GetMapping("/friends")
+    public List<CityLeaderboardEntry> friendsLeaderboard() {
+        return leaderboardService.friendsLeaderboard(currentUserService.currentUser());
+    }
 }

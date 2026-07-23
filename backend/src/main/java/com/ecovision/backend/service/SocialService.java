@@ -4,6 +4,7 @@ import com.ecovision.backend.dto.*;
 import com.ecovision.backend.model.*;
 import com.ecovision.backend.repository.*;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,13 +39,46 @@ public class SocialService {
         if (!current.getId().equals(userId)) ageGate.requireAdult(current);
         AppUser target = user(userId);
         Friendship friendship = friendships.findBetween(current.getId(), userId).orElse(null);
-        return new PublicProfileResponse(target.getId(), target.getName() + " " + target.getSurname(),
+        boolean detailsVisible = current.getId().equals(userId)
+                || target.getProfileVisibility() == ProfileVisibility.PUBLIC
+                || isAccepted(friendship);
+        if (!current.getId().equals(userId)) {
+            if (!target.isAdult()) {
+                throw new IllegalArgumentException("Kullanıcı bulunamadı");
+            }
+        }
+        return new PublicProfileResponse(target.getId(), target.getPublicUsername(),
+                target.getName() + " " + target.getSurname(),
                 target.getProfilePictureUrl(), target.getCity(), target.getEquippedAvatarLevel(),
-                target.getTotalPoints(), target.getLifetimePoints(), target.getStreakCount(),
+                detailsVisible ? target.getTotalPoints() : 0,
+                detailsVisible ? target.getLifetimePoints() : 0,
+                detailsVisible ? target.getStreakCount() : 0,
                 likes.countByLikedUserId(userId), likes.existsByLikerIdAndLikedUserId(current.getId(), userId),
                 friendship == null ? null : friendship.getStatus().name(),
                 friendship == null ? null : friendship.getId(),
-                blocks.existsByBlockerIdAndBlockedUserId(current.getId(), userId), badges.getBadges(userId));
+                blocks.existsByBlockerIdAndBlockedUserId(current.getId(), userId),
+                target.getProfileVisibility().name(), detailsVisible,
+                detailsVisible ? badges.getBadges(userId) : List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public UserDiscoveryResponse searchByExactUsername(AppUser current, String username) {
+        ageGate.requireAdult(current);
+        String normalized = username == null ? "" : username.trim().toLowerCase(Locale.ROOT);
+        if (normalized.isBlank()) {
+            throw new IllegalArgumentException("Kullanıcı adı gereklidir");
+        }
+        AppUser target = users.findByPublicUsername(normalized)
+                .filter(AppUser::isAdult)
+                .orElseThrow(() -> new IllegalArgumentException("Kullanıcı bulunamadı"));
+        if (!current.getId().equals(target.getId())
+                && blockedEitherWay(current.getId(), target.getId())) {
+            throw new IllegalArgumentException("Kullanıcı bulunamadı");
+        }
+        Friendship friendship = current.getId().equals(target.getId())
+                ? null
+                : friendships.findBetween(current.getId(), target.getId()).orElse(null);
+        return UserDiscoveryResponse.from(target, friendship);
     }
 
     @Transactional
@@ -72,7 +106,11 @@ public class SocialService {
         if (existing != null && existing.getStatus() != FriendshipStatus.REJECTED) return FriendRequestResponse.from(existing);
         Friendship friendship = existing == null ? new Friendship() : existing;
         friendship.setRequester(current); friendship.setAddressee(target); friendship.setStatus(FriendshipStatus.PENDING);
-        return FriendRequestResponse.from(friendships.save(friendship));
+        friendship.setRespondedAt(null);
+        Friendship saved = friendships.save(friendship);
+        notifications.notifyUser(target, "Yeni arkadaşlık isteği",
+                current.getName() + " sana arkadaşlık isteği gönderdi.", NotificationType.SOCIAL);
+        return FriendRequestResponse.from(saved);
     }
 
     @Transactional
@@ -81,7 +119,36 @@ public class SocialService {
         Friendship friendship = friendships.findById(requestId).orElseThrow(() -> new IllegalArgumentException("Arkadaşlık isteği bulunamadı"));
         if (!friendship.getAddressee().getId().equals(current.getId())) throw new IllegalArgumentException("Bu isteği kabul edemezsiniz");
         friendship.setStatus(FriendshipStatus.ACCEPTED); friendship.setRespondedAt(Instant.now());
+        Friendship saved = friendships.save(friendship);
+        notifications.notifyUser(saved.getRequester(), "Arkadaşlık isteğin kabul edildi",
+                current.getName() + " artık arkadaşın.", NotificationType.SOCIAL);
+        return FriendRequestResponse.from(saved);
+    }
+
+    @Transactional
+    public FriendRequestResponse rejectFriend(AppUser current, Long requestId) {
+        ageGate.requireAdult(current);
+        Friendship friendship = friendships.findById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Arkadaşlık isteği bulunamadı"));
+        if (!friendship.getAddressee().getId().equals(current.getId())
+                || friendship.getStatus() != FriendshipStatus.PENDING) {
+            throw new IllegalArgumentException("Bu istek reddedilemez");
+        }
+        friendship.setStatus(FriendshipStatus.REJECTED);
+        friendship.setRespondedAt(Instant.now());
         return FriendRequestResponse.from(friendships.save(friendship));
+    }
+
+    @Transactional
+    public SocialActionResponse removeFriend(AppUser current, Long targetId) {
+        requireOther(current, targetId);
+        Friendship friendship = friendships.findBetween(current.getId(), targetId)
+                .orElseThrow(() -> new IllegalArgumentException("Arkadaşlık bulunamadı"));
+        if (friendship.getStatus() != FriendshipStatus.ACCEPTED) {
+            throw new IllegalArgumentException("Kullanıcı arkadaş listenizde değil");
+        }
+        friendships.delete(friendship);
+        return new SocialActionResponse(true, "Arkadaşlık kaldırıldı");
     }
 
     @Transactional(readOnly = true)
@@ -160,5 +227,6 @@ public class SocialService {
     private Event event(Long id) { return events.findById(id).orElseThrow(() -> new IllegalArgumentException("Grup bulunamadı")); }
     private void requireOther(AppUser current, Long id) { ageGate.requireAdult(current); if (current.getId().equals(id)) throw new IllegalArgumentException("Kendi profilinizde bu işlem yapılamaz"); }
     private boolean blockedEitherWay(Long a, Long b) { return blocks.existsByBlockerIdAndBlockedUserId(a,b) || blocks.existsByBlockerIdAndBlockedUserId(b,a); }
+    private boolean isAccepted(Friendship friendship) { return friendship != null && friendship.getStatus() == FriendshipStatus.ACCEPTED; }
     private void requireGroupAdmin(AppUser current, Long eventId) { if (members.findByEventIdAndUserId(eventId, current.getId()).map(m -> m.getRole() == GroupRole.ADMIN).orElse(false) == false) throw new IllegalArgumentException("Yalnızca grup yöneticileri davet gönderebilir"); }
 }

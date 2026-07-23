@@ -5,6 +5,7 @@ import com.ecovision.backend.model.AppUser;
 public record CityLeaderboardEntry(
         int rank,
         Long userId,
+        String username,
         String fullName,
         String city,
         Integer totalPoints,
@@ -19,6 +20,7 @@ public record CityLeaderboardEntry(
         return new CityLeaderboardEntry(
                 rank,
                 user.getId(),
+                user.getPublicUsername(),
                 (user.getName() + " " + user.getSurname()).trim(),
                 user.getCity(),
                 user.getTotalPoints(),

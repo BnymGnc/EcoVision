@@ -5,11 +5,14 @@ import com.ecovision.backend.dto.ScanAnalysisResponse;
 import com.ecovision.backend.dto.ScanRequest;
 import com.ecovision.backend.dto.ScanResponse;
 import com.ecovision.backend.model.AppUser;
+import com.ecovision.backend.model.AvatarTier;
 import com.ecovision.backend.model.ScanHistory;
+import com.ecovision.backend.model.QuestTriggerType;
 import com.ecovision.backend.model.WasteMaterial;
 import com.ecovision.backend.repository.AppUserRepository;
 import com.ecovision.backend.repository.ScanHistoryRepository;
 import java.util.List;
+import java.util.Map;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -25,15 +28,21 @@ public class ScanService {
     private final ScanHistoryRepository scanHistoryRepository;
     private final AppUserRepository userRepository;
     private final BadgeService badgeService;
+    private final GroupActivityMessageService groupActivityMessages;
+    private final QuestEventPublisher questEvents;
 
     public ScanService(
             ScanHistoryRepository scanHistoryRepository,
             AppUserRepository userRepository,
-            BadgeService badgeService
+            BadgeService badgeService,
+            GroupActivityMessageService groupActivityMessages,
+            QuestEventPublisher questEvents
     ) {
         this.scanHistoryRepository = scanHistoryRepository;
         this.userRepository = userRepository;
         this.badgeService = badgeService;
+        this.groupActivityMessages = groupActivityMessages;
+        this.questEvents = questEvents;
     }
 
     public List<ScanResponse> getScans(AppUser user) {
@@ -71,6 +80,7 @@ public class ScanService {
         String prediction = detectedClass == null ? "" : detectedClass.trim();
         WasteMaterial material = WasteMaterial.detect(prediction);
         int points = material.points();
+        AvatarTier previousTier = AvatarTier.highestUnlocked(user.getLifetimePoints());
 
         ScanHistory scan = new ScanHistory();
         scan.setUser(user);
@@ -88,7 +98,50 @@ public class ScanService {
         ScanHistory saved = scanHistoryRepository.save(scan);
         scanHistoryRepository.flush();
         badgeService.evaluateAfterScan(user);
+        AvatarTier currentTier = AvatarTier.highestUnlocked(user.getLifetimePoints());
+        if (currentTier.level() > previousTier.level()) {
+            groupActivityMessages.publishLevel(user, currentTier);
+        }
+        publishQuestEvents(user, material);
         return saved;
+    }
+
+    private void publishQuestEvents(AppUser user, WasteMaterial material) {
+        Map<String, Object> scanAttributes = Map.of(
+                "action", "scan",
+                "wasteType", material.name().toLowerCase(),
+                "wasteCategory", material.name().toLowerCase()
+        );
+        questEvents.publish(
+                user.getId(),
+                QuestTriggerType.SCAN_SPECIFIC_WASTE,
+                1,
+                scanAttributes
+        );
+        questEvents.publish(
+                user.getId(),
+                QuestTriggerType.TIME_BASED,
+                1,
+                scanAttributes
+        );
+        questEvents.publish(
+                user.getId(),
+                QuestTriggerType.STREAK_DAYS,
+                user.getStreakCount(),
+                Map.of(
+                        "metric", "streak_days",
+                        "value", user.getStreakCount()
+                )
+        );
+        questEvents.publish(
+                user.getId(),
+                QuestTriggerType.REACH_SCORE,
+                user.getTotalPoints(),
+                Map.of(
+                        "metric", "total_points",
+                        "value", user.getTotalPoints()
+                )
+        );
     }
 
     private void updateStreak(AppUser user) {

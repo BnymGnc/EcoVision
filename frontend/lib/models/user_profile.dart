@@ -8,6 +8,8 @@ class UserProfile {
     required this.role,
     required this.city,
     required this.ownedMarketItems,
+    this.username = '',
+    this.profileVisibility = 'PUBLIC',
     this.district = '',
     this.neighborhood = '',
     this.equippedAvatarLevel = 1,
@@ -24,10 +26,12 @@ class UserProfile {
 
   final int id;
   final String name;
+  final String username;
   final String surname;
   final String email;
   final int totalPoints;
   final String role;
+  final String profileVisibility;
   final String city;
   final String district;
   final String neighborhood;
@@ -50,6 +54,7 @@ class UserProfile {
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
       id: (json['id'] as num).toInt(),
+      username: (json['username'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
       surname: (json['surname'] ?? '').toString(),
       email: (json['email'] ?? '').toString(),
@@ -57,6 +62,7 @@ class UserProfile {
       profilePictureUrl: json['profilePictureUrl']?.toString(),
       totalPoints: (json['totalPoints'] as num? ?? 0).toInt(),
       role: (json['role'] ?? 'USER').toString(),
+      profileVisibility: (json['profileVisibility'] ?? 'PUBLIC').toString(),
       city: (json['city'] ?? 'Şanlıurfa').toString(),
       district: (json['district'] ?? '').toString(),
       neighborhood: (json['neighborhood'] ?? '').toString(),

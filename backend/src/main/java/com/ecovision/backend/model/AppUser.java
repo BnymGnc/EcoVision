@@ -42,6 +42,9 @@ public class AppUser implements UserDetails {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @Column(name = "username", unique = true, length = 30)
+    private String publicUsername;
+
     @Column(nullable = false)
     private String password;
 
@@ -81,6 +84,14 @@ public class AppUser implements UserDetails {
     @Column(nullable = false)
     private Role role = Role.USER;
 
+    @Enumerated(EnumType.STRING)
+    @Column(
+            name = "profile_visibility",
+            nullable = false,
+            columnDefinition = "varchar(20) default 'PUBLIC'"
+    )
+    private ProfileVisibility profileVisibility = ProfileVisibility.PUBLIC;
+
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(
             name = "user_market_items",
@@ -95,6 +106,9 @@ public class AppUser implements UserDetails {
     @PrePersist
     void prePersist() {
         createdAt = Instant.now();
+        if (profileVisibility == null) {
+            profileVisibility = ProfileVisibility.PUBLIC;
+        }
     }
 
     public Long getId() {
@@ -127,6 +141,14 @@ public class AppUser implements UserDetails {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getPublicUsername() {
+        return publicUsername;
+    }
+
+    public void setPublicUsername(String publicUsername) {
+        this.publicUsername = publicUsername;
     }
 
     @Override
@@ -231,6 +253,14 @@ public class AppUser implements UserDetails {
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    public ProfileVisibility getProfileVisibility() {
+        return profileVisibility == null ? ProfileVisibility.PUBLIC : profileVisibility;
+    }
+
+    public void setProfileVisibility(ProfileVisibility profileVisibility) {
+        this.profileVisibility = profileVisibility;
     }
 
     public Set<String> getOwnedMarketItems() {

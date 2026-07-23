@@ -16,6 +16,11 @@ public record RegisterRequest(
         )
         @Size(min = 6) String password,
         @Min(1) Integer age,
-        String city
+        String city,
+        @Pattern(
+                regexp = "^[a-z0-9_]{3,30}$",
+                message = "3-30 karakter olmalı ve yalnızca küçük harf, rakam veya alt çizgi içermelidir"
+        )
+        String username
 ) {
 }

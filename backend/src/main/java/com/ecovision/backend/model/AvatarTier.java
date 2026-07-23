@@ -41,6 +41,13 @@ public enum AvatarTier {
                 .orElseThrow(() -> new IllegalArgumentException("Avatar seviyesi 1 ile 20 arasında olmalıdır"));
     }
 
+    public static AvatarTier highestUnlocked(int lifetimePoints) {
+        return Arrays.stream(values())
+                .filter(tier -> tier.requiredLifetimePoints <= lifetimePoints)
+                .reduce((first, second) -> second)
+                .orElse(LEVEL_1);
+    }
+
     public int level() {
         return level;
     }

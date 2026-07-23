@@ -16,6 +16,8 @@ import com.ecovision.backend.repository.ScanHistoryRepository;
 import com.ecovision.backend.repository.ProfileLikeRepository;
 import com.ecovision.backend.repository.UserBadgeRepository;
 import com.ecovision.backend.repository.AppNotificationRepository;
+import com.ecovision.backend.repository.ChatMessageRepository;
+import com.ecovision.backend.repository.EventMemberRepository;
 import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class ScanServiceTest {
@@ -35,6 +38,9 @@ class ScanServiceTest {
     @Mock private ProfileLikeRepository profileLikeRepository;
     @Mock private UserBadgeRepository userBadgeRepository;
     @Mock private AppNotificationRepository notificationRepository;
+    @Mock private ChatMessageRepository chatMessageRepository;
+    @Mock private EventMemberRepository eventMemberRepository;
+    @Mock private ApplicationEventPublisher applicationEventPublisher;
 
     private ScanService scanService;
     private AppUser user;
@@ -42,8 +48,22 @@ class ScanServiceTest {
     @BeforeEach
     void setUp() {
         NotificationService notificationService = new NotificationService(notificationRepository, userRepository);
-        BadgeService badgeService = new BadgeService(userBadgeRepository, scanHistoryRepository, profileLikeRepository, notificationService);
-        scanService = new ScanService(scanHistoryRepository, userRepository, badgeService);
+        GroupActivityMessageService groupActivityMessageService =
+                new GroupActivityMessageService(eventMemberRepository, chatMessageRepository);
+        BadgeService badgeService = new BadgeService(
+                userBadgeRepository,
+                scanHistoryRepository,
+                profileLikeRepository,
+                notificationService,
+                groupActivityMessageService
+        );
+        scanService = new ScanService(
+                scanHistoryRepository,
+                userRepository,
+                badgeService,
+                groupActivityMessageService,
+                new QuestEventPublisher(applicationEventPublisher)
+        );
         user = new AppUser();
         user.setTotalPoints(0);
         user.setLifetimePoints(0);

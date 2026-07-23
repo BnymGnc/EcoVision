@@ -2,10 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../core/constants.dart';
 import '../services/api_service.dart';
 import '../services/tflite_service.dart';
-import '../widgets/eco_lottie.dart';
+import '../widgets/premium_ui.dart';
 import 'result_screen.dart';
 import '../widgets/notification_bell.dart';
 import 'missions_screen.dart';
@@ -46,6 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _pickAndAnalyze(ImageSource source) async {
     try {
+      await EcoHaptics.light();
       final image = await _imagePicker.pickImage(
         source: source,
         maxWidth: 1600,
@@ -78,6 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
+      await EcoHaptics.heavy();
       setState(() => _isScanning = false);
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -119,7 +120,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               IconButton(
                 tooltip: 'Geri dönüşüm kutularını aç',
-                onPressed: widget.onOpenMap,
+                onPressed: () {
+                  EcoHaptics.light();
+                  widget.onOpenMap();
+                },
                 icon: const Icon(Icons.map_outlined),
               ),
             ],
@@ -223,10 +227,13 @@ class _EcoCenter extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               child: InkWell(
                 borderRadius: BorderRadius.circular(8),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(builder: (_) => item.$3()),
-                ),
+                onTap: () {
+                  EcoHaptics.light();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(builder: (_) => item.$3()),
+                  );
+                },
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -414,41 +421,185 @@ class _StepRow extends StatelessWidget {
   }
 }
 
-class _ScanningOverlay extends StatelessWidget {
+class _ScanningOverlay extends StatefulWidget {
   const _ScanningOverlay({required this.message});
 
   final String message;
 
   @override
+  State<_ScanningOverlay> createState() => _ScanningOverlayState();
+}
+
+class _ScanningOverlayState extends State<_ScanningOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1650),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: Colors.black.withValues(alpha: 0.32),
-      child: Center(
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const EcoLottie(
-                  url: AppConstants.loadingLottieUrl,
-                  fallbackIcon: Icons.eco_outlined,
-                  size: 132,
+    final accent = Theme.of(context).colorScheme.primary;
+    return Material(
+      color: Colors.black.withValues(alpha: 0.88),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
+          child: Column(
+            children: [
+              const Text(
+                'EcoVision Yerel AI',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  message,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Görüntü cihazından ayrılmadan analiz ediliyor',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70),
+              ),
+              const Spacer(),
+              AspectRatio(
+                aspectRatio: 0.82,
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Stack(
+                    children: [
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: _ScannerFramePainter(color: accent),
+                        ),
+                      ),
+                      AnimatedBuilder(
+                        animation: _controller,
+                        builder: (context, _) => Positioned(
+                          left: 24,
+                          right: 24,
+                          top:
+                              32 +
+                              _controller.value * (constraints.maxHeight - 64),
+                          child: Container(
+                            height: 3,
+                            decoration: BoxDecoration(
+                              color: accent,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: accent.withValues(alpha: 0.9),
+                                  blurRadius: 16,
+                                  spreadRadius: 3,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const Center(
+                        child: Icon(
+                          Icons.recycling_rounded,
+                          color: Colors.white24,
+                          size: 84,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 6),
-                const Text('Tarama bu cihazda gizli tutuluyor.'),
-              ],
-            ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: accent,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        widget.message == 'Cihazda analiz ediliyor...'
+                            ? 'AI Analiz Ediyor...'
+                            : widget.message,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+}
+
+class _ScannerFramePainter extends CustomPainter {
+  const _ScannerFramePainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    const length = 44.0;
+    final paths = <Path>[
+      Path()
+        ..moveTo(0, length)
+        ..lineTo(0, 0)
+        ..lineTo(length, 0),
+      Path()
+        ..moveTo(size.width - length, 0)
+        ..lineTo(size.width, 0)
+        ..lineTo(size.width, length),
+      Path()
+        ..moveTo(size.width, size.height - length)
+        ..lineTo(size.width, size.height)
+        ..lineTo(size.width - length, size.height),
+      Path()
+        ..moveTo(length, size.height)
+        ..lineTo(0, size.height)
+        ..lineTo(0, size.height - length),
+    ];
+    for (final path in paths) {
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScannerFramePainter oldDelegate) =>
+      oldDelegate.color != color;
 }

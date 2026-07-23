@@ -13,9 +13,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.MediaType;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -99,15 +101,49 @@ public class ChatService {
 
     @Transactional
     public ChatMessageResponse sendImage(AppUser sender, Long eventId, MultipartFile image) {
+        return sendAttachment(sender, eventId, image);
+    }
+
+    @Transactional
+    public ChatMessageResponse sendAttachment(
+            AppUser sender,
+            Long eventId,
+            MultipartFile file
+    ) {
         requireMember(sender, eventId);
-        if (image == null || image.isEmpty()) throw new IllegalArgumentException("Bir fotoğraf seçmelisiniz");
-        if (image.getSize() > 2L * 1024 * 1024) throw new IllegalArgumentException("Fotoğraf 2 MB'den küçük olmalıdır");
-        String contentType = image.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) throw new IllegalArgumentException("Yalnızca fotoğraf yüklenebilir");
-        Event event = eventRepository.findById(eventId).orElseThrow(() -> new IllegalArgumentException("Grup bulunamadı"));
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Bir fotoğraf veya PDF seçmelisiniz");
+        }
+        if (file.getSize() > 2L * 1024 * 1024) {
+            throw new IllegalArgumentException("Ek dosya 2 MB'den küçük olmalıdır");
+        }
+        String contentType = file.getContentType() == null
+                ? "application/octet-stream"
+                : file.getContentType().toLowerCase(Locale.ROOT);
+        String originalName = file.getOriginalFilename() == null
+                ? "dosya"
+                : file.getOriginalFilename();
+        boolean image = contentType.startsWith("image/");
+        boolean pdf = contentType.equals(MediaType.APPLICATION_PDF_VALUE)
+                || originalName.toLowerCase(Locale.ROOT).endsWith(".pdf");
+        if (!image && !pdf) {
+            throw new IllegalArgumentException("Yalnızca fotoğraf veya PDF yüklenebilir");
+        }
+
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("Grup bulunamadı"));
         ChatMessage message = new ChatMessage();
-        message.setEvent(event); message.setSender(sender); message.setMessage("");
-        message.setImageUrl(fileStorageService.store(image, "chat"));
+        message.setEvent(event);
+        message.setSender(sender);
+        message.setMessage("");
+        message.setFileName(originalName);
+        message.setContentType(image ? contentType : MediaType.APPLICATION_PDF_VALUE);
+        String url = fileStorageService.store(file, "chat");
+        if (image) {
+            message.setImageUrl(url);
+        } else {
+            message.setFileUrl(url);
+        }
         return ChatMessageResponse.from(chatMessageRepository.save(message));
     }
 

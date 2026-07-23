@@ -2,6 +2,7 @@ package com.ecovision.backend.service;
 
 import com.ecovision.backend.dto.ChangePasswordRequest;
 import com.ecovision.backend.dto.UpdateProfileRequest;
+import com.ecovision.backend.dto.ProfileVisibilityRequest;
 import com.ecovision.backend.dto.UserResponse;
 import com.ecovision.backend.model.AppUser;
 import com.ecovision.backend.repository.AppUserRepository;
@@ -15,15 +16,18 @@ public class ProfileService {
     private final AppUserRepository userRepository;
     private final FileStorageService fileStorageService;
     private final PasswordEncoder passwordEncoder;
+    private final UsernameService usernameService;
 
     public ProfileService(
             AppUserRepository userRepository,
             FileStorageService fileStorageService,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            UsernameService usernameService
     ) {
         this.userRepository = userRepository;
         this.fileStorageService = fileStorageService;
         this.passwordEncoder = passwordEncoder;
+        this.usernameService = usernameService;
     }
 
     @Transactional
@@ -42,6 +46,21 @@ public class ProfileService {
         user.setCity(request.city().trim());
         user.setDistrict(request.district().trim());
         user.setNeighborhood(request.neighborhood().trim());
+        if (request.username() != null && !request.username().isBlank()) {
+            user.setPublicUsername(
+                    usernameService.validateForUpdate(user.getId(), request.username())
+            );
+        }
+        return UserResponse.from(userRepository.save(user));
+    }
+
+    @Transactional
+    public UserResponse updateVisibility(
+            AppUser currentUser,
+            ProfileVisibilityRequest request
+    ) {
+        AppUser user = lockUser(currentUser.getId());
+        user.setProfileVisibility(request.visibility());
         return UserResponse.from(userRepository.save(user));
     }
 

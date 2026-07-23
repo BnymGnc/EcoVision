@@ -9,6 +9,7 @@ import '../services/api_service.dart';
 import 'event_chat_screen.dart';
 import 'public_profile_screen.dart';
 import '../widgets/notification_bell.dart';
+import '../widgets/premium_ui.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({
@@ -28,11 +29,14 @@ class _CommunityScreenState extends State<CommunityScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
   final _search = TextEditingController();
+  final _userSearch = TextEditingController();
   Timer? _debounce;
   late Future<List<CleanupEvent>> _groups;
   late Future<List<SocialUser>> _friends;
   late Future<List<FriendRequest>> _requests;
   late Future<List<GroupInviteModel>> _invites;
+  UserDiscovery? _discoveredUser;
+  bool _searchingUser = false;
 
   @override
   void initState() {
@@ -45,6 +49,7 @@ class _CommunityScreenState extends State<CommunityScreen>
   void dispose() {
     _tabs.dispose();
     _search.dispose();
+    _userSearch.dispose();
     _debounce?.cancel();
     super.dispose();
   }
@@ -62,6 +67,7 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   Future<void> _join(CleanupEvent event) async {
+    await EcoHaptics.light();
     String? code;
     if (event.privateGroup && !event.isJoined) {
       final controller = TextEditingController();
@@ -110,6 +116,38 @@ class _CommunityScreenState extends State<CommunityScreen>
     }
   }
 
+  Future<void> _searchUser() async {
+    final username = _userSearch.text.trim();
+    if (username.isEmpty) return;
+    await EcoHaptics.light();
+    setState(() {
+      _searchingUser = true;
+      _discoveredUser = null;
+    });
+    try {
+      final user = await widget.apiService.searchUserByUsername(username);
+      if (mounted) setState(() => _discoveredUser = user);
+    } catch (error) {
+      if (mounted) _showError(error);
+    } finally {
+      if (mounted) setState(() => _searchingUser = false);
+    }
+  }
+
+  Future<void> _openProfile(int userId) async {
+    if (userId <= 0) return;
+    await EcoHaptics.light();
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            PublicProfileScreen(apiService: widget.apiService, userId: userId),
+      ),
+    );
+    if (mounted) _reload();
+  }
+
   void _showError(Object error) {
     if (mounted)
       ScaffoldMessenger.of(
@@ -139,7 +177,10 @@ class _CommunityScreenState extends State<CommunityScreen>
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openCreateGroup(),
+        onPressed: () {
+          EcoHaptics.light();
+          _openCreateGroup();
+        },
         icon: const Icon(Icons.group_add_outlined),
         label: const Text('Grup Kur'),
       ),
@@ -210,13 +251,43 @@ class _CommunityScreenState extends State<CommunityScreen>
     child: ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
+        TextField(
+          controller: _userSearch,
+          textInputAction: TextInputAction.search,
+          autocorrect: false,
+          onSubmitted: (_) => _searchUser(),
+          decoration: InputDecoration(
+            hintText: 'Tam kullanıcı adıyla arkadaş ara',
+            prefixIcon: const Icon(Icons.alternate_email_rounded),
+            suffixIcon: IconButton(
+              tooltip: 'Kullanıcıyı ara',
+              onPressed: _searchingUser ? null : _searchUser,
+              icon: const Icon(Icons.search_rounded),
+            ),
+          ),
+        ),
+        if (_searchingUser) ...[
+          const SizedBox(height: 12),
+          const EcoShimmerList(itemCount: 1, padding: EdgeInsets.zero),
+        ],
+        if (_discoveredUser != null) ...[
+          const SizedBox(height: 12),
+          _DiscoveryCard(
+            user: _discoveredUser!,
+            onTap: () => _openProfile(_discoveredUser!.id),
+          ),
+        ],
+        const SizedBox(height: 24),
         const _SectionTitle('Arkadaşlık İstekleri'),
         FutureBuilder<List<FriendRequest>>(
           future: _requests,
           builder: (context, snapshot) {
             final requests = snapshot.data ?? const [];
             if (snapshot.connectionState == ConnectionState.waiting)
-              return const LinearProgressIndicator();
+              return const EcoShimmerList(
+                itemCount: 2,
+                padding: EdgeInsets.zero,
+              );
             if (requests.isEmpty)
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 18),
@@ -229,18 +300,40 @@ class _CommunityScreenState extends State<CommunityScreen>
                       leading: _Avatar(user: request.requester),
                       title: Text(request.requester.fullName),
                       subtitle: Text(request.requester.city),
-                      trailing: FilledButton(
-                        onPressed: () async {
-                          try {
-                            await widget.apiService.acceptFriendRequest(
-                              request.id,
-                            );
-                            _reload();
-                          } catch (e) {
-                            _showError(e);
-                          }
-                        },
-                        child: const Text('Kabul Et'),
+                      trailing: Wrap(
+                        spacing: 4,
+                        children: [
+                          IconButton(
+                            tooltip: 'Reddet',
+                            onPressed: () async {
+                              await EcoHaptics.light();
+                              try {
+                                await widget.apiService.rejectFriendRequest(
+                                  request.id,
+                                );
+                                _reload();
+                              } catch (e) {
+                                _showError(e);
+                              }
+                            },
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                          IconButton.filled(
+                            tooltip: 'Kabul Et',
+                            onPressed: () async {
+                              await EcoHaptics.light();
+                              try {
+                                await widget.apiService.acceptFriendRequest(
+                                  request.id,
+                                );
+                                _reload();
+                              } catch (e) {
+                                _showError(e);
+                              }
+                            },
+                            icon: const Icon(Icons.check_rounded),
+                          ),
+                        ],
                       ),
                     ),
                   )
@@ -267,15 +360,7 @@ class _CommunityScreenState extends State<CommunityScreen>
               children: friends
                   .map(
                     (friend) => ListTile(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => PublicProfileScreen(
-                            apiService: widget.apiService,
-                            userId: friend.id,
-                          ),
-                        ),
-                      ),
+                      onTap: () => _openProfile(friend.id),
                       leading: _Avatar(user: friend),
                       title: Text(friend.fullName),
                       subtitle: Text(
@@ -357,11 +442,8 @@ class _CommunityScreenState extends State<CommunityScreen>
     ),
   );
 
-  void _openCreateGroup() => showModalBottomSheet<void>(
+  void _openCreateGroup() => showEcoGlassSheet<void>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    showDragHandle: true,
     builder: (_) =>
         _CreateGroupSheet(apiService: widget.apiService, onCreated: _reload),
   );
@@ -470,6 +552,7 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const EcoSheetHandle(),
             Text(
               'Yeni Temizlik Grubu',
               style: Theme.of(
@@ -671,6 +754,39 @@ class _Avatar extends StatelessWidget {
   );
 }
 
+class _DiscoveryCard extends StatelessWidget {
+  const _DiscoveryCard({required this.user, required this.onTap});
+  final UserDiscovery user;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GlassPanel(
+    tint: Theme.of(context).colorScheme.primaryContainer,
+    child: ListTile(
+      contentPadding: EdgeInsets.zero,
+      onTap: onTap,
+      leading: CircleAvatar(
+        backgroundImage: user.profilePictureUrl == null
+            ? null
+            : NetworkImage(user.profilePictureUrl!),
+        child: user.profilePictureUrl == null
+            ? Text(user.fullName.isEmpty ? 'E' : user.fullName[0])
+            : null,
+      ),
+      title: Text(
+        user.fullName,
+        style: const TextStyle(fontWeight: FontWeight.w900),
+      ),
+      subtitle: Text('@${user.username} • ${user.city}'),
+      trailing: Icon(
+        user.profileVisibility == 'FRIENDS_ONLY'
+            ? Icons.lock_outline_rounded
+            : Icons.chevron_right_rounded,
+      ),
+    ),
+  );
+}
+
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
   final String text;
@@ -689,10 +805,8 @@ class _SectionTitle extends StatelessWidget {
 class _Loading extends StatelessWidget {
   const _Loading();
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.all(48),
-    child: Center(child: CircularProgressIndicator()),
-  );
+  Widget build(BuildContext context) =>
+      const EcoShimmerList(itemCount: 4, padding: EdgeInsets.zero);
 }
 
 class _Empty extends StatelessWidget {

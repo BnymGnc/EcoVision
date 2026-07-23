@@ -6,12 +6,14 @@ class LeaderboardEntry {
     required this.city,
     required this.totalPoints,
     required this.currentUser,
+    this.username = '',
     this.profilePictureUrl,
   });
 
   final int rank;
   final int userId;
   final String fullName;
+  final String username;
   final String city;
   final int totalPoints;
   final String? profilePictureUrl;
@@ -21,6 +23,7 @@ class LeaderboardEntry {
     return LeaderboardEntry(
       rank: (json['rank'] as num).toInt(),
       userId: (json['userId'] as num).toInt(),
+      username: (json['username'] ?? '').toString(),
       fullName: (json['fullName'] ?? 'EcoVision User').toString(),
       city: (json['city'] ?? 'Şanlıurfa').toString(),
       totalPoints: (json['totalPoints'] as num? ?? 0).toInt(),

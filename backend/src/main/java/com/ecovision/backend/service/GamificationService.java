@@ -25,13 +25,16 @@ public class GamificationService {
 
     private final AppUserRepository userRepository;
     private final GamificationActionRepository actionRepository;
+    private final GroupActivityMessageService groupActivityMessages;
 
     public GamificationService(
             AppUserRepository userRepository,
-            GamificationActionRepository actionRepository
+            GamificationActionRepository actionRepository,
+            GroupActivityMessageService groupActivityMessages
     ) {
         this.userRepository = userRepository;
         this.actionRepository = actionRepository;
+        this.groupActivityMessages = groupActivityMessages;
     }
 
     @Transactional(readOnly = true)
@@ -64,7 +67,7 @@ public class GamificationService {
     }
 
     @Transactional
-    public GamificationResponse completeCarbonFootprint(AppUser currentUser, int score) {
+    public GamificationResponse completeCarbonFootprint(AppUser currentUser, int annualKg) {
         AppUser user = lockUser(currentUser.getId());
         if (actionRepository.existsByUserIdAndActionKey(user.getId(), CARBON_MISSION_KEY)) {
             return response(
@@ -76,17 +79,23 @@ public class GamificationService {
             );
         }
 
+        AvatarTier previousTier = AvatarTier.highestUnlocked(user.getLifetimePoints());
         user.setTotalPoints(user.getTotalPoints() + CARBON_MISSION_POINTS);
         user.setLifetimePoints(user.getLifetimePoints() + CARBON_MISSION_POINTS);
         userRepository.save(user);
         saveAction(user, CARBON_MISSION_KEY, "MISSION", CARBON_MISSION_POINTS);
+        AvatarTier currentTier = AvatarTier.highestUnlocked(user.getLifetimePoints());
+        if (currentTier.level() > previousTier.level()) {
+            groupActivityMessages.publishLevel(user, currentTier);
+        }
 
         return response(
                 user,
                 actions(user),
                 CARBON_MISSION_POINTS,
                 "Karbon Bilinci",
-                "Karbon ayak izi görevi " + score + " puanla tamamlandı"
+                "Karbon ayak izi görevi yıllık " + annualKg
+                        + " kg CO2e sonucuyla tamamlandı"
         );
     }
 

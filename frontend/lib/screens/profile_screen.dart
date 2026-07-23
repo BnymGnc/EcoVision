@@ -5,6 +5,7 @@ import '../models/social_models.dart';
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_bell.dart';
+import '../widgets/premium_ui.dart';
 import 'scan_history_screen.dart';
 import 'settings_screen.dart';
 
@@ -52,11 +53,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _openSettings() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute<void>(
-        builder: (_) => SettingsScreen(apiService: widget.apiService),
-      ),
+    await showEcoGlassSheet<void>(
+      context: context,
+      builder: (_) =>
+          SettingsScreen(apiService: widget.apiService, embedded: true),
     );
     if (mounted) await _refresh();
   }
@@ -85,7 +85,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting)
-          return const Center(child: CircularProgressIndicator());
+          return const EcoShimmerList(
+            itemCount: 5,
+            showHeader: true,
+            padding: EdgeInsets.all(20),
+          );
         if (snapshot.hasError)
           return _Error(message: snapshot.error.toString(), onRetry: _refresh);
         final data = snapshot.requireData;
@@ -96,35 +100,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               _Persona(user: data.user),
               const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _Metric(
-                      icon: Icons.stars_rounded,
-                      value: '${data.user.totalPoints}',
-                      label: 'Eko Puan',
-                      color: Colors.amber.shade800,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _Metric(
-                      icon: Icons.local_fire_department_rounded,
-                      value: '${data.user.streakCount}',
-                      label: 'Günlük Seri',
-                      color: Colors.deepOrange.shade700,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _Metric(
-                      icon: Icons.workspace_premium_outlined,
-                      value: '${data.publicProfile.badges.length}',
-                      label: 'Rozet',
-                      color: Colors.teal.shade700,
-                    ),
-                  ),
-                ],
+              _EcoImpactDashboard(
+                points: data.user.totalPoints,
+                streak: data.user.streakCount,
+                badgeCount: data.publicProfile.badges.length,
               ),
               const SizedBox(height: 24),
               _Title(
@@ -295,6 +274,157 @@ class _Metric extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 11),
         ),
+      ],
+    ),
+  );
+}
+
+class _EcoImpactDashboard extends StatelessWidget {
+  const _EcoImpactDashboard({
+    required this.points,
+    required this.streak,
+    required this.badgeCount,
+  });
+
+  final int points;
+  final int streak;
+  final int badgeCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final co2 = points * 0.015;
+    final water = points * 0.05;
+    final items = points ~/ 10;
+    final colors = Theme.of(context).colorScheme;
+    return GlassPanel(
+      tint: colors.surfaceContainerLow,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.insights_rounded, color: colors.primary),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Eco-Etki',
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Wrap(
+                      spacing: 4,
+                      children: [
+                        Text(
+                          '$points',
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        const Text('Eko Puan'),
+                        Text('• $streak günlük seri • $badgeCount rozet'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 390;
+              final cards = [
+                _ImpactCard(
+                  icon: Icons.cloud_outlined,
+                  value: '${co2.toStringAsFixed(1)} kg',
+                  label: 'CO₂ önlendi',
+                  color: const Color(0xFF1F8A70),
+                ),
+                _ImpactCard(
+                  icon: Icons.water_drop_outlined,
+                  value: '${water.toStringAsFixed(1)} L',
+                  label: 'Su korundu',
+                  color: const Color(0xFF1976D2),
+                ),
+                _ImpactCard(
+                  icon: Icons.recycling_rounded,
+                  value: '$items',
+                  label: 'Atık ayrıştırıldı',
+                  color: const Color(0xFFE56B45),
+                ),
+              ];
+              if (compact) {
+                return Column(
+                  children: cards
+                      .map(
+                        (card) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: card,
+                        ),
+                      )
+                      .toList(),
+                );
+              }
+              return Row(
+                children: [
+                  for (var index = 0; index < cards.length; index++) ...[
+                    Expanded(child: cards[index]),
+                    if (index < cards.length - 1) const SizedBox(width: 8),
+                  ],
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImpactCard extends StatelessWidget {
+  const _ImpactCard({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 112,
+    padding: const EdgeInsets.all(11),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.11),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: color.withValues(alpha: 0.24)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: color),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+        ),
+        Text(label, maxLines: 2, style: const TextStyle(fontSize: 11)),
       ],
     ),
   );

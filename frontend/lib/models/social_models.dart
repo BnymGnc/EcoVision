@@ -20,17 +20,20 @@ class SocialUser {
     required this.fullName,
     required this.city,
     required this.avatarLevel,
+    this.username = '',
     this.profilePictureUrl,
     this.friendshipId,
   });
   final int id;
   final String fullName;
+  final String username;
   final String city;
   final int avatarLevel;
   final String? profilePictureUrl;
   final int? friendshipId;
   factory SocialUser.fromJson(Map<String, dynamic> json) => SocialUser(
     id: (json['id'] as num).toInt(),
+    username: (json['username'] ?? '').toString(),
     fullName: (json['fullName'] ?? '').toString(),
     city: (json['city'] ?? '').toString(),
     avatarLevel: (json['avatarLevel'] as num? ?? 1).toInt(),
@@ -51,12 +54,16 @@ class PublicProfile {
     required this.liked,
     required this.blocked,
     required this.badges,
+    this.username = '',
+    this.profileVisibility = 'PUBLIC',
+    this.detailsVisible = true,
     this.profilePictureUrl,
     this.friendshipStatus,
     this.friendshipId,
   });
   final int id;
   final String fullName;
+  final String username;
   final String city;
   final int avatarLevel;
   final int totalPoints;
@@ -68,8 +75,11 @@ class PublicProfile {
   final String? friendshipStatus;
   final int? friendshipId;
   final List<EcoBadge> badges;
+  final String profileVisibility;
+  final bool detailsVisible;
   factory PublicProfile.fromJson(Map<String, dynamic> json) => PublicProfile(
     id: (json['id'] as num).toInt(),
+    username: (json['username'] ?? '').toString(),
     fullName: (json['fullName'] ?? '').toString(),
     city: (json['city'] ?? '').toString(),
     avatarLevel: (json['avatarLevel'] as num? ?? 1).toInt(),
@@ -78,12 +88,50 @@ class PublicProfile {
     likeCount: (json['likeCount'] as num? ?? 0).toInt(),
     liked: json['likedByCurrentUser'] as bool? ?? false,
     blocked: json['blockedByCurrentUser'] as bool? ?? false,
+    profileVisibility: (json['profileVisibility'] ?? 'PUBLIC').toString(),
+    detailsVisible: json['detailsVisible'] as bool? ?? true,
     profilePictureUrl: json['profilePictureUrl']?.toString(),
     friendshipStatus: json['friendshipStatus']?.toString(),
     friendshipId: (json['friendshipId'] as num?)?.toInt(),
     badges: (json['badges'] as List? ?? const [])
         .map((e) => EcoBadge.fromJson(e as Map<String, dynamic>))
         .toList(),
+  );
+}
+
+class UserDiscovery {
+  const UserDiscovery({
+    required this.id,
+    required this.username,
+    required this.fullName,
+    required this.city,
+    required this.avatarLevel,
+    required this.profileVisibility,
+    this.profilePictureUrl,
+    this.friendshipId,
+    this.friendshipStatus,
+  });
+
+  final int id;
+  final String username;
+  final String fullName;
+  final String city;
+  final int avatarLevel;
+  final String profileVisibility;
+  final String? profilePictureUrl;
+  final int? friendshipId;
+  final String? friendshipStatus;
+
+  factory UserDiscovery.fromJson(Map<String, dynamic> json) => UserDiscovery(
+    id: (json['id'] as num).toInt(),
+    username: (json['username'] ?? '').toString(),
+    fullName: (json['fullName'] ?? '').toString(),
+    city: (json['city'] ?? '').toString(),
+    avatarLevel: (json['avatarLevel'] as num? ?? 1).toInt(),
+    profileVisibility: (json['profileVisibility'] ?? 'PUBLIC').toString(),
+    profilePictureUrl: json['profilePictureUrl']?.toString(),
+    friendshipId: (json['friendshipId'] as num?)?.toInt(),
+    friendshipStatus: json['friendshipStatus']?.toString(),
   );
 }
 

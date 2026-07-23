@@ -66,4 +66,15 @@ public class ChatController {
     public ChatMessageResponse sendImage(@PathVariable Long eventId, @RequestPart("image") MultipartFile image) {
         return chatService.sendImage(currentUserService.currentUser(), eventId, image);
     }
+
+    @PostMapping(
+            value = "/events/{eventId}/attachments",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ChatMessageResponse sendAttachment(
+            @PathVariable Long eventId,
+            @RequestPart("file") MultipartFile file
+    ) {
+        return chatService.sendAttachment(currentUserService.currentUser(), eventId, file);
+    }
 }

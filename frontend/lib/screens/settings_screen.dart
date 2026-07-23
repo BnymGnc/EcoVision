@@ -4,14 +4,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
 import '../theme/theme_controller.dart';
+import '../widgets/premium_ui.dart';
 import 'change_password_screen.dart';
 import 'edit_profile_screen.dart';
 import 'login_screen.dart';
 import 'superuser_dashboard_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({required this.apiService, super.key});
+  const SettingsScreen({
+    required this.apiService,
+    this.embedded = false,
+    super.key,
+  });
   final ApiService apiService;
+  final bool embedded;
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
@@ -19,7 +25,10 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   static const _missionKey = 'settings.mission_reminders',
       _communityKey = 'settings.community_updates';
-  bool _missions = true, _community = true, _uploading = false;
+  bool _missions = true,
+      _community = true,
+      _uploading = false,
+      _privateProfile = false;
   @override
   void initState() {
     super.initState();
@@ -32,6 +41,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _missions = p.getBool(_missionKey) ?? true;
         _community = p.getBool(_communityKey) ?? true;
+        _privateProfile =
+            widget.apiService.currentUser?.profileVisibility == 'FRIENDS_ONLY';
       });
   }
 
@@ -55,6 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _upload() async {
+    await EcoHaptics.light();
     final file = await ImagePicker().pickImage(
       source: ImageSource.gallery,
       maxWidth: 1400,
@@ -81,6 +93,205 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final user = widget.apiService.currentUser;
+    final content = ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      children: [
+        _Header(
+          name: user?.fullName ?? 'EcoVision Kullanıcısı',
+          email: user?.email ?? '',
+          picture: user?.profilePictureUrl,
+        ),
+        const SizedBox(height: 22),
+        const _Label('Hesap'),
+        _Group(
+          children: [
+            _Item(
+              icon: Icons.person_outline,
+              title: 'Profili Düzenle',
+              subtitle: 'Ad, yaş ve konum bilgileri',
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        EditProfileScreen(apiService: widget.apiService),
+                  ),
+                );
+                if (mounted) setState(() {});
+              },
+            ),
+            _Item(
+              icon: Icons.photo_camera_outlined,
+              title: 'Profil Fotoğrafı',
+              subtitle: _uploading ? 'Yükleniyor...' : 'Yeni fotoğraf seç',
+              onTap: _uploading ? null : _upload,
+            ),
+            _Item(
+              icon: Icons.lock_outline,
+              title: 'Parolayı Değiştir',
+              subtitle: 'Hesap güvenliğini güncelle',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      ChangePasswordScreen(apiService: widget.apiService),
+                ),
+              ),
+            ),
+            SwitchListTile(
+              secondary: const Icon(Icons.visibility_off_outlined),
+              title: const Text(
+                'Gizli Profil',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: const Text(
+                'Puan ve geçmişi yalnızca arkadaşların görsün',
+              ),
+              value: _privateProfile,
+              onChanged: (value) async {
+                await EcoHaptics.selection();
+                setState(() => _privateProfile = value);
+                try {
+                  await widget.apiService.updateProfileVisibility(
+                    value ? 'FRIENDS_ONLY' : 'PUBLIC',
+                  );
+                } catch (error) {
+                  if (!mounted) return;
+                  setState(() => _privateProfile = !value);
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(error.toString())));
+                }
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        const _Label('Görünüm ve Dil'),
+        _Group(
+          children: [
+            _Item(
+              icon: Icons.palette_outlined,
+              title: 'Tema Seçimi',
+              subtitle: ThemeScope.of(context).selected.label,
+              onTap: _themeSheet,
+            ),
+            _Item(
+              icon: Icons.language_rounded,
+              title: 'Dil',
+              subtitle: 'Türkçe',
+              onTap: _languageSheet,
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        const _Label('Bildirim Tercihleri'),
+        _Group(
+          children: [
+            SwitchListTile(
+              secondary: const Icon(Icons.flag_outlined),
+              title: const Text('Görev Hatırlatmaları'),
+              subtitle: const Text('Seri ve görev uyarıları'),
+              value: _missions,
+              onChanged: (v) {
+                EcoHaptics.selection();
+                setState(() => _missions = v);
+                _set(_missionKey, v);
+              },
+            ),
+            SwitchListTile(
+              secondary: const Icon(Icons.groups_outlined),
+              title: const Text('Topluluk Güncellemeleri'),
+              subtitle: const Text('Davetler ve şehir etkinlikleri'),
+              value: _community,
+              onChanged: (v) {
+                EcoHaptics.selection();
+                setState(() => _community = v);
+                _set(_communityKey, v);
+              },
+            ),
+          ],
+        ),
+        if (user?.isSuperuser ?? false) ...[
+          const SizedBox(height: 20),
+          Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.errorContainer,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.error.withAlpha(80),
+              ),
+            ),
+            child: ListTile(
+              leading: Icon(
+                Icons.admin_panel_settings_rounded,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: const Text(
+                'Superuser Dashboard',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              subtitle: const Text(
+                'Raporlar, yayınlar ve platform moderasyonu',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      SuperuserDashboardScreen(apiService: widget.apiService),
+                ),
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 20),
+        _Group(
+          children: [
+            _Item(
+              icon: Icons.logout_rounded,
+              title: 'Çıkış Yap',
+              subtitle: 'Bu cihazdaki oturumu kapat',
+              destructive: true,
+              onTap: _logout,
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const Center(
+          child: Text(
+            'EcoVision • Gizlilik odaklı yerel yapay zeka',
+            style: TextStyle(fontSize: 12),
+          ),
+        ),
+      ],
+    );
+    if (widget.embedded) {
+      return Column(
+        children: [
+          const EcoSheetHandle(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 8, 4),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Ayarlar',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Kapat',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          ),
+          Expanded(child: content),
+        ],
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -88,157 +299,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-        children: [
-          _Header(
-            name: user?.fullName ?? 'EcoVision Kullanıcısı',
-            email: user?.email ?? '',
-            picture: user?.profilePictureUrl,
-          ),
-          const SizedBox(height: 22),
-          const _Label('Hesap'),
-          _Group(
-            children: [
-              _Item(
-                icon: Icons.person_outline,
-                title: 'Profili Düzenle',
-                subtitle: 'Ad, yaş ve konum bilgileri',
-                onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          EditProfileScreen(apiService: widget.apiService),
-                    ),
-                  );
-                  if (mounted) setState(() {});
-                },
-              ),
-              _Item(
-                icon: Icons.photo_camera_outlined,
-                title: 'Profil Fotoğrafı',
-                subtitle: _uploading ? 'Yükleniyor...' : 'Yeni fotoğraf seç',
-                onTap: _uploading ? null : _upload,
-              ),
-              _Item(
-                icon: Icons.lock_outline,
-                title: 'Parolayı Değiştir',
-                subtitle: 'Hesap güvenliğini güncelle',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) =>
-                        ChangePasswordScreen(apiService: widget.apiService),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          const _Label('Görünüm ve Dil'),
-          _Group(
-            children: [
-              _Item(
-                icon: Icons.palette_outlined,
-                title: 'Tema Seçimi',
-                subtitle: ThemeScope.of(context).selected.label,
-                onTap: _themeSheet,
-              ),
-              _Item(
-                icon: Icons.language_rounded,
-                title: 'Dil',
-                subtitle: 'Türkçe',
-                onTap: _languageSheet,
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          const _Label('Bildirim Tercihleri'),
-          _Group(
-            children: [
-              SwitchListTile(
-                secondary: const Icon(Icons.flag_outlined),
-                title: const Text('Görev Hatırlatmaları'),
-                subtitle: const Text('Seri ve görev uyarıları'),
-                value: _missions,
-                onChanged: (v) {
-                  setState(() => _missions = v);
-                  _set(_missionKey, v);
-                },
-              ),
-              SwitchListTile(
-                secondary: const Icon(Icons.groups_outlined),
-                title: const Text('Topluluk Güncellemeleri'),
-                subtitle: const Text('Davetler ve şehir etkinlikleri'),
-                value: _community,
-                onChanged: (v) {
-                  setState(() => _community = v);
-                  _set(_communityKey, v);
-                },
-              ),
-            ],
-          ),
-          if (user?.isSuperuser ?? false) ...[
-            const SizedBox(height: 20),
-            Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.errorContainer,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.error.withAlpha(80),
-                ),
-              ),
-              child: ListTile(
-                leading: Icon(
-                  Icons.admin_panel_settings_rounded,
-                  color: Theme.of(context).colorScheme.error,
-                ),
-                title: const Text(
-                  'Superuser Dashboard',
-                  style: TextStyle(fontWeight: FontWeight.w900),
-                ),
-                subtitle: const Text(
-                  'Raporlar, yayınlar ve platform moderasyonu',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) =>
-                        SuperuserDashboardScreen(apiService: widget.apiService),
-                  ),
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 20),
-          _Group(
-            children: [
-              _Item(
-                icon: Icons.logout_rounded,
-                title: 'Çıkış Yap',
-                subtitle: 'Bu cihazdaki oturumu kapat',
-                destructive: true,
-                onTap: _logout,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Center(
-            child: Text(
-              'EcoVision • Gizlilik odaklı yerel yapay zeka',
-              style: TextStyle(fontSize: 12),
-            ),
-          ),
-        ],
-      ),
+      body: content,
     );
   }
 
-  Future<void> _themeSheet() => showModalBottomSheet<void>(
+  Future<void> _themeSheet() => showEcoGlassSheet<void>(
     context: context,
-    showDragHandle: true,
     builder: (context) {
       final controller = ThemeScope.of(context);
       return SafeArea(
@@ -248,6 +314,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const EcoSheetHandle(),
               Text(
                 'Tema Seçimi',
                 style: Theme.of(
@@ -279,15 +346,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     },
   );
-  Future<void> _languageSheet() => showModalBottomSheet<void>(
+  Future<void> _languageSheet() => showEcoGlassSheet<void>(
     context: context,
-    showDragHandle: true,
     builder: (context) => const SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(16, 0, 16, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            EcoSheetHandle(),
             ListTile(
               leading: Icon(Icons.check_circle),
               title: Text('Türkçe'),
@@ -404,7 +471,12 @@ class _Item extends StatelessWidget {
       ),
       subtitle: Text(subtitle),
       trailing: destructive ? null : const Icon(Icons.chevron_right),
-      onTap: onTap,
+      onTap: onTap == null
+          ? null
+          : () {
+              EcoHaptics.light();
+              onTap!();
+            },
     );
   }
 }

@@ -2,6 +2,7 @@ package com.ecovision.backend.service;
 
 import com.ecovision.backend.dto.UserResponse;
 import com.ecovision.backend.model.AppUser;
+import com.ecovision.backend.model.QuestTriggerType;
 import com.ecovision.backend.repository.AppUserRepository;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -17,9 +18,14 @@ public class MarketService {
     );
 
     private final AppUserRepository userRepository;
+    private final QuestEventPublisher questEvents;
 
-    public MarketService(AppUserRepository userRepository) {
+    public MarketService(
+            AppUserRepository userRepository,
+            QuestEventPublisher questEvents
+    ) {
         this.userRepository = userRepository;
+        this.questEvents = questEvents;
     }
 
     @Transactional
@@ -45,6 +51,21 @@ public class MarketService {
         } else {
             user.getOwnedMarketItems().add(itemId);
         }
-        return UserResponse.from(userRepository.save(user));
+        AppUser saved = userRepository.save(user);
+        questEvents.publish(
+                saved.getId(),
+                QuestTriggerType.BUY_MARKET_ITEM,
+                price,
+                Map.of(
+                        "action", "market_purchase",
+                        "itemId", itemId,
+                        "itemType", itemType(itemId)
+                )
+        );
+        return UserResponse.from(saved);
+    }
+
+    private String itemType(String itemId) {
+        return itemId.endsWith("_frame") ? "avatar_frame" : "consumable";
     }
 }

@@ -14,6 +14,9 @@ public interface EventMemberRepository extends JpaRepository<EventMember, Long> 
     @EntityGraph(attributePaths = "user")
     List<EventMember> findByEventIdOrderByJoinedAtAsc(Long eventId);
 
+    @EntityGraph(attributePaths = {"event", "user"})
+    List<EventMember> findByUserId(Long userId);
+
     long countByEventId(Long eventId);
 
     void deleteByEventId(Long eventId);

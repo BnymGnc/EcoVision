@@ -18,13 +18,16 @@ public class BadgeService {
     private final ScanHistoryRepository scanRepository;
     private final ProfileLikeRepository likeRepository;
     private final NotificationService notifications;
+    private final GroupActivityMessageService groupActivityMessages;
 
     public BadgeService(UserBadgeRepository badgeRepository, ScanHistoryRepository scanRepository,
-                        ProfileLikeRepository likeRepository, NotificationService notifications) {
+                        ProfileLikeRepository likeRepository, NotificationService notifications,
+                        GroupActivityMessageService groupActivityMessages) {
         this.badgeRepository = badgeRepository;
         this.scanRepository = scanRepository;
         this.likeRepository = likeRepository;
         this.notifications = notifications;
+        this.groupActivityMessages = groupActivityMessages;
     }
 
     @Transactional
@@ -54,5 +57,6 @@ public class BadgeService {
         badge.setBadgeType(type);
         badgeRepository.save(badge);
         notifications.notifyUser(user, "Yeni rozet kazandın", "Tebrikler! " + type.title() + " rozeti artık senin.", NotificationType.GAMIFICATION);
+        groupActivityMessages.publishBadge(user, type);
     }
 }

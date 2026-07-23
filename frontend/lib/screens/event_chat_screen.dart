@@ -1,14 +1,17 @@
 import 'dart:async';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as image_lib;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/chat_message.dart';
 import '../models/cleanup_event.dart';
 import '../models/group_mission.dart';
 import '../models/event_member.dart';
 import '../services/api_service.dart';
+import '../widgets/premium_ui.dart';
 import 'group_info_screen.dart';
 import 'public_profile_screen.dart';
 
@@ -38,6 +41,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
   bool _isSending = false;
   bool _isLoadingOlder = false;
   bool _hasMore = true;
+  bool _isTyping = false;
   Object? _error;
 
   @override
@@ -45,12 +49,20 @@ class _EventChatScreenState extends State<EventChatScreen> {
     super.initState();
     _loadMessages();
     _loadMissions();
+    _messageController.addListener(_onComposingChanged);
     unawaited(widget.apiService.markCommunityRead());
     _scrollController.addListener(_handleScroll);
     _timer = Timer.periodic(
       const Duration(seconds: 5),
       (_) => _loadMessages(silent: true),
     );
+  }
+
+  void _onComposingChanged() {
+    final typing = _messageController.text.trim().isNotEmpty;
+    if (typing != _isTyping && mounted) {
+      setState(() => _isTyping = typing);
+    }
   }
 
   @override
@@ -170,6 +182,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
   }
 
   Future<void> _pickAndSendImage() async {
+    await EcoHaptics.light();
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (picked == null) return;
     setState(() => _isSending = true);
@@ -201,6 +214,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
       if (!mounted) return;
       setState(() => _messages.add(message));
       _scrollToBottom();
+      await EcoHaptics.light();
     } catch (error) {
       if (mounted)
         ScaffoldMessenger.of(
@@ -211,32 +225,94 @@ class _EventChatScreenState extends State<EventChatScreen> {
     }
   }
 
-  void _showEmojis() {
-    const emojis = ['😀', '👏', '🌍', '♻️', '🌱', '💚', '🔥', '⭐', '🙌', '🥳'];
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Wrap(
-            spacing: 14,
-            runSpacing: 14,
-            children: emojis
-                .map(
-                  (emoji) => InkWell(
-                    onTap: () {
-                      _messageController.text += emoji;
-                      _messageController.selection = TextSelection.collapsed(
-                        offset: _messageController.text.length,
-                      );
-                      Navigator.pop(context);
-                    },
-                    child: Text(emoji, style: const TextStyle(fontSize: 30)),
-                  ),
-                )
-                .toList(),
+  Future<void> _pickAndSendDocument() async {
+    await EcoHaptics.light();
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['pdf'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.single;
+    final bytes = file.bytes;
+    if (bytes == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('PDF dosyası okunamadı.')));
+      }
+      return;
+    }
+    if (bytes.length > 2 * 1024 * 1024) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('PDF dosyası 2 MB’den küçük olmalıdır.'),
           ),
+        );
+      }
+      return;
+    }
+    setState(() => _isSending = true);
+    try {
+      final message = await widget.apiService.sendChatAttachment(
+        eventId: widget.event.id,
+        bytes: bytes,
+        fileName: file.name,
+        contentType: 'application/pdf',
+      );
+      if (!mounted) return;
+      setState(() => _messages.add(message));
+      _scrollToBottom();
+      await EcoHaptics.light();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  Future<void> _showAttachments() async {
+    await showEcoGlassSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const EcoSheetHandle(),
+            const ListTile(
+              title: Text(
+                'Sohbete Ekle',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20),
+              ),
+              subtitle: Text('Dosyalar en fazla 2 MB olabilir.'),
+            ),
+            ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.photo_outlined)),
+              title: const Text('Fotoğraf'),
+              subtitle: const Text('Otomatik olarak sıkıştırılır'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndSendImage();
+              },
+            ),
+            ListTile(
+              leading: const CircleAvatar(
+                child: Icon(Icons.picture_as_pdf_outlined),
+              ),
+              title: const Text('PDF Belgesi'),
+              subtitle: const Text('Dosyalardan bir PDF seç'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndSendDocument();
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
         ),
       ),
     );
@@ -246,10 +322,8 @@ class _EventChatScreenState extends State<EventChatScreen> {
     final titleController = TextEditingController();
     final targetController = TextEditingController(text: '500');
     final unitController = TextEditingController(text: 'şişe');
-    final created = await showModalBottomSheet<bool>(
+    final created = await showEcoGlassSheet<bool>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
       builder: (context) => Padding(
         padding: EdgeInsets.fromLTRB(
           20,
@@ -261,6 +335,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const EcoSheetHandle(),
             Text(
               'Grup Görevi Oluştur',
               style: Theme.of(
@@ -379,14 +454,14 @@ class _EventChatScreenState extends State<EventChatScreen> {
         widget.event.id,
       );
       if (!mounted) return;
-      await showModalBottomSheet<void>(
+      await showEcoGlassSheet<void>(
         context: context,
-        showDragHandle: true,
         builder: (context) => SafeArea(
           child: ListView(
             shrinkWrap: true,
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             children: [
+              const EcoSheetHandle(),
               Text(
                 'Grup Üyeleri',
                 style: Theme.of(
@@ -445,10 +520,8 @@ class _EventChatScreenState extends State<EventChatScreen> {
   Future<void> _createWasteReport() async {
     final countController = TextEditingController();
     String material = 'Plastik';
-    final submitted = await showModalBottomSheet<bool>(
+    final submitted = await showEcoGlassSheet<bool>(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
       builder: (context) => StatefulBuilder(
         builder: (context, setSheetState) => Padding(
           padding: EdgeInsets.fromLTRB(
@@ -461,6 +534,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const EcoSheetHandle(),
               Text(
                 'Grup Atık Raporu',
                 style: Theme.of(
@@ -534,6 +608,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
       return;
     }
 
+    await EcoHaptics.light();
     setState(() => _isSending = true);
     try {
       final message = await widget.apiService.sendMessage(
@@ -560,6 +635,24 @@ class _EventChatScreenState extends State<EventChatScreen> {
         );
       }
     }
+  }
+
+  Future<void> _openPublicProfile(int userId) async {
+    if (userId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bu kullanıcı profili açılamıyor.')),
+      );
+      return;
+    }
+    await EcoHaptics.light();
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            PublicProfileScreen(apiService: widget.apiService, userId: userId),
+      ),
+    );
   }
 
   void _scrollToBottom() {
@@ -700,12 +793,17 @@ class _EventChatScreenState extends State<EventChatScreen> {
                 child: _buildMessageArea(currentUserId),
               ),
             ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: _isTyping
+                  ? const _TypingIndicator(key: ValueKey('typing'))
+                  : const SizedBox.shrink(key: ValueKey('idle')),
+            ),
             _MessageComposer(
               controller: _messageController,
               isSending: _isSending,
               onSend: _send,
-              onImage: _pickAndSendImage,
-              onEmoji: _showEmojis,
+              onAttachment: _showAttachments,
             ),
           ],
         ),
@@ -715,7 +813,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
 
   Widget _buildMessageArea(int? currentUserId) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const EcoChatShimmer();
     }
     if (_error != null) {
       return _ChatState(
@@ -752,6 +850,9 @@ class _EventChatScreenState extends State<EventChatScreen> {
         }
         final messageIndex = index - (_isLoadingOlder ? 1 : 0);
         final message = _messages[messageIndex];
+        if (message.isSystem) {
+          return _SystemActivityMessage(message: message);
+        }
         final isMine = message.senderId == currentUserId;
         final showDate =
             messageIndex == 0 ||
@@ -762,15 +863,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
             _MessageRow(
               message: message,
               isMine: isMine,
-              onAvatar: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => PublicProfileScreen(
-                    apiService: widget.apiService,
-                    userId: message.senderId,
-                  ),
-                ),
-              ),
+              onAvatar: () => _openPublicProfile(message.senderId),
             ),
           ],
         );
@@ -882,6 +975,8 @@ class _MessageRow extends StatelessWidget {
                           ),
                         ),
                       ),
+                    if (message.hasDocument)
+                      _DocumentAttachment(message: message),
                     if (message.message.isNotEmpty)
                       Text(
                         message.message,
@@ -921,6 +1016,95 @@ class _MessageRow extends StatelessWidget {
   String _time(DateTime timestamp) {
     final local = timestamp.toLocal();
     return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _SystemActivityMessage extends StatelessWidget {
+  const _SystemActivityMessage({required this.message});
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: colors.secondaryContainer.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: colors.secondary.withValues(alpha: 0.2)),
+        ),
+        child: Text(
+          message.message,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: colors.onSecondaryContainer,
+            fontWeight: FontWeight.w800,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DocumentAttachment extends StatelessWidget {
+  const _DocumentAttachment({required this.message});
+  final ChatMessage message;
+
+  Future<void> _open(BuildContext context) async {
+    await EcoHaptics.light();
+    final uri = Uri.tryParse(message.fileUrl ?? '');
+    if (uri == null ||
+        !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('PDF dosyası açılamadı.')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: () => _open(context),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: 250,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colors.errorContainer.withValues(alpha: 0.58),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.picture_as_pdf_rounded, color: colors.error, size: 32),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    message.fileName ?? 'PDF Belgesi',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  const Text(
+                    'Açmak için dokun',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.open_in_new_rounded, size: 18),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -1106,15 +1290,13 @@ class _MessageComposer extends StatelessWidget {
     required this.controller,
     required this.isSending,
     required this.onSend,
-    required this.onImage,
-    required this.onEmoji,
+    required this.onAttachment,
   });
 
   final TextEditingController controller;
   final bool isSending;
   final VoidCallback onSend;
-  final VoidCallback onImage;
-  final VoidCallback onEmoji;
+  final VoidCallback onAttachment;
 
   @override
   Widget build(BuildContext context) {
@@ -1129,14 +1311,9 @@ class _MessageComposer extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           IconButton(
-            tooltip: 'Fotoğraf gönder',
-            onPressed: isSending ? null : onImage,
-            icon: const Icon(Icons.photo_outlined),
-          ),
-          IconButton(
-            tooltip: 'Emoji seç',
-            onPressed: onEmoji,
-            icon: const Icon(Icons.emoji_emotions_outlined),
+            tooltip: 'Fotoğraf veya PDF ekle',
+            onPressed: isSending ? null : onAttachment,
+            icon: const Icon(Icons.add_circle_outline_rounded),
           ),
           Expanded(
             child: TextField(
@@ -1182,6 +1359,52 @@ class _MessageComposer extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TypingIndicator extends StatefulWidget {
+  const _TypingIndicator({super.key});
+
+  @override
+  State<_TypingIndicator> createState() => _TypingIndicatorState();
+}
+
+class _TypingIndicatorState extends State<_TypingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+    opacity: Tween<double>(begin: 0.55, end: 1).animate(_controller),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(18, 5, 18, 0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'Yazıyor...',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.primary,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _ChatState extends StatelessWidget {

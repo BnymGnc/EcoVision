@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants.dart';
@@ -152,6 +153,18 @@ class ApiService {
   Future<List<LeaderboardEntry>> fetchCityLeaderboard() async {
     final json = await _getJsonList('/api/leaderboard/city');
     return json.map(LeaderboardEntry.fromJson).toList();
+  }
+
+  Future<List<LeaderboardEntry>> fetchFriendsLeaderboard() async {
+    final json = await _getJsonList('/api/leaderboard/friends');
+    return json.map(LeaderboardEntry.fromJson).toList();
+  }
+
+  Future<UserProfile> updateProfileVisibility(String visibility) async {
+    final json = await _putJson('/api/users/privacy', {
+      'visibility': visibility,
+    });
+    return _applyUser(json);
   }
 
   Future<UserProfile> purchaseMarketItem(String itemId) async {
@@ -417,13 +430,35 @@ class ApiService {
   }) async {
     if (bytes.length > 2 * 1024 * 1024)
       throw const ApiException('Fotoğraf 2 MB\'den küçük olmalıdır.');
+    return sendChatAttachment(
+      eventId: eventId,
+      bytes: bytes,
+      fileName: fileName,
+      contentType: 'image/jpeg',
+    );
+  }
+
+  Future<ChatMessage> sendChatAttachment({
+    required int eventId,
+    required Uint8List bytes,
+    required String fileName,
+    required String contentType,
+  }) async {
+    if (bytes.length > 2 * 1024 * 1024) {
+      throw const ApiException('Ek dosya 2 MB\'den küçük olmalıdır.');
+    }
     final request = http.MultipartRequest(
       'POST',
-      _uri('/api/chat/events/$eventId/media'),
+      _uri('/api/chat/events/$eventId/attachments'),
     );
     request.headers.addAll(_authHeaders(includeJson: false));
     request.files.add(
-      http.MultipartFile.fromBytes('image', bytes, filename: fileName),
+      http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: fileName,
+        contentType: MediaType.parse(contentType),
+      ),
     );
     final response = await http.Response.fromStream(
       await _client.send(request),
@@ -439,6 +474,13 @@ class ApiService {
       _deleteJson('/api/social/users/$userId/like');
   Future<void> sendFriendRequest(int userId) async =>
       _postJson('/api/social/friends/$userId/request', const {});
+  Future<UserDiscovery> searchUserByUsername(
+    String username,
+  ) async => UserDiscovery.fromJson(
+    await _getJson(
+      '/api/social/users/search?username=${Uri.encodeQueryComponent(username.trim())}',
+    ),
+  );
   Future<List<SocialUser>> fetchFriends() async => (await _getJsonList(
     '/api/social/friends',
   )).map(SocialUser.fromJson).toList();
@@ -448,6 +490,10 @@ class ApiService {
       )).map(FriendRequest.fromJson).toList();
   Future<void> acceptFriendRequest(int id) async =>
       _postJson('/api/social/friends/requests/$id/accept', const {});
+  Future<void> rejectFriendRequest(int id) async =>
+      _postJson('/api/social/friends/requests/$id/reject', const {});
+  Future<void> removeFriend(int userId) async =>
+      _deleteJson('/api/social/friends/$userId');
   Future<List<GroupInviteModel>> fetchGroupInvites() async =>
       (await _getJsonList(
         '/api/social/group-invites',

@@ -2,6 +2,7 @@ package com.ecovision.backend.controller;
 
 import com.ecovision.backend.dto.ChangePasswordRequest;
 import com.ecovision.backend.dto.UpdateProfileRequest;
+import com.ecovision.backend.dto.ProfileVisibilityRequest;
 import com.ecovision.backend.dto.UserResponse;
 import com.ecovision.backend.service.CurrentUserService;
 import com.ecovision.backend.service.ProfileService;
@@ -37,5 +38,12 @@ public class UserController {
     ) {
         profileService.changePassword(currentUserService.currentUser(), request);
         return Map.of("message", "Password updated successfully");
+    }
+
+    @PutMapping("/privacy")
+    public UserResponse updateVisibility(
+            @Valid @RequestBody ProfileVisibilityRequest request
+    ) {
+        return profileService.updateVisibility(currentUserService.currentUser(), request);
     }
 }
