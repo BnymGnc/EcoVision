@@ -21,6 +21,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -135,7 +136,7 @@ public class ChatService {
         String originalName = file.getOriginalFilename() == null
                 ? "dosya"
                 : file.getOriginalFilename();
-        boolean image = contentType.startsWith("image/");
+        boolean image = isSafeImage(contentType);
         boolean pdf = contentType.equals(MediaType.APPLICATION_PDF_VALUE)
                 || originalName.toLowerCase(Locale.ROOT).endsWith(".pdf");
         if (!image && !pdf) {
@@ -211,7 +212,7 @@ public class ChatService {
         String originalName = file.getOriginalFilename() == null
                 ? "dosya"
                 : file.getOriginalFilename();
-        boolean image = contentType.startsWith("image/");
+        boolean image = isSafeImage(contentType);
         ChatMessage message = new ChatMessage();
         message.setGroup(group);
         message.setSender(sender);
@@ -230,14 +231,18 @@ public class ChatService {
     private void requireMember(AppUser user, Long eventId) {
         ageGateService.requireAdult(user);
         if (!eventMemberRepository.existsByEventIdAndUserId(eventId, user.getId())) {
-            throw new IllegalArgumentException("Bu sohbet yalnızca grup üyelerine açıktır");
+            throw new AccessDeniedException(
+                    "Bu sohbet yalnızca grup üyelerine açıktır"
+            );
         }
     }
 
     private void requireGroupMember(AppUser user, Long groupId) {
         ageGateService.requireAdult(user);
         if (!groupMemberRepository.existsByGroupIdAndUserId(groupId, user.getId())) {
-            throw new IllegalArgumentException("Bu sohbet yalnızca grup üyelerine açıktır");
+            throw new AccessDeniedException(
+                    "Bu sohbet yalnızca grup üyelerine açıktır"
+            );
         }
     }
 
@@ -254,11 +259,17 @@ public class ChatService {
         String originalName = file.getOriginalFilename() == null
                 ? "dosya"
                 : file.getOriginalFilename();
-        boolean image = contentType.startsWith("image/");
+        boolean image = isSafeImage(contentType);
         boolean pdf = contentType.equals(MediaType.APPLICATION_PDF_VALUE)
                 || originalName.toLowerCase(Locale.ROOT).endsWith(".pdf");
         if (!image && !pdf) {
             throw new IllegalArgumentException("Yalnızca fotoğraf veya PDF yüklenebilir");
         }
+    }
+
+    private boolean isSafeImage(String contentType) {
+        return contentType.equals(MediaType.IMAGE_JPEG_VALUE)
+                || contentType.equals(MediaType.IMAGE_PNG_VALUE)
+                || contentType.equals("image/webp");
     }
 }

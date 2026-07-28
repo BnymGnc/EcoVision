@@ -13,6 +13,10 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
     @EntityGraph(attributePaths = "user")
     List<GroupMember> findByGroupIdOrderByJoinedAtAsc(Long groupId);
 
+    @Override
+    @EntityGraph(attributePaths = {"group", "user"})
+    List<GroupMember> findAll();
+
     long countByGroupId(Long groupId);
     void deleteByGroupId(Long groupId);
 }

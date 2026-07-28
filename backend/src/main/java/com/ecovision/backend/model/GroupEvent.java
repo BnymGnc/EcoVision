@@ -47,6 +47,8 @@ public class GroupEvent {
 
     private String coverImageUrl;
 
+    private Integer capacity = 20;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -76,5 +78,7 @@ public class GroupEvent {
     public void setExactAddress(String exactAddress) { this.exactAddress = exactAddress; }
     public String getCoverImageUrl() { return coverImageUrl; }
     public void setCoverImageUrl(String coverImageUrl) { this.coverImageUrl = coverImageUrl; }
+    public Integer getCapacity() { return capacity == null ? 20 : capacity; }
+    public void setCapacity(Integer capacity) { this.capacity = capacity; }
     public Instant getCreatedAt() { return createdAt; }
 }

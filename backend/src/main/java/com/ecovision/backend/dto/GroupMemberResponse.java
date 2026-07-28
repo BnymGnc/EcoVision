@@ -11,11 +11,15 @@ public record GroupMemberResponse(
         String profilePictureUrl
 ) {
     public static GroupMemberResponse from(GroupMember member) {
+        return from(member, member.getRole().name());
+    }
+
+    public static GroupMemberResponse from(GroupMember member, String role) {
         return new GroupMemberResponse(
                 member.getUser().getId(),
                 member.getUser().getPublicUsername(),
                 member.getUser().getName() + " " + member.getUser().getSurname(),
-                member.getRole().name(),
+                role,
                 member.getUser().getEquippedAvatarLevel(),
                 member.getUser().getProfilePictureUrl()
         );

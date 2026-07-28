@@ -2,6 +2,7 @@ package com.ecovision.backend.dto;
 
 import com.ecovision.backend.model.GroupEvent;
 import java.time.Instant;
+import java.util.List;
 
 public record GroupEventResponse(
         Long id,
@@ -15,13 +16,17 @@ public record GroupEventResponse(
         String district,
         String exactAddress,
         String coverImageUrl,
+        Integer capacity,
         long attendeeCount,
-        String currentUserAttendance
+        String currentUserAttendance,
+        List<GroupEventAttendeeResponse> attendees,
+        Instant createdAt
 ) {
     public static GroupEventResponse from(
             GroupEvent event,
             long attendeeCount,
-            String currentUserAttendance
+            String currentUserAttendance,
+            List<GroupEventAttendeeResponse> attendees
     ) {
         return new GroupEventResponse(
                 event.getId(),
@@ -35,8 +40,11 @@ public record GroupEventResponse(
                 event.getDistrict(),
                 event.getExactAddress(),
                 event.getCoverImageUrl(),
+                event.getCapacity(),
                 attendeeCount,
-                currentUserAttendance
+                currentUserAttendance,
+                attendees,
+                event.getCreatedAt()
         );
     }
 }

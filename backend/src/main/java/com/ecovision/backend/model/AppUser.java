@@ -257,7 +257,10 @@ public class AppUser implements UserDetails {
     public void setStreakCount(Integer streakCount) { this.streakCount = streakCount; }
     public Integer getStreakFreezeCount() { return streakFreezeCount == null ? 0 : streakFreezeCount; }
     public void setStreakFreezeCount(Integer streakFreezeCount) { this.streakFreezeCount = streakFreezeCount; }
-    public boolean isAdult() { return age != null && age >= 18; }
+    public boolean isAdult() {
+        Integer calculatedAge = getAge();
+        return calculatedAge != null && calculatedAge >= 18;
+    }
     public boolean isBanned() { return banned; }
     public void setBanned(boolean banned) { this.banned = banned; }
     public Instant getSuspendedUntil() { return suspendedUntil; }

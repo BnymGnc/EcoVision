@@ -14,6 +14,9 @@ class CommunityGroup {
     this.neighborhood = '',
     this.coverImageUrl,
     this.currentUserRole,
+    this.pinnedMessageId,
+    this.pinnedMessageText,
+    this.pinnedEventId,
   });
 
   final int id;
@@ -29,10 +32,17 @@ class CommunityGroup {
   final int memberCount;
   final bool privateGroup;
   final String? currentUserRole;
+  final int? pinnedMessageId;
+  final String? pinnedMessageText;
+  final int? pinnedEventId;
   final DateTime createdAt;
 
   bool get isJoined => currentUserRole != null;
-  bool get isAdmin => currentUserRole == 'GROUP_ADMIN';
+  bool get isFounder => currentUserRole == 'FOUNDER';
+  bool get isAdmin =>
+      isFounder ||
+      currentUserRole == 'ADMIN' ||
+      currentUserRole == 'GROUP_ADMIN';
   String get locationLabel => neighborhood.trim().isEmpty
       ? '$district / $city'
       : '$neighborhood, $district / $city';
@@ -52,6 +62,9 @@ class CommunityGroup {
       memberCount: (json['memberCount'] as num? ?? 0).toInt(),
       privateGroup: json['privateGroup'] as bool? ?? false,
       currentUserRole: json['currentUserRole']?.toString(),
+      pinnedMessageId: (json['pinnedMessageId'] as num?)?.toInt(),
+      pinnedMessageText: json['pinnedMessageText']?.toString(),
+      pinnedEventId: (json['pinnedEventId'] as num?)?.toInt(),
       createdAt:
           DateTime.tryParse((json['createdAt'] ?? '').toString()) ??
           DateTime.now(),
@@ -72,8 +85,11 @@ class GroupEvent {
     required this.district,
     required this.exactAddress,
     required this.attendeeCount,
+    required this.capacity,
+    required this.attendees,
     this.coverImageUrl,
     this.currentUserAttendance,
+    this.createdAt,
   });
 
   final int id;
@@ -88,9 +104,13 @@ class GroupEvent {
   final String exactAddress;
   final String? coverImageUrl;
   final int attendeeCount;
+  final int capacity;
+  final List<GroupEventAttendee> attendees;
   final String? currentUserAttendance;
+  final DateTime? createdAt;
 
   bool get isAttending => currentUserAttendance == 'ATTENDING';
+  bool get isFull => attendeeCount >= capacity;
 
   String get dateLabel {
     final local = eventDate.toLocal();
@@ -115,7 +135,33 @@ class GroupEvent {
       exactAddress: (json['exactAddress'] ?? '').toString(),
       coverImageUrl: json['coverImageUrl']?.toString(),
       attendeeCount: (json['attendeeCount'] as num? ?? 0).toInt(),
+      capacity: (json['capacity'] as num? ?? 20).toInt(),
+      attendees: (json['attendees'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(GroupEventAttendee.fromJson)
+          .toList(),
       currentUserAttendance: json['currentUserAttendance']?.toString(),
+      createdAt: DateTime.tryParse((json['createdAt'] ?? '').toString()),
+    );
+  }
+}
+
+class GroupEventAttendee {
+  const GroupEventAttendee({
+    required this.userId,
+    required this.fullName,
+    this.profilePictureUrl,
+  });
+
+  final int userId;
+  final String fullName;
+  final String? profilePictureUrl;
+
+  factory GroupEventAttendee.fromJson(Map<String, dynamic> json) {
+    return GroupEventAttendee(
+      userId: (json['userId'] as num? ?? 0).toInt(),
+      fullName: (json['fullName'] ?? 'EcoVision kullanıcısı').toString(),
+      profilePictureUrl: json['profilePictureUrl']?.toString(),
     );
   }
 }

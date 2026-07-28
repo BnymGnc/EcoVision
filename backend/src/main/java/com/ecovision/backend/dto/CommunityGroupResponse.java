@@ -17,12 +17,16 @@ public record CommunityGroupResponse(
         long memberCount,
         boolean privateGroup,
         String currentUserRole,
+        Long pinnedMessageId,
+        String pinnedMessageText,
+        Long pinnedEventId,
         Instant createdAt
 ) {
     public static CommunityGroupResponse from(
             CommunityGroup group,
             long memberCount,
-            String currentUserRole
+            String currentUserRole,
+            String pinnedMessageText
     ) {
         return new CommunityGroupResponse(
                 group.getId(),
@@ -38,6 +42,9 @@ public record CommunityGroupResponse(
                 memberCount,
                 group.isPrivateGroup(),
                 currentUserRole,
+                group.getPinnedMessageId(),
+                pinnedMessageText,
+                group.getPinnedEventId(),
                 group.getCreatedAt()
         );
     }

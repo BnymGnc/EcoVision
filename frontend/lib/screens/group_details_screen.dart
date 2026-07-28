@@ -47,7 +47,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   Future<void> _openCreateEvent() async {
     await showEcoGlassSheet<void>(
       context: context,
-      builder: (_) => _CreateGroupEventSheet(
+      builder: (_) => CreateGroupEventSheet(
         apiService: widget.apiService,
         group: _group,
         onCreated: _reload,
@@ -90,10 +90,9 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   Future<void> _manageMembers() async {
     await showEcoGlassSheet<void>(
       context: context,
-      builder: (_) => _MembersSheet(
+      builder: (_) => _RoleAwareMembersSheet(
         apiService: widget.apiService,
         group: _group,
-        members: _members,
         onChanged: _reload,
       ),
     );
@@ -119,8 +118,8 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                 if (value == 'members') _manageMembers();
                 if (value == 'delete') _deleteGroup();
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(
+              itemBuilder: (_) => [
+                const PopupMenuItem(
                   value: 'members',
                   child: ListTile(
                     leading: Icon(Icons.manage_accounts_outlined),
@@ -128,17 +127,18 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: ListTile(
-                    leading: Icon(Icons.delete_outline, color: Colors.red),
-                    title: Text(
-                      'Grubu Sil',
-                      style: TextStyle(color: Colors.red),
+                if (_group.isFounder)
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: ListTile(
+                      leading: Icon(Icons.delete_outline, color: Colors.red),
+                      title: Text(
+                        'Grubu Sil',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                      contentPadding: EdgeInsets.zero,
                     ),
-                    contentPadding: EdgeInsets.zero,
                   ),
-                ),
               ],
             ),
         ],
@@ -511,6 +511,225 @@ class _EventInfo extends StatelessWidget {
   );
 }
 
+class _RoleAwareMembersSheet extends StatefulWidget {
+  const _RoleAwareMembersSheet({
+    required this.apiService,
+    required this.group,
+    required this.onChanged,
+  });
+
+  final ApiService apiService;
+  final CommunityGroup group;
+  final VoidCallback onChanged;
+
+  @override
+  State<_RoleAwareMembersSheet> createState() => _RoleAwareMembersSheetState();
+}
+
+class _RoleAwareMembersSheetState extends State<_RoleAwareMembersSheet> {
+  final _username = TextEditingController();
+  late Future<List<EventMember>> _members;
+  bool _adding = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  @override
+  void dispose() {
+    _username.dispose();
+    super.dispose();
+  }
+
+  void _reload() {
+    setState(() {
+      _members = widget.apiService.fetchCommunityGroupMembers(widget.group.id);
+    });
+    widget.onChanged();
+  }
+
+  Future<void> _addMember() async {
+    final username = _username.text.trim();
+    if (username.isEmpty || _adding) return;
+    setState(() => _adding = true);
+    try {
+      await widget.apiService.addCommunityGroupMember(
+        widget.group.id,
+        username,
+      );
+      _username.clear();
+      _reload();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _adding = false);
+    }
+  }
+
+  Future<void> _action(EventMember member, String action) async {
+    try {
+      if (action == 'promote') {
+        await widget.apiService.promoteCommunityGroupAdmin(
+          widget.group.id,
+          member.userId,
+        );
+      } else if (action == 'demote') {
+        await widget.apiService.demoteCommunityGroupAdmin(
+          widget.group.id,
+          member.userId,
+        );
+      } else {
+        await widget.apiService.removeCommunityGroupMember(
+          widget.group.id,
+          member.userId,
+        );
+      }
+      _reload();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
+  }
+
+  bool _canRemove(EventMember member) {
+    if (member.isFounder) return false;
+    if (widget.group.isFounder) return true;
+    return widget.group.isAdmin && !member.isAdmin;
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
+    child: Column(
+      children: [
+        const EcoSheetHandle(),
+        const ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(
+            'Grup Üyeleri',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          subtitle: Text('Kurucu, yöneticiler ve üyeler'),
+        ),
+        if (widget.group.isAdmin) ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _username,
+                  autocorrect: false,
+                  decoration: const InputDecoration(
+                    hintText: 'Kullanıcı adıyla üye ekle',
+                    prefixIcon: Icon(Icons.alternate_email),
+                  ),
+                  onSubmitted: (_) => _addMember(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                tooltip: 'Üye ekle',
+                onPressed: _adding ? null : _addMember,
+                icon: const Icon(Icons.person_add_alt_1),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+        ],
+        Expanded(
+          child: FutureBuilder<List<EventMember>>(
+            future: _members,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const EcoShimmerList(itemCount: 5);
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text(snapshot.error.toString()));
+              }
+              final members = snapshot.data ?? const [];
+              return ListView.separated(
+                itemCount: members.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final member = members[index];
+                  return ListTile(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => PublicProfileScreen(
+                          apiService: widget.apiService,
+                          userId: member.userId,
+                        ),
+                      ),
+                    ),
+                    leading: CircleAvatar(
+                      backgroundImage: member.profilePictureUrl == null
+                          ? null
+                          : NetworkImage(member.profilePictureUrl!),
+                      child: member.profilePictureUrl == null
+                          ? Text(
+                              member.fullName.isEmpty
+                                  ? 'E'
+                                  : member.fullName[0],
+                            )
+                          : null,
+                    ),
+                    title: Text(member.fullName),
+                    subtitle: Text(
+                      member.isFounder
+                          ? 'Kurucu'
+                          : member.isAdmin
+                          ? 'Yönetici'
+                          : 'Üye',
+                    ),
+                    trailing: member.isFounder
+                        ? const Icon(Icons.workspace_premium_outlined)
+                        : PopupMenuButton<String>(
+                            enabled:
+                                widget.group.isFounder || _canRemove(member),
+                            onSelected: (value) => _action(member, value),
+                            itemBuilder: (_) => [
+                              if (widget.group.isFounder && !member.isAdmin)
+                                const PopupMenuItem(
+                                  value: 'promote',
+                                  child: Text('Yönetici Yap'),
+                                ),
+                              if (widget.group.isFounder &&
+                                  member.isAdmin &&
+                                  !member.isFounder)
+                                const PopupMenuItem(
+                                  value: 'demote',
+                                  child: Text('Yöneticiliği Al'),
+                                ),
+                              if (_canRemove(member))
+                                const PopupMenuItem(
+                                  value: 'remove',
+                                  child: Text(
+                                    'Gruptan Çıkar',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                            ],
+                          ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class _MembersSheet extends StatelessWidget {
   const _MembersSheet({
     required this.apiService,
@@ -624,8 +843,8 @@ class _MembersSheet extends StatelessWidget {
   }
 }
 
-class _CreateGroupEventSheet extends StatefulWidget {
-  const _CreateGroupEventSheet({
+class CreateGroupEventSheet extends StatefulWidget {
+  const CreateGroupEventSheet({
     required this.apiService,
     required this.group,
     required this.onCreated,
@@ -636,14 +855,15 @@ class _CreateGroupEventSheet extends StatefulWidget {
   final VoidCallback onCreated;
 
   @override
-  State<_CreateGroupEventSheet> createState() => _CreateGroupEventSheetState();
+  State<CreateGroupEventSheet> createState() => _CreateGroupEventSheetState();
 }
 
-class _CreateGroupEventSheetState extends State<_CreateGroupEventSheet> {
+class _CreateGroupEventSheetState extends State<CreateGroupEventSheet> {
   final _form = GlobalKey<FormState>();
   final _title = TextEditingController();
   final _description = TextEditingController();
   final _address = TextEditingController();
+  final _capacity = TextEditingController(text: '20');
   final _picker = ImagePicker();
   late String _city;
   late String _district;
@@ -669,6 +889,7 @@ class _CreateGroupEventSheetState extends State<_CreateGroupEventSheet> {
     _title.dispose();
     _description.dispose();
     _address.dispose();
+    _capacity.dispose();
     super.dispose();
   }
 
@@ -719,6 +940,7 @@ class _CreateGroupEventSheetState extends State<_CreateGroupEventSheet> {
         city: _city,
         district: _district,
         exactAddress: _address.text,
+        capacity: int.tryParse(_capacity.text) ?? 20,
         coverBytes: _cover,
         coverFileName: _coverName,
       );
@@ -854,6 +1076,21 @@ class _CreateGroupEventSheetState extends State<_CreateGroupEventSheet> {
               validator: (value) => (value ?? '').trim().length < 8
                   ? 'Açık adres en az 8 karakter olmalı'
                   : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _capacity,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Kontenjan',
+                prefixIcon: Icon(Icons.people_alt_outlined),
+              ),
+              validator: (value) {
+                final number = int.tryParse(value ?? '');
+                return number == null || number < 2 || number > 500
+                    ? 'Kontenjan 2 ile 500 arasında olmalı'
+                    : null;
+              },
             ),
             const SizedBox(height: 20),
             SizedBox(

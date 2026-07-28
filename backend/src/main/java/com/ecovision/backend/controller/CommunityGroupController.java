@@ -1,5 +1,6 @@
 package com.ecovision.backend.controller;
 
+import com.ecovision.backend.dto.AddGroupMemberRequest;
 import com.ecovision.backend.dto.CommunityGroupRequest;
 import com.ecovision.backend.dto.CommunityGroupResponse;
 import com.ecovision.backend.dto.EventRsvpRequest;
@@ -8,6 +9,7 @@ import com.ecovision.backend.dto.GroupEventRequest;
 import com.ecovision.backend.dto.GroupEventResponse;
 import com.ecovision.backend.dto.GroupMemberResponse;
 import com.ecovision.backend.dto.JoinEventRequest;
+import com.ecovision.backend.dto.PinGroupContentRequest;
 import com.ecovision.backend.service.CommunityGroupService;
 import com.ecovision.backend.service.CurrentUserService;
 import jakarta.validation.Valid;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -81,12 +84,28 @@ public class CommunityGroupController {
         return groups.members(current.currentUser(), groupId);
     }
 
+    @PostMapping("/{groupId}/members")
+    public GroupMemberResponse addMember(
+            @PathVariable Long groupId,
+            @Valid @RequestBody AddGroupMemberRequest request
+    ) {
+        return groups.addMember(current.currentUser(), groupId, request);
+    }
+
     @PostMapping("/{groupId}/members/{userId}/admin")
     public GroupMemberResponse promote(
             @PathVariable Long groupId,
             @PathVariable Long userId
     ) {
         return groups.promote(current.currentUser(), groupId, userId);
+    }
+
+    @DeleteMapping("/{groupId}/members/{userId}/admin")
+    public GroupMemberResponse demote(
+            @PathVariable Long groupId,
+            @PathVariable Long userId
+    ) {
+        return groups.demote(current.currentUser(), groupId, userId);
     }
 
     @DeleteMapping("/{groupId}/members/{userId}")
@@ -124,12 +143,28 @@ public class CommunityGroupController {
         return groups.rsvp(current.currentUser(), groupId, eventId, request);
     }
 
+    @DeleteMapping("/{groupId}/events/{eventId}/rsvp")
+    public GroupEventResponse leaveEvent(
+            @PathVariable Long groupId,
+            @PathVariable Long eventId
+    ) {
+        return groups.leaveEvent(current.currentUser(), groupId, eventId);
+    }
+
     @GetMapping("/{groupId}/events/{eventId}/attendees")
     public List<GroupEventAttendeeResponse> attendees(
             @PathVariable Long groupId,
             @PathVariable Long eventId
     ) {
         return groups.attendees(current.currentUser(), groupId, eventId);
+    }
+
+    @PutMapping("/{groupId}/pin")
+    public CommunityGroupResponse pinContent(
+            @PathVariable Long groupId,
+            @Valid @RequestBody PinGroupContentRequest request
+    ) {
+        return groups.pinContent(current.currentUser(), groupId, request);
     }
 
     @DeleteMapping("/{groupId}/events/{eventId}")

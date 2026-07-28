@@ -387,6 +387,10 @@ class ApiService {
     return json.map(CommunityGroup.fromJson).toList();
   }
 
+  Future<CommunityGroup> fetchCommunityGroup(int groupId) async {
+    return CommunityGroup.fromJson(await _getJson('/api/groups/$groupId'));
+  }
+
   Future<CommunityGroup> createCommunityGroup({
     required String name,
     required String description,
@@ -448,6 +452,16 @@ class ApiService {
     return json.map(EventMember.fromJson).toList();
   }
 
+  Future<EventMember> addCommunityGroupMember(
+    int groupId,
+    String username,
+  ) async {
+    final json = await _postJson('/api/groups/$groupId/members', {
+      'username': username.trim(),
+    });
+    return EventMember.fromJson(json);
+  }
+
   Future<EventMember> promoteCommunityGroupAdmin(
     int groupId,
     int userId,
@@ -457,6 +471,16 @@ class ApiService {
       const {},
     );
     return EventMember.fromJson(json);
+  }
+
+  Future<EventMember> demoteCommunityGroupAdmin(int groupId, int userId) async {
+    final response = await _authorizedRequest(
+      (headers) => _client.delete(
+        _uri('/api/groups/$groupId/members/$userId/admin'),
+        headers: headers,
+      ),
+    );
+    return EventMember.fromJson(_decodeResponse(response));
   }
 
   Future<void> removeCommunityGroupMember(int groupId, int userId) async {
@@ -494,6 +518,7 @@ class ApiService {
     required String city,
     required String district,
     required String exactAddress,
+    required int capacity,
     Uint8List? coverBytes,
     String? coverFileName,
   }) async {
@@ -504,6 +529,7 @@ class ApiService {
       'city': city,
       'district': district,
       'exactAddress': exactAddress.trim(),
+      'capacity': capacity,
     };
     final response = await _authorizedMultipart(() {
       final request = http.MultipartRequest(
@@ -541,6 +567,31 @@ class ApiService {
       'status': status,
     });
     return GroupEvent.fromJson(json);
+  }
+
+  Future<GroupEvent> leaveGroupEvent({
+    required int groupId,
+    required int eventId,
+  }) async {
+    final response = await _authorizedRequest(
+      (headers) => _client.delete(
+        _uri('/api/groups/$groupId/events/$eventId/rsvp'),
+        headers: headers,
+      ),
+    );
+    return GroupEvent.fromJson(_decodeResponse(response));
+  }
+
+  Future<CommunityGroup> pinGroupContent({
+    required int groupId,
+    required String type,
+    int? id,
+  }) async {
+    final json = await _putJson('/api/groups/$groupId/pin', {
+      'type': type,
+      if (id != null) 'id': id,
+    });
+    return CommunityGroup.fromJson(json);
   }
 
   Future<List<EventMember>> fetchGroupEventAttendees({

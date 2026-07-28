@@ -30,6 +30,10 @@ public class ChatMessage {
     @JoinColumn(name = "group_id")
     private CommunityGroup group;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_event_id")
+    private GroupEvent groupEvent;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "sender_id", nullable = false)
     private AppUser sender;
@@ -86,6 +90,15 @@ public class ChatMessage {
 
     public void setGroup(CommunityGroup group) {
         this.group = group;
+    }
+
+    @JsonIgnore
+    public GroupEvent getGroupEvent() {
+        return groupEvent;
+    }
+
+    public void setGroupEvent(GroupEvent groupEvent) {
+        this.groupEvent = groupEvent;
     }
 
     @JsonIgnore

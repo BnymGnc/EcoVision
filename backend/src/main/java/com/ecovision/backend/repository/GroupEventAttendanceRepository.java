@@ -19,4 +19,6 @@ public interface GroupEventAttendanceRepository
     );
 
     void deleteByEventId(Long eventId);
+
+    void deleteByEventIdAndUserId(Long eventId, Long userId);
 }

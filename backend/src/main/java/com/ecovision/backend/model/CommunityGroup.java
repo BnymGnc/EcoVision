@@ -49,6 +49,10 @@ public class CommunityGroup {
     @Column(unique = true)
     private Long legacyEventId;
 
+    private Long pinnedMessageId;
+
+    private Long pinnedEventId;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -83,6 +87,14 @@ public class CommunityGroup {
     public Instant getCreatedAt() { return createdAt; }
     public Long getLegacyEventId() { return legacyEventId; }
     public void setLegacyEventId(Long legacyEventId) { this.legacyEventId = legacyEventId; }
+    public Long getPinnedMessageId() { return pinnedMessageId; }
+    public void setPinnedMessageId(Long pinnedMessageId) {
+        this.pinnedMessageId = pinnedMessageId;
+    }
+    public Long getPinnedEventId() { return pinnedEventId; }
+    public void setPinnedEventId(Long pinnedEventId) {
+        this.pinnedEventId = pinnedEventId;
+    }
     public boolean isPrivateGroup() {
         return joinCodeHash != null && !joinCodeHash.isBlank();
     }

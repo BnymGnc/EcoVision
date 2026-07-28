@@ -5,6 +5,7 @@ import com.ecovision.backend.model.MapPin;
 import com.ecovision.backend.model.MapPinType;
 import com.ecovision.backend.model.CommunityGroup;
 import com.ecovision.backend.model.GroupMember;
+import com.ecovision.backend.model.GroupRole;
 import com.ecovision.backend.model.Role;
 import com.ecovision.backend.repository.AppUserRepository;
 import com.ecovision.backend.repository.EventRepository;
@@ -144,6 +145,33 @@ public class DataInitializer {
                 );
                 messages.forEach(message -> message.setGroup(migratedGroup));
                 chatMessages.saveAll(messages);
+            }
+
+            for (CommunityGroup group : groups.findAll()) {
+                if (!members.existsByGroupIdAndUserId(
+                        group.getId(),
+                        group.getCreator().getId()
+                )) {
+                    GroupMember founder = new GroupMember();
+                    founder.setGroup(group);
+                    founder.setUser(group.getCreator());
+                    founder.setRole(GroupRole.FOUNDER);
+                    members.save(founder);
+                }
+            }
+
+            for (GroupMember member : members.findAll()) {
+                boolean creator = member.getGroup().getCreator().getId()
+                        .equals(member.getUser().getId());
+                GroupRole normalizedRole = creator
+                        ? GroupRole.FOUNDER
+                        : member.getRole() == GroupRole.GROUP_ADMIN
+                                ? GroupRole.ADMIN
+                                : member.getRole();
+                if (member.getRole() != normalizedRole) {
+                    member.setRole(normalizedRole);
+                    members.save(member);
+                }
             }
         };
     }

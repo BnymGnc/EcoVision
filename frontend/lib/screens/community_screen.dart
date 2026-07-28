@@ -9,7 +9,7 @@ import '../models/community_group.dart';
 import '../models/social_models.dart';
 import '../services/api_service.dart';
 import 'create_community_group_sheet.dart';
-import 'group_details_screen.dart';
+import 'group_chat_screen.dart';
 import 'public_profile_screen.dart';
 import '../widgets/notification_bell.dart';
 import '../widgets/premium_ui.dart';
@@ -194,7 +194,7 @@ class _CommunityScreenState extends State<CommunityScreen>
         context,
         MaterialPageRoute<bool>(
           builder: (_) =>
-              GroupDetailsScreen(apiService: widget.apiService, group: joined),
+              GroupChatScreen(apiService: widget.apiService, group: joined),
         ),
       );
       _reload();
@@ -244,6 +244,9 @@ class _CommunityScreenState extends State<CommunityScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (!(widget.apiService.currentUser?.adult ?? false)) {
+      return const _CommunityAgeLock();
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Topluluk'),
@@ -571,6 +574,54 @@ class _CommunityScreenState extends State<CommunityScreen>
       onCreated: _reload,
     ),
   );
+}
+
+class _CommunityAgeLock extends StatelessWidget {
+  const _CommunityAgeLock();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Topluluk')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 104,
+                height: 104,
+                decoration: BoxDecoration(
+                  color: colors.errorContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.lock_person_outlined,
+                  size: 52,
+                  color: colors.onErrorContainer,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                '18+ erişim alanı',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Topluluk, grup ve sohbet özellikleri yalnızca 18 yaşını '
+                'doldurmuş EcoVision kullanıcılarına açıktır.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _CreateGroupSheet extends StatefulWidget {

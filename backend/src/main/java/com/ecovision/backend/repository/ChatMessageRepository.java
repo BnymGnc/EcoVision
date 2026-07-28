@@ -17,8 +17,11 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     @EntityGraph(attributePaths = {"event", "sender"})
     List<ChatMessage> findByEventIdOrderByTimestampAsc(Long eventId);
 
-    @EntityGraph(attributePaths = {"group", "sender"})
+    @EntityGraph(attributePaths = {"group", "sender", "groupEvent"})
     Page<ChatMessage> findByGroupIdOrderByTimestampDesc(Long groupId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"group", "sender", "groupEvent"})
+    java.util.Optional<ChatMessage> findByIdAndGroupId(Long id, Long groupId);
 
     @EntityGraph(attributePaths = {"event", "sender"})
     Page<ChatMessage> findBySenderIdOrderByTimestampDesc(Long senderId, Pageable pageable);
@@ -42,6 +45,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     long countUnreadForMember(@Param("userId") Long userId, @Param("timestamp") Instant timestamp);
 
     void deleteByEventId(Long eventId);
+
+    void deleteByGroupEventId(Long groupEventId);
 
     void deleteByGroupId(Long groupId);
 }

@@ -3,6 +3,7 @@ class ChatMessage {
     required this.id,
     required this.eventId,
     this.groupId,
+    this.groupEventId,
     required this.senderId,
     required this.senderName,
     this.senderUsername = '',
@@ -20,6 +21,7 @@ class ChatMessage {
   final int id;
   final int eventId;
   final int? groupId;
+  final int? groupEventId;
   final int senderId;
   final String senderName;
   final String senderUsername;
@@ -42,6 +44,7 @@ class ChatMessage {
       eventId: (json['eventId'] as num? ?? json['groupId'] as num? ?? 0)
           .toInt(),
       groupId: (json['groupId'] as num?)?.toInt(),
+      groupEventId: (json['groupEventId'] as num?)?.toInt(),
       senderId: (json['senderId'] as num).toInt(),
       senderName: (json['senderName'] ?? 'EcoVision Kullanıcısı').toString(),
       senderUsername: (json['senderUsername'] ?? '').toString(),
