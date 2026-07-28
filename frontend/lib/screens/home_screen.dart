@@ -40,8 +40,8 @@ class _HomeScreenState extends State<HomeScreen> {
       await EcoHaptics.light();
       final image = await _imagePicker.pickImage(
         source: source,
-        maxWidth: 1600,
-        imageQuality: 88,
+        maxWidth: 1280,
+        imageQuality: 78,
       );
 
       if (image == null) {
@@ -53,12 +53,17 @@ class _HomeScreenState extends State<HomeScreen> {
         _scanStatus = 'Fotoğraf güvenli biçimde yükleniyor...';
       });
       final bytes = await image.readAsBytes();
+      if (bytes.length > 5 * 1024 * 1024) {
+        throw const ApiException(
+          'Fotoğraf 5 MB sınırını aşıyor. Daha küçük bir fotoğraf seçin.',
+        );
+      }
 
       if (!mounted) {
         return;
       }
 
-      setState(() => _scanStatus = 'Puanlar işleniyor...');
+      setState(() => _scanStatus = 'Yapay zeka atığı tanıyor...');
       final previousPoints = widget.apiService.pointsListenable.value;
       final result = await widget.apiService.analyzeWasteImage(
         bytes: bytes,

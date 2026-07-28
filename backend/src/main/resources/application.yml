@@ -1,5 +1,6 @@
 server:
   port: ${PORT:8080}
+  address: 0.0.0.0
   error:
     include-message: never
     include-stacktrace: never
@@ -11,13 +12,23 @@ spring:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
+      minimum-idle: ${DB_POOL_MIN_IDLE:0}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:10000}
+      idle-timeout: 300000
+      max-lifetime: 1200000
   jpa:
     hibernate:
       ddl-auto: update
     open-in-view: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
   servlet:
     multipart:
       max-file-size: 8MB
@@ -41,12 +52,14 @@ jwt:
 
 gemini:
   api:
-    key: ${GEMINI_API_KEY}
-  model: ${GEMINI_MODEL:gemini-2.5-flash}
+    key: ${GEMINI_API_KEY:}
+  model: ${GEMINI_MODEL:gemini-2.5-flash-lite}
+  connect-timeout-ms: ${GEMINI_CONNECT_TIMEOUT_MS:5000}
+  read-timeout-ms: ${GEMINI_READ_TIMEOUT_MS:30000}
 
 logging:
   level:
     root: INFO
     org.springframework.web: INFO
     org.springframework.security: INFO
-    org.hibernate.SQL: INFO
+    org.hibernate.SQL: WARN

@@ -40,6 +40,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   bool _hasMore = true;
   bool _sending = false;
   int _historyOffset = 0;
+  int _pollCount = 0;
 
   @override
   void initState() {
@@ -47,7 +48,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     _group = widget.group;
     _scroll.addListener(_onScroll);
     _loadInitial();
-    _poller = Timer.periodic(const Duration(seconds: 3), (_) => _poll());
+    _poller = Timer.periodic(const Duration(seconds: 5), (_) => _poll());
   }
 
   @override
@@ -125,24 +126,35 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     }
   }
 
-  Future<void> _poll() async {
+  Future<void> _poll({bool forceMetadata = false}) async {
     if (_loading || _sending || !mounted) return;
     try {
       final nearBottom =
           !_scroll.hasClients ||
           _scroll.position.maxScrollExtent - _scroll.offset < 180;
-      final result = await Future.wait<Object>([
-        widget.apiService.fetchCommunityGroup(_group.id),
-        widget.apiService.fetchGroupMessages(_group.id, limit: _pageSize),
-        widget.apiService.fetchGroupEvents(_group.id),
-      ]);
+      _pollCount++;
+      final refreshMetadata = forceMetadata || _pollCount % 6 == 0;
+      final messages = await widget.apiService.fetchGroupMessages(
+        _group.id,
+        limit: _pageSize,
+      );
+      CommunityGroup? refreshedGroup;
+      List<GroupEvent>? refreshedEvents;
+      if (refreshMetadata) {
+        final metadata = await Future.wait<Object>([
+          widget.apiService.fetchCommunityGroup(_group.id),
+          widget.apiService.fetchGroupEvents(_group.id),
+        ]);
+        refreshedGroup = metadata[0] as CommunityGroup;
+        refreshedEvents = metadata[1] as List<GroupEvent>;
+      }
       if (!mounted) return;
       setState(() {
-        _group = result[0] as CommunityGroup;
-        _messages = _mergeMessages(_messages, result[1] as List<ChatMessage>);
-        _events = {
-          for (final event in result[2] as List<GroupEvent>) event.id: event,
-        };
+        if (refreshedGroup != null) _group = refreshedGroup;
+        _messages = _mergeMessages(_messages, messages);
+        if (refreshedEvents != null) {
+          _events = {for (final event in refreshedEvents) event.id: event};
+        }
       });
       if (nearBottom) _scrollToBottom();
     } catch (_) {
@@ -251,7 +263,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       Navigator.pop(context, true);
       return;
     }
-    await _poll();
+    await _poll(forceMetadata: true);
   }
 
   Future<void> _createEvent() async {
@@ -260,7 +272,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       builder: (_) => CreateGroupEventSheet(
         apiService: widget.apiService,
         group: _group,
-        onCreated: _poll,
+        onCreated: () => _poll(forceMetadata: true),
       ),
     );
   }

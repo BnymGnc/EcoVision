@@ -8,6 +8,8 @@ import com.ecovision.backend.repository.QuestRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,11 +38,15 @@ public class QuestDataLoader implements CommandLineRunner {
         List<QuestSeed> seeds = catalog();
         validateCatalog(seeds);
         Set<String> catalogCodes = new HashSet<>();
+        Map<String, Quest> existingByCode = new HashMap<>();
+        for (Quest existing : questRepository.findAll()) {
+            existingByCode.put(existing.getCode(), existing);
+        }
+        List<Quest> updates = new ArrayList<>(seeds.size());
 
         for (QuestSeed seed : seeds) {
             catalogCodes.add(seed.code());
-            Quest quest = questRepository.findByCode(seed.code())
-                    .orElseGet(Quest::new);
+            Quest quest = existingByCode.getOrDefault(seed.code(), new Quest());
             quest.setCode(seed.code());
             quest.setTitle(seed.title());
             quest.setDescription(seed.description());
@@ -51,15 +57,16 @@ public class QuestDataLoader implements CommandLineRunner {
             quest.setDomain(domainFor(seed));
             quest.setCriteriaJson(toJson(seed.criteria()));
             quest.setActive(true);
-            questRepository.save(quest);
+            updates.add(quest);
         }
 
-        for (Quest existing : questRepository.findAll()) {
+        for (Quest existing : existingByCode.values()) {
             if (existing.isActive() && !catalogCodes.contains(existing.getCode())) {
                 existing.setActive(false);
-                questRepository.save(existing);
+                updates.add(existing);
             }
         }
+        questRepository.saveAll(updates);
     }
 
     private void validateCatalog(List<QuestSeed> seeds) {

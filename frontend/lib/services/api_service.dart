@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -259,7 +260,7 @@ class ApiService {
         ),
       );
       return request;
-    });
+    }, timeout: const Duration(seconds: 40));
     final json = _decodeResponse(response);
     final result = ScanResult.fromGeminiJson(json);
     final updatedPoints = json['updated_user_points'];
@@ -272,16 +273,26 @@ class ApiService {
   }
 
   Future<http.Response> _authorizedMultipart(
-    http.MultipartRequest Function() requestFactory,
-  ) async {
+    http.MultipartRequest Function() requestFactory, {
+    Duration timeout = const Duration(seconds: 45),
+  }) async {
     if (_accessToken == null && !await _refreshSession()) {
       throw const ApiException('Bu işlem için giriş yapmalısınız.');
     }
 
     Future<http.Response> send() async {
-      final request = requestFactory();
-      request.headers.addAll(_authHeaders(includeJson: false));
-      return http.Response.fromStream(await _client.send(request));
+      Future<http.Response> execute() async {
+        final request = requestFactory();
+        request.headers.addAll(_authHeaders(includeJson: false));
+        return http.Response.fromStream(await _client.send(request));
+      }
+
+      return execute().timeout(
+        timeout,
+        onTimeout: () => throw const ApiException(
+          'Sunucu yanıt vermedi. Bağlantınızı kontrol edip tekrar deneyin.',
+        ),
+      );
     }
 
     var response = await send();

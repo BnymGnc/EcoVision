@@ -57,6 +57,7 @@ public class SecurityConfig {
                                 "/api/auth/refresh",
                                 "/api/auth/logout",
                                 "/api/auth/forgot-password",
+                                "/api/health",
                                 "/uploads/**"
                         ).permitAll()
                         .requestMatchers("/api/admin/users", "/api/admin/assign-admin").hasRole("SUPERUSER")

@@ -16,6 +16,8 @@ import com.ecovision.backend.repository.GroupMemberRepository;
 import com.ecovision.backend.repository.MapPinRepository;
 import com.ecovision.backend.service.UsernameService;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.boot.CommandLineRunner;
@@ -142,9 +144,13 @@ public class DataInitializer {
                 CommunityGroup migratedGroup = group;
                 var messages = chatMessages.findByEventIdOrderByTimestampAsc(
                         legacy.getId()
-                );
+                ).stream()
+                        .filter(message -> message.getGroup() == null)
+                        .toList();
                 messages.forEach(message -> message.setGroup(migratedGroup));
-                chatMessages.saveAll(messages);
+                if (!messages.isEmpty()) {
+                    chatMessages.saveAll(messages);
+                }
             }
 
             for (CommunityGroup group : groups.findAll()) {
@@ -187,9 +193,19 @@ public class DataInitializer {
                     .orElseThrow(() -> new IllegalStateException(
                             "RVM makineleri için süper kullanıcı bulunamadı"
                     ));
+            Map<String, MapPin> existingByName = new HashMap<>();
+            for (MapPin existing : mapPinRepository.findAll()) {
+                existingByName.put(
+                        existing.getTitle().toLowerCase(java.util.Locale.ROOT),
+                        existing
+                );
+            }
+            List<MapPin> updates = new ArrayList<>();
             for (RvmSeed machine : allMachines()) {
-                MapPin pin = mapPinRepository.findFirstByTitleIgnoreCase(machine.name())
-                        .orElseGet(MapPin::new);
+                MapPin pin = existingByName.getOrDefault(
+                        machine.name().toLowerCase(java.util.Locale.ROOT),
+                        new MapPin()
+                );
                 pin.setTitle(machine.name());
                 pin.setLatitude(machine.latitude());
                 pin.setLongitude(machine.longitude());
@@ -203,8 +219,9 @@ public class DataInitializer {
                 pin.setActive(true);
                 pin.setType(MapPinType.OFFICIAL_RECYCLING_BIN);
                 pin.setCreatedBy(owner);
-                mapPinRepository.save(pin);
+                updates.add(pin);
             }
+            mapPinRepository.saveAll(updates);
         };
     }
 
