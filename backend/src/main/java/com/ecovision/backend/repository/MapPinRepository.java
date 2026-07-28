@@ -7,10 +7,14 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MapPinRepository extends JpaRepository<MapPin, Long> {
     @Override
-    @EntityGraph(attributePaths = {"createdBy", "acceptedMaterials", "binStates"})
+    @EntityGraph(attributePaths = {
+            "createdBy", "acceptedMaterials", "binStates", "binList"
+    })
     List<MapPin> findAll();
 
-    @EntityGraph(attributePaths = {"createdBy", "acceptedMaterials", "binStates"})
+    @EntityGraph(attributePaths = {
+            "createdBy", "acceptedMaterials", "binStates", "binList"
+    })
     List<MapPin> findAllByOrderByCreatedAtDesc();
 
     java.util.Optional<MapPin> findFirstByTitleIgnoreCase(String title);

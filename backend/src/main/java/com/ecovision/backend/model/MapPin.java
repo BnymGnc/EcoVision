@@ -14,11 +14,14 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.MapKeyColumn;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -61,6 +64,14 @@ public class MapPin {
     @MapKeyColumn(name = "material_type")
     @Column(name = "accepting", nullable = false)
     private Map<String, Boolean> binStates = new LinkedHashMap<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "map_pin_bins",
+            joinColumns = @JoinColumn(name = "map_pin_id")
+    )
+    @OrderColumn(name = "bin_order")
+    private List<MapPinBin> binList = new ArrayList<>();
 
     @Column(nullable = false)
     private boolean active = true;
@@ -147,6 +158,16 @@ public class MapPin {
         this.binStates = binStates == null
                 ? new LinkedHashMap<>()
                 : new LinkedHashMap<>(binStates);
+    }
+
+    public List<MapPinBin> getBinList() {
+        return binList;
+    }
+
+    public void setBinList(List<MapPinBin> binList) {
+        this.binList = binList == null
+                ? new ArrayList<>()
+                : new ArrayList<>(binList);
     }
 
     public boolean acceptsMaterial(String material) {

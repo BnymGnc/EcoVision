@@ -2,6 +2,7 @@ package com.ecovision.backend.dto;
 
 import com.ecovision.backend.model.MapPin;
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.Map;
 
@@ -19,6 +20,7 @@ public record MapPinResponse(
         String workingHours,
         Set<String> acceptedMaterials,
         Map<String, Boolean> binStates,
+        List<MapPinBinResponse> binList,
         boolean active,
         boolean openNow
 ) {
@@ -41,6 +43,9 @@ public record MapPinResponse(
                 pin.getWorkingHours(),
                 pin.currentlyAcceptedMaterials(),
                 Map.copyOf(pin.getBinStates()),
+                pin.getBinList().stream()
+                        .map(MapPinBinResponse::from)
+                        .toList(),
                 pin.isActive(),
                 pin.isActive() && com.ecovision.backend.service.MapPinHours.isOpenNow(
                         pin.getWorkingHours()
@@ -72,6 +77,7 @@ public record MapPinResponse(
                 null,
                 Set.of(),
                 Map.of(),
+                List.of(),
                 true,
                 true
         );
