@@ -837,9 +837,17 @@ class ApiService {
   }
 
   Object? _decodeAnyResponse(http.Response response) {
-    final decoded = response.body.isEmpty
-        ? <String, dynamic>{}
-        : jsonDecode(response.body);
+    Object? decoded;
+    try {
+      decoded = response.body.isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(response.body);
+    } on FormatException {
+      throw ApiException(
+        'Sunucuya şu an ulaşılamıyor, lütfen tekrar deneyin.',
+        statusCode: response.statusCode,
+      );
+    }
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return decoded;
     }

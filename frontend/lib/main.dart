@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'screens/login_screen.dart';
-import 'screens/onboarding_screen.dart';
 import 'services/api_service.dart';
 import 'theme/theme_controller.dart';
 
@@ -47,32 +46,9 @@ class _EcoVisionAppState extends State<EcoVisionApp> {
             supportedLocales: const [Locale('tr', 'TR')],
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             theme: _themeController.themeData,
-            home: _LaunchGate(apiService: _apiService),
+            home: LoginScreen(apiService: _apiService),
           ),
         );
-      },
-    );
-  }
-}
-
-class _LaunchGate extends StatelessWidget {
-  const _LaunchGate({required this.apiService});
-
-  final ApiService apiService;
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: OnboardingScreen.hasSeenOnThisDevice(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        return snapshot.data!
-            ? LoginScreen(apiService: apiService)
-            : OnboardingScreen(apiService: apiService);
       },
     );
   }

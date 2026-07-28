@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../theme/theme_controller.dart';
 import '../widgets/auth_loading_overlay.dart';
 import 'main_tab_navigator.dart';
+import 'onboarding_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({required this.apiService, super.key});
@@ -97,10 +98,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       await ThemeScope.of(
         context,
       ).bindToUser(widget.apiService.currentUser!.id);
+      final userId = widget.apiService.currentUser!.id;
+      final hasSeenOnboarding = await OnboardingScreen.hasSeenForUser(userId);
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(
-          builder: (_) => MainTabNavigator(apiService: widget.apiService),
+          builder: (_) => hasSeenOnboarding
+              ? MainTabNavigator(apiService: widget.apiService)
+              : OnboardingScreen(apiService: widget.apiService, userId: userId),
         ),
         (_) => false,
       );
@@ -235,9 +240,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       tooltip: _obscurePassword
                           ? 'Parolayı göster'
                           : 'Parolayı gizle',
-                      onPressed: () => setState(
-                        () => _obscurePassword = !_obscurePassword,
-                      ),
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
                       icon: Icon(
                         _obscurePassword
                             ? Icons.visibility_outlined
@@ -334,18 +338,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       )
                       .toList(),
-                  onChanged: (value) => setState(
-                    () => _district = value ?? _district,
-                  ),
+                  onChanged: (value) =>
+                      setState(() => _district = value ?? _district),
                 ),
                 const SizedBox(height: 12),
                 CheckboxListTile(
                   value: _termsAccepted,
                   contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,
-                  onChanged: (value) => setState(
-                    () => _termsAccepted = value ?? false,
-                  ),
+                  onChanged: (value) =>
+                      setState(() => _termsAccepted = value ?? false),
                   title: Wrap(
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
@@ -364,9 +366,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   value: _privacyAccepted,
                   contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,
-                  onChanged: (value) => setState(
-                    () => _privacyAccepted = value ?? false,
-                  ),
+                  onChanged: (value) =>
+                      setState(() => _privacyAccepted = value ?? false),
                   title: Wrap(
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [

@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../theme/theme_controller.dart';
 import '../widgets/auth_loading_overlay.dart';
 import 'main_tab_navigator.dart';
+import 'onboarding_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -81,11 +82,15 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _openApp() async {
     final user = widget.apiService.currentUser!;
     await ThemeScope.of(context).bindToUser(user.id);
+    final hasSeenOnboarding = await OnboardingScreen.hasSeenForUser(user.id);
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-        builder: (_) => MainTabNavigator(apiService: widget.apiService),
+        builder: (_) => hasSeenOnboarding
+            ? MainTabNavigator(apiService: widget.apiService)
+            : OnboardingScreen(apiService: widget.apiService, userId: user.id),
       ),
+      (_) => false,
     );
   }
 
@@ -131,9 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
       await widget.apiService.requestPasswordReset(emailController.text);
       if (mounted) {
         setState(() => _isLoading = false);
-        _showMessage(
-          'Hesap mevcutsa parola sıfırlama talimatları gönderildi.',
-        );
+        _showMessage('Hesap mevcutsa parola sıfırlama talimatları gönderildi.');
       }
     } catch (error) {
       if (mounted) {
@@ -249,9 +252,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           Checkbox(
                             value: _rememberMe,
-                            onChanged: (value) => setState(
-                              () => _rememberMe = value ?? false,
-                            ),
+                            onChanged: (value) =>
+                                setState(() => _rememberMe = value ?? false),
                           ),
                           const Expanded(child: Text('Beni hatırla')),
                           TextButton(

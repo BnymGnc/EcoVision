@@ -3,23 +3,28 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
-import 'login_screen.dart';
+import 'main_tab_navigator.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({required this.apiService, super.key});
+  const OnboardingScreen({
+    required this.apiService,
+    required this.userId,
+    super.key,
+  });
 
-  static const preferenceKey = 'hasSeenOnboarding_first_launch_v1';
+  static String preferenceKey(int userId) => 'hasSeenOnboarding_$userId';
 
   final ApiService apiService;
+  final int userId;
 
-  static Future<bool> hasSeenOnThisDevice() async {
+  static Future<bool> hasSeenForUser(int userId) async {
     final preferences = await SharedPreferences.getInstance();
-    return preferences.getBool(preferenceKey) ?? false;
+    return preferences.getBool(preferenceKey(userId)) ?? false;
   }
 
-  static Future<void> markSeenOnThisDevice() async {
+  static Future<void> markSeenForUser(int userId) async {
     final preferences = await SharedPreferences.getInstance();
-    await preferences.setBool(preferenceKey, true);
+    await preferences.setBool(preferenceKey(userId), true);
   }
 
   @override
@@ -48,11 +53,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _finish() async {
     if (_finishing) return;
     setState(() => _finishing = true);
-    await OnboardingScreen.markSeenOnThisDevice();
+    await OnboardingScreen.markSeenForUser(widget.userId);
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-        builder: (_) => LoginScreen(apiService: widget.apiService),
+        builder: (_) => MainTabNavigator(apiService: widget.apiService),
       ),
       (_) => false,
     );
