@@ -7,6 +7,7 @@ import com.ecovision.backend.dto.RegisterRequest;
 import com.ecovision.backend.dto.UserResponse;
 import com.ecovision.backend.model.AppUser;
 import com.ecovision.backend.model.Role;
+import com.ecovision.backend.model.QuestTriggerType;
 import com.ecovision.backend.repository.AppUserRepository;
 import com.ecovision.backend.security.JwtService;
 import java.time.Duration;
@@ -14,6 +15,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.ZoneId;
+import java.util.Map;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,6 +37,7 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final InputSanitizer inputSanitizer;
     private final GoogleTokenVerifierService googleTokenVerifierService;
+    private final QuestEventPublisher questEvents;
 
     public AuthService(
             AppUserRepository userRepository,
@@ -44,7 +47,8 @@ public class AuthService {
             UsernameService usernameService,
             RefreshTokenService refreshTokenService,
             InputSanitizer inputSanitizer,
-            GoogleTokenVerifierService googleTokenVerifierService
+            GoogleTokenVerifierService googleTokenVerifierService,
+            QuestEventPublisher questEvents
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -54,6 +58,7 @@ public class AuthService {
         this.refreshTokenService = refreshTokenService;
         this.inputSanitizer = inputSanitizer;
         this.googleTokenVerifierService = googleTokenVerifierService;
+        this.questEvents = questEvents;
     }
 
     @Transactional
@@ -77,9 +82,10 @@ public class AuthService {
         user.setPrivacyAcceptedAt(Instant.now());
         user.setTotalPoints(0);
         user.setRole(Role.USER);
-        user.setLastLoginDate(today());
-
-        return response(userRepository.save(user));
+        updateLoginStreak(user);
+        AppUser saved = userRepository.save(user);
+        publishLoginStreak(saved);
+        return response(saved);
     }
 
     @Transactional(noRollbackFor = {
@@ -106,8 +112,9 @@ public class AuthService {
 
         user.setFailedLoginAttempts(0);
         user.setLockoutUntil(null);
-        user.setLastLoginDate(today());
+        updateLoginStreak(user);
         userRepository.save(user);
+        publishLoginStreak(user);
         notificationService.notifyStreakRisk(user);
         return response(user);
     }
@@ -136,7 +143,7 @@ public class AuthService {
                     newUser.setCity(AppUser.DEFAULT_CITY);
                     newUser.setTotalPoints(0);
                     newUser.setRole(Role.USER);
-                    newUser.setLastLoginDate(today());
+                    updateLoginStreak(newUser);
                     newUser.setTermsAcceptedAt(Instant.now());
                     newUser.setPrivacyAcceptedAt(Instant.now());
                     return userRepository.save(newUser);
@@ -148,8 +155,9 @@ public class AuthService {
         if (identity.pictureUrl() != null && !identity.pictureUrl().isBlank()) {
             user.setProfilePictureUrl(identity.pictureUrl());
         }
-        user.setLastLoginDate(today());
+        updateLoginStreak(user);
         userRepository.save(user);
+        publishLoginStreak(user);
         notificationService.notifyStreakRisk(user);
         return response(user);
     }
@@ -213,5 +221,31 @@ public class AuthService {
 
     private LocalDate today() {
         return LocalDate.now(ZoneId.of("Europe/Istanbul"));
+    }
+
+    private void updateLoginStreak(AppUser user) {
+        LocalDate today = today();
+        LocalDate previous = user.getLastLoginDate();
+        if (today.equals(previous)) {
+            return;
+        }
+        if (previous != null && previous.equals(today.minusDays(1))) {
+            user.setLoginStreakCount(user.getLoginStreakCount() + 1);
+        } else {
+            user.setLoginStreakCount(1);
+        }
+        user.setLastLoginDate(today);
+    }
+
+    private void publishLoginStreak(AppUser user) {
+        questEvents.publish(
+                user.getId(),
+                QuestTriggerType.STREAK_DAYS,
+                user.getLoginStreakCount(),
+                Map.of(
+                        "metric", "login_streak_days",
+                        "value", user.getLoginStreakCount()
+                )
+        );
     }
 }

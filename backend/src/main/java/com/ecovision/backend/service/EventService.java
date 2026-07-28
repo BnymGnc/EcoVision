@@ -20,6 +20,7 @@ import com.ecovision.backend.model.EventMember;
 import com.ecovision.backend.model.GroupMission;
 import com.ecovision.backend.model.GroupRole;
 import com.ecovision.backend.model.GroupWasteReport;
+import com.ecovision.backend.model.QuestTriggerType;
 import com.ecovision.backend.repository.ChatMessageRepository;
 import com.ecovision.backend.repository.EventMemberRepository;
 import com.ecovision.backend.repository.EventAttendanceRepository;
@@ -30,6 +31,7 @@ import com.ecovision.backend.repository.GroupInviteRepository;
 import com.ecovision.backend.repository.SocialReportRepository;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +52,7 @@ public class EventService {
     private final EventAttendanceRepository attendanceRepository;
     private final FileStorageService fileStorageService;
     private final InputSanitizer inputSanitizer;
+    private final QuestEventPublisher questEvents;
 
     public EventService(
             EventRepository eventRepository,
@@ -64,7 +67,8 @@ public class EventService {
             NotificationService notificationService,
             EventAttendanceRepository attendanceRepository,
             FileStorageService fileStorageService,
-            InputSanitizer inputSanitizer
+            InputSanitizer inputSanitizer,
+            QuestEventPublisher questEvents
     ) {
         this.eventRepository = eventRepository;
         this.eventMemberRepository = eventMemberRepository;
@@ -79,6 +83,7 @@ public class EventService {
         this.attendanceRepository = attendanceRepository;
         this.fileStorageService = fileStorageService;
         this.inputSanitizer = inputSanitizer;
+        this.questEvents = questEvents;
     }
 
     @Transactional(readOnly = true)
@@ -136,6 +141,12 @@ public class EventService {
         addMember(event, creator, GroupRole.GROUP_ADMIN);
         addEventCard(event, creator);
         notificationService.notifyCityEvent(event);
+        questEvents.publish(
+                creator.getId(),
+                QuestTriggerType.INVITE_FRIEND,
+                1,
+                Map.of("action", "event_created", "eventId", event.getId())
+        );
         return response(event, creator);
     }
 
@@ -240,10 +251,20 @@ public class EventService {
         EventAttendance attendance = attendanceRepository
                 .findByEventIdAndUserId(eventId, user.getId())
                 .orElseGet(EventAttendance::new);
+        boolean newlyAttending = request.status() == AttendanceStatus.ATTENDING
+                && attendance.getStatus() != AttendanceStatus.ATTENDING;
         attendance.setEvent(event);
         attendance.setUser(user);
         attendance.setStatus(request.status());
         attendanceRepository.save(attendance);
+        if (newlyAttending) {
+            questEvents.publish(
+                    user.getId(),
+                    QuestTriggerType.INVITE_FRIEND,
+                    1,
+                    Map.of("action", "event_attended", "eventId", eventId)
+            );
+        }
         return response(event, user);
     }
 

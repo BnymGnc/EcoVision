@@ -42,6 +42,10 @@ public class Quest {
     @Column(nullable = false, length = 40)
     private QuestTriggerType triggerType;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    private QuestDomain domain = QuestDomain.ECO_IMPACT;
+
     @Column(nullable = false, columnDefinition = "text")
     private String criteriaJson = "{}";
 
@@ -127,6 +131,14 @@ public class Quest {
 
     public void setTriggerType(QuestTriggerType triggerType) {
         this.triggerType = triggerType;
+    }
+
+    public QuestDomain getDomain() {
+        return domain;
+    }
+
+    public void setDomain(QuestDomain domain) {
+        this.domain = domain;
     }
 
     public String getCriteriaJson() {

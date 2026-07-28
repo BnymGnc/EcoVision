@@ -7,12 +7,16 @@ import java.nio.file.StandardOpenOption;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class FileStorageService {
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(FileStorageService.class);
     private static final long MAX_IMAGE_BYTES = 5L * 1024 * 1024;
     private static final long MAX_CHAT_BYTES = 2L * 1024 * 1024;
     private static final Set<String> IMAGE_TYPES = Set.of(
@@ -27,10 +31,9 @@ public class FileStorageService {
     public FileStorageService(
             @Value("${app.storage.upload-dir}") String uploadDir,
             @Value("${app.storage.public-base-url}") String publicBaseUrl
-    ) throws IOException {
-        this.uploadRoot = Path.of(uploadDir).toAbsolutePath().normalize();
+    ) {
+        this.uploadRoot = initializeUploadRoot(uploadDir);
         this.publicBaseUrl = publicBaseUrl;
-        Files.createDirectories(uploadRoot);
     }
 
     public String storeImage(MultipartFile file, String folder) {
@@ -122,6 +125,33 @@ public class FileStorageService {
             return new DetectedFile("application/pdf", ".pdf");
         }
         throw new IllegalArgumentException("Dosya biçimi doğrulanamadı");
+    }
+
+    private Path initializeUploadRoot(String configuredDirectory) {
+        Path requested = Path.of(configuredDirectory).toAbsolutePath().normalize();
+        try {
+            Files.createDirectories(requested);
+            return requested;
+        } catch (IOException | SecurityException primaryFailure) {
+            Path fallback = Path.of(
+                    System.getProperty("java.io.tmpdir"),
+                    "ecovision-uploads"
+            ).toAbsolutePath().normalize();
+            try {
+                Files.createDirectories(fallback);
+                LOGGER.warn(
+                        "Configured upload directory is unavailable; using temporary storage at {}",
+                        fallback
+                );
+            } catch (IOException | SecurityException fallbackFailure) {
+                LOGGER.error(
+                        "Temporary upload directory could not be prepared. "
+                                + "Uploads will return a controlled error.",
+                        fallbackFailure
+                );
+            }
+            return fallback;
+        }
     }
 
     private record DetectedFile(String contentType, String extension) {

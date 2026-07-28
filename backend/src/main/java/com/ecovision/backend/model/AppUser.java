@@ -66,6 +66,8 @@ public class AppUser implements UserDetails {
 
     private LocalDate lastLoginDate;
 
+    private Integer loginStreakCount = 0;
+
     private LocalDate lastScanDate;
 
     private Integer streakCount = 0;
@@ -243,6 +245,12 @@ public class AppUser implements UserDetails {
 
     public LocalDate getLastLoginDate() { return lastLoginDate; }
     public void setLastLoginDate(LocalDate lastLoginDate) { this.lastLoginDate = lastLoginDate; }
+    public Integer getLoginStreakCount() {
+        return loginStreakCount == null ? 0 : loginStreakCount;
+    }
+    public void setLoginStreakCount(Integer loginStreakCount) {
+        this.loginStreakCount = loginStreakCount;
+    }
     public LocalDate getLastScanDate() { return lastScanDate; }
     public void setLastScanDate(LocalDate lastScanDate) { this.lastScanDate = lastScanDate; }
     public Integer getStreakCount() { return streakCount == null ? 0 : streakCount; }

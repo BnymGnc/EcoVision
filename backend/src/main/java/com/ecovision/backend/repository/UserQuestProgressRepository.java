@@ -26,6 +26,14 @@ public interface UserQuestProgressRepository
             Long userId
     );
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = "quest")
+    List<UserQuestProgress>
+    findByUserIdAndQuestIdAndArchivedAtIsNullOrderByAssignedAtDesc(
+            Long userId,
+            Long questId
+    );
+
     boolean existsByUserIdAndQuestIdAndArchivedAtIsNullAndExpiresAtAfter(
             Long userId,
             Long questId,

@@ -2,12 +2,15 @@ package com.ecovision.backend.config;
 
 import com.ecovision.backend.model.Quest;
 import com.ecovision.backend.model.QuestCategory;
+import com.ecovision.backend.model.QuestDomain;
 import com.ecovision.backend.model.QuestTriggerType;
 import com.ecovision.backend.repository.QuestRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -30,7 +33,12 @@ public class QuestDataLoader implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        for (QuestSeed seed : catalog()) {
+        List<QuestSeed> seeds = catalog();
+        validateCatalog(seeds);
+        Set<String> catalogCodes = new HashSet<>();
+
+        for (QuestSeed seed : seeds) {
+            catalogCodes.add(seed.code());
             Quest quest = questRepository.findByCode(seed.code())
                     .orElseGet(Quest::new);
             quest.setCode(seed.code());
@@ -40,9 +48,40 @@ public class QuestDataLoader implements CommandLineRunner {
             quest.setTargetAmount(seed.targetAmount());
             quest.setQuestCategory(seed.category());
             quest.setTriggerType(seed.triggerType());
+            quest.setDomain(domainFor(seed));
             quest.setCriteriaJson(toJson(seed.criteria()));
             quest.setActive(true);
             questRepository.save(quest);
+        }
+
+        for (Quest existing : questRepository.findAll()) {
+            if (existing.isActive() && !catalogCodes.contains(existing.getCode())) {
+                existing.setActive(false);
+                questRepository.save(existing);
+            }
+        }
+    }
+
+    private void validateCatalog(List<QuestSeed> seeds) {
+        if (seeds.size() != 100) {
+            throw new IllegalStateException(
+                    "Görev kataloğu tam olarak 100 görev içermelidir: "
+                            + seeds.size()
+            );
+        }
+        Set<String> codes = new HashSet<>();
+        Set<String> titles = new HashSet<>();
+        for (QuestSeed seed : seeds) {
+            if (!codes.add(seed.code()) || !titles.add(seed.title())) {
+                throw new IllegalStateException(
+                        "Görev kodu ve başlığı benzersiz olmalıdır: " + seed.code()
+                );
+            }
+            if (seed.rewardPoints() <= 0 || seed.targetAmount() <= 0) {
+                throw new IllegalStateException(
+                        "Görev hedefi ve ödülü pozitif olmalıdır: " + seed.code()
+                );
+            }
         }
     }
 
@@ -456,8 +495,196 @@ public class QuestDataLoader implements CommandLineRunner {
                         "EcoVision kaydının üzerinden otuz gün geçsin.",
                         250, 30, QuestCategory.MILESTONE,
                         QuestTriggerType.REACH_SCORE,
-                        Map.of("metric", "registration_days"))
+                        Map.of("metric", "registration_days")),
+
+                // 76-83: Geri dönüşüm uzmanlıkları
+                q("recycling_pet_five", "5 Pet Şişe Geri Dönüştür",
+                        "Beş PET şişeyi tarayıp doğru geri dönüşüm noktasına yönlendir.",
+                        50, 5, QuestCategory.MILESTONE,
+                        QuestTriggerType.SCAN_SPECIFIC_WASTE,
+                        Map.of("action", "scan", "wasteTypes", List.of("plastic"))),
+                q("recycling_pet_master", "PET Ustası",
+                        "Toplam yirmi beş PET şişeyi geri dönüşüme kazandır.",
+                        100, 25, QuestCategory.MILESTONE,
+                        QuestTriggerType.SCAN_SPECIFIC_WASTE,
+                        Map.of("action", "scan", "wasteTypes", List.of("plastic"))),
+                q("recycling_pet_marathon", "PET Maratonu",
+                        "Yüz PET şişeyi geri dönüşüm yolculuğuna çıkar.",
+                        500, 100, QuestCategory.MILESTONE,
+                        QuestTriggerType.SCAN_SPECIFIC_WASTE,
+                        Map.of("action", "scan", "wasteTypes", List.of("plastic"))),
+                q("recycling_glass_five", "Cam Beşlisi",
+                        "Beş cam ambalajı güvenle geri dönüşüme yönlendir.",
+                        50, 5, QuestCategory.MILESTONE,
+                        QuestTriggerType.SCAN_SPECIFIC_WASTE,
+                        Map.of("action", "scan", "wasteTypes", List.of("glass"))),
+                q("recycling_glass_cycle", "Cam Döngüsü",
+                        "Yirmi beş cam atığı sonsuz dönüşüm döngüsüne kat.",
+                        100, 25, QuestCategory.MILESTONE,
+                        QuestTriggerType.SCAN_SPECIFIC_WASTE,
+                        Map.of("action", "scan", "wasteTypes", List.of("glass"))),
+                q("recycling_aluminum_three", "Alüminyum Üçlüsü",
+                        "Üç alüminyum kutuyu tara ve enerji tasarrufuna katkı sağla.",
+                        50, 3, QuestCategory.MILESTONE,
+                        QuestTriggerType.SCAN_SPECIFIC_WASTE,
+                        Map.of("action", "scan",
+                                "wasteTypes", List.of("metal", "aluminum"))),
+                q("recycling_aluminum_hero", "Alüminyum Enerji Kahramanı",
+                        "Yirmi alüminyum ambalajı geri dönüşüme kazandır.",
+                        100, 20, QuestCategory.MILESTONE,
+                        QuestTriggerType.SCAN_SPECIFIC_WASTE,
+                        Map.of("action", "scan",
+                                "wasteTypes", List.of("metal", "aluminum"))),
+                q("recycling_mixed_fifteen", "Karma Geri Dönüşüm",
+                        "Beş PET, beş cam ve beş alüminyum atık tara.",
+                        100, 15, QuestCategory.MILESTONE,
+                        QuestTriggerType.SCAN_SPECIFIC_WASTE,
+                        Map.of("action", "scan", "requirements",
+                                Map.of("plastic", 5, "glass", 5, "metal", 5))),
+
+                // 84-87: Çevreci ulaşım
+                q("transport_public_three", "Haftada 3 Gün Toplu Taşıma Kullan",
+                        "Bu hafta üç farklı gün toplu taşıma kullanarak karbon salımını azalt.",
+                        100, 3, QuestCategory.WEEKLY,
+                        QuestTriggerType.TIME_BASED,
+                        Map.of("action", "public_transport",
+                                "selfReport", true, "oncePerDay", true)),
+                q("transport_bicycle_day", "Bisikletle Bir Gün",
+                        "Bugünkü bir yolculuğunu bisikletle tamamla.",
+                        50, 1, QuestCategory.DAILY,
+                        QuestTriggerType.TIME_BASED,
+                        Map.of("action", "bicycle_commute",
+                                "selfReport", true, "oncePerDay", true)),
+                q("transport_car_free_week", "Otomobilsiz Hafta",
+                        "Bir hafta içinde beş gün özel otomobil kullanma.",
+                        100, 5, QuestCategory.WEEKLY,
+                        QuestTriggerType.TIME_BASED,
+                        Map.of("action", "car_free_day",
+                                "selfReport", true, "oncePerDay", true)),
+                q("transport_walking_series", "Yürüyüş Serisi",
+                        "Yedi farklı günde kısa mesafelerini yürüyerek tamamla.",
+                        100, 7, QuestCategory.WEEKLY,
+                        QuestTriggerType.TIME_BASED,
+                        Map.of("action", "walking_commute",
+                                "selfReport", true, "oncePerDay", true)),
+
+                // 88-91: Enerji tasarrufu
+                q("energy_lights_off", "Gereksiz Işıkları Kapat",
+                        "Beş farklı gün kullanmadığın odaların ışıklarını kapat.",
+                        20, 5, QuestCategory.WEEKLY,
+                        QuestTriggerType.TIME_BASED,
+                        Map.of("action", "lights_off",
+                                "selfReport", true, "oncePerDay", true)),
+                q("energy_saving_mode", "Enerji Tasarruf Modu",
+                        "Yedi gün boyunca cihazlarında enerji tasarruf modunu kullan.",
+                        100, 7, QuestCategory.WEEKLY,
+                        QuestTriggerType.TIME_BASED,
+                        Map.of("action", "energy_saving",
+                                "selfReport", true, "oncePerDay", true)),
+                q("energy_unplug_five", "Fişleri Çek",
+                        "Kullanmadığın beş cihazı bekleme modunda bırakma.",
+                        50, 5, QuestCategory.WEEKLY,
+                        QuestTriggerType.TIME_BASED,
+                        Map.of("action", "unplug_device",
+                                "selfReport", true, "oncePerDay", true)),
+                q("energy_class_awareness", "Enerji Sınıfı Bilinci",
+                        "Evindeki bir cihazın enerji sınıfını kontrol et.",
+                        10, 1, QuestCategory.MILESTONE,
+                        QuestTriggerType.TIME_BASED,
+                        Map.of("action", "energy_label_checked",
+                                "selfReport", true, "oncePerDay", true)),
+
+                // 92-95: Su tasarrufu
+                q("water_tap_off", "Musluğu Kapat",
+                        "Beş farklı gün diş fırçalarken musluğu kapalı tut.",
+                        50, 5, QuestCategory.WEEKLY,
+                        QuestTriggerType.TIME_BASED,
+                        Map.of("action", "tap_off",
+                                "selfReport", true, "oncePerDay", true)),
+                q("water_short_shower", "Kısa Duş Meydan Okuması",
+                        "Beş farklı gün duş süreni beş dakikanın altında tut.",
+                        100, 5, QuestCategory.WEEKLY,
+                        QuestTriggerType.TIME_BASED,
+                        Map.of("action", "short_shower",
+                                "selfReport", true, "oncePerDay", true)),
+                q("water_full_machine", "Tam Dolu Makine",
+                        "Çamaşır veya bulaşık makinesini üç kez tam dolu çalıştır.",
+                        50, 3, QuestCategory.WEEKLY,
+                        QuestTriggerType.TIME_BASED,
+                        Map.of("action", "full_load_wash",
+                                "selfReport", true, "oncePerDay", true)),
+                q("water_rain_friend", "Yağmur Suyu Dostu",
+                        "Bitkilerin için bir kez yağmur suyu biriktir ve kullan.",
+                        100, 1, QuestCategory.MILESTONE,
+                        QuestTriggerType.TIME_BASED,
+                        Map.of("action", "rainwater_reuse",
+                                "selfReport", true, "oncePerDay", true)),
+
+                // 96-100: Topluluk ve sürdürülebilir alışkanlık
+                q("community_first_event", "Bir Çevre Temizliği Etkinliğine Katıl",
+                        "EcoVision topluluğundaki ilk çevre etkinliğine katıl.",
+                        200, 1, QuestCategory.SOCIAL,
+                        QuestTriggerType.INVITE_FRIEND,
+                        Map.of("action", "event_attended")),
+                q("community_event_volunteer", "Topluluk Gönüllüsü",
+                        "Üç farklı çevre temizliği etkinliğine katıl.",
+                        500, 3, QuestCategory.MILESTONE,
+                        QuestTriggerType.INVITE_FRIEND,
+                        Map.of("action", "event_attended", "mode", "UNIQUE",
+                                "uniqueAttribute", "eventId")),
+                q("community_event_organizer", "Etkinlik Organizatörü",
+                        "Bir çevre temizliği etkinliği oluştur.",
+                        200, 1, QuestCategory.SOCIAL,
+                        QuestTriggerType.INVITE_FRIEND,
+                        Map.of("action", "event_created")),
+                q("community_cleanup_team", "Temizlik Ekibi",
+                        "Bir grup görevinin beş adımına katkıda bulun.",
+                        100, 5, QuestCategory.SOCIAL,
+                        QuestTriggerType.INVITE_FRIEND,
+                        Map.of("action", "group_mission_contribution")),
+                q("streak_login_ten", "10 Gün Boyunca Uygulamaya Giriş Yap",
+                        "On günlük EcoVision giriş serisini tamamla.",
+                        150, 10, QuestCategory.MILESTONE,
+                        QuestTriggerType.STREAK_DAYS,
+                        Map.of("metric", "login_streak_days"))
         );
+    }
+
+    private static QuestDomain domainFor(QuestSeed seed) {
+        String code = seed.code();
+        if (code.startsWith("recycling_")
+                || code.contains("plastic")
+                || code.contains("glass")
+                || code.contains("metal")
+                || code.contains("paper")
+                || code.contains("scan")) {
+            return QuestDomain.RECYCLING;
+        }
+        if (code.startsWith("transport_")) {
+            return QuestDomain.TRANSPORTATION;
+        }
+        if (code.startsWith("energy_")) {
+            return QuestDomain.ENERGY_SAVING;
+        }
+        if (code.startsWith("water_")) {
+            return QuestDomain.WATER_SAVING;
+        }
+        if (code.startsWith("community_") || code.contains("group")) {
+            return QuestDomain.COMMUNITY;
+        }
+        if (code.startsWith("streak_")) {
+            return QuestDomain.STREAK;
+        }
+        if (code.startsWith("market_")) {
+            return QuestDomain.ECO_MARKET;
+        }
+        if (code.startsWith("upcycle_") || code.contains("education")) {
+            return QuestDomain.EDUCATION;
+        }
+        if (seed.category() == QuestCategory.SOCIAL) {
+            return QuestDomain.SOCIAL;
+        }
+        return QuestDomain.ECO_IMPACT;
     }
 
     private String toJson(Map<String, Object> criteria) {

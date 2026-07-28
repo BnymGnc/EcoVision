@@ -13,4 +13,6 @@ public interface QuestRepository extends JpaRepository<Quest, Long> {
     List<Quest> findByActiveTrueAndQuestCategory(QuestCategory category);
 
     List<Quest> findByActiveTrueAndTriggerType(QuestTriggerType triggerType);
+
+    List<Quest> findByActiveTrueOrderByIdAsc();
 }

@@ -21,6 +21,7 @@ import '../models/user_profile.dart';
 import '../models/social_models.dart';
 import '../models/app_notification.dart';
 import '../models/moderation_report.dart';
+import '../models/quest_progress.dart';
 
 class ApiService {
   static const String productionBaseUrl = String.fromEnvironment(
@@ -314,6 +315,28 @@ class ApiService {
       'rewardKey': rewardKey,
     });
     return _applyGamificationState(json);
+  }
+
+  Future<List<QuestProgress>> fetchQuests() async {
+    final json = await _getJsonList('/api/quests');
+    return json.map(QuestProgress.fromJson).toList();
+  }
+
+  Future<QuestProgress> checkInQuest(int questId) async {
+    final json = await _postJson('/api/quests/$questId/check-in', const {});
+    return QuestProgress.fromJson(json);
+  }
+
+  Future<GamificationState> claimQuest(int progressId) async {
+    final json = await _postJson(
+      '/api/quests/progress/$progressId/claim',
+      const {},
+    );
+    final totalPoints = (json['totalPoints'] as num?)?.toInt();
+    if (totalPoints != null) {
+      _pointsNotifier.value = totalPoints;
+    }
+    return fetchGamificationState();
   }
 
   Future<List<AvatarTier>> fetchAvatarTiers() async {
