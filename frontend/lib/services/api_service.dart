@@ -10,6 +10,7 @@ import 'package:http_parser/http_parser.dart';
 import '../models/chat_message.dart';
 import '../models/avatar_tier.dart';
 import '../models/cleanup_event.dart';
+import '../models/community_group.dart';
 import '../models/gamification_state.dart';
 import '../models/leaderboard_entry.dart';
 import '../models/group_mission.dart';
@@ -24,10 +25,12 @@ import '../models/moderation_report.dart';
 import '../models/quest_progress.dart';
 
 class ApiService {
-  static const String productionBaseUrl = String.fromEnvironment(
+  static const String _configuredBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://ecovision-backend.onrender.com',
+    defaultValue: 'https://ecovision-backend-wdr0.onrender.com',
   );
+  static String get productionBaseUrl =>
+      _configuredBaseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
   static const _accessTokenKey = 'ecovision.access_token';
   static const _refreshTokenKey = 'ecovision.refresh_token';
   static const _googleWebClientId =
@@ -369,6 +372,202 @@ class ApiService {
     return json.map((item) => CleanupEvent.fromJson(item)).toList();
   }
 
+  Future<List<CommunityGroup>> fetchCommunityGroups({
+    String query = '',
+    Set<String> cities = const {},
+    String? district,
+  }) async {
+    final parameters = <String, String>{
+      if (query.trim().isNotEmpty) 'query': query.trim(),
+      if (cities.isNotEmpty) 'cities': cities.join(','),
+      if (district != null && district.isNotEmpty) 'district': district,
+    };
+    final path = Uri(path: '/api/groups', queryParameters: parameters);
+    final json = await _getJsonList(path.toString());
+    return json.map(CommunityGroup.fromJson).toList();
+  }
+
+  Future<CommunityGroup> createCommunityGroup({
+    required String name,
+    required String description,
+    required String city,
+    required String district,
+    required String neighborhood,
+    required int memberLimit,
+    String? joinCode,
+    Uint8List? coverBytes,
+    String? coverFileName,
+  }) async {
+    final payload = <String, dynamic>{
+      'name': name.trim(),
+      'description': description.trim(),
+      'city': city,
+      'district': district,
+      'neighborhood': neighborhood.trim(),
+      'memberLimit': memberLimit,
+      if (joinCode != null && joinCode.trim().isNotEmpty)
+        'joinCode': joinCode.trim(),
+    };
+    if (coverBytes == null) {
+      return CommunityGroup.fromJson(await _postJson('/api/groups', payload));
+    }
+    final response = await _authorizedMultipart(() {
+      final request = http.MultipartRequest('POST', _uri('/api/groups'));
+      request.files.add(
+        http.MultipartFile.fromString(
+          'group',
+          jsonEncode(payload),
+          contentType: MediaType('application', 'json'),
+        ),
+      );
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'coverImage',
+          coverBytes,
+          filename: coverFileName ?? 'group-cover.jpg',
+          contentType: _imageMediaType(coverBytes),
+        ),
+      );
+      return request;
+    });
+    return CommunityGroup.fromJson(_decodeResponse(response));
+  }
+
+  Future<CommunityGroup> joinCommunityGroup(
+    int groupId, {
+    String? joinCode,
+  }) async {
+    final json = await _postJson('/api/groups/$groupId/join', {
+      if (joinCode != null) 'joinCode': joinCode,
+    });
+    return CommunityGroup.fromJson(json);
+  }
+
+  Future<List<EventMember>> fetchCommunityGroupMembers(int groupId) async {
+    final json = await _getJsonList('/api/groups/$groupId/members');
+    return json.map(EventMember.fromJson).toList();
+  }
+
+  Future<EventMember> promoteCommunityGroupAdmin(
+    int groupId,
+    int userId,
+  ) async {
+    final json = await _postJson(
+      '/api/groups/$groupId/members/$userId/admin',
+      const {},
+    );
+    return EventMember.fromJson(json);
+  }
+
+  Future<void> removeCommunityGroupMember(int groupId, int userId) async {
+    final response = await _authorizedRequest(
+      (headers) => _client.delete(
+        _uri('/api/groups/$groupId/members/$userId'),
+        headers: headers,
+      ),
+    );
+    if (response.statusCode != 204) {
+      _decodeAnyResponse(response);
+    }
+  }
+
+  Future<void> deleteCommunityGroup(int groupId) async {
+    final response = await _authorizedRequest(
+      (headers) =>
+          _client.delete(_uri('/api/groups/$groupId'), headers: headers),
+    );
+    if (response.statusCode != 204) {
+      _decodeAnyResponse(response);
+    }
+  }
+
+  Future<List<GroupEvent>> fetchGroupEvents(int groupId) async {
+    final json = await _getJsonList('/api/groups/$groupId/events');
+    return json.map(GroupEvent.fromJson).toList();
+  }
+
+  Future<GroupEvent> createGroupEvent({
+    required int groupId,
+    required String title,
+    required String description,
+    required DateTime eventDate,
+    required String city,
+    required String district,
+    required String exactAddress,
+    Uint8List? coverBytes,
+    String? coverFileName,
+  }) async {
+    final payload = {
+      'title': title.trim(),
+      'description': description.trim(),
+      'eventDate': eventDate.toUtc().toIso8601String(),
+      'city': city,
+      'district': district,
+      'exactAddress': exactAddress.trim(),
+    };
+    final response = await _authorizedMultipart(() {
+      final request = http.MultipartRequest(
+        'POST',
+        _uri('/api/groups/$groupId/events'),
+      );
+      request.files.add(
+        http.MultipartFile.fromString(
+          'event',
+          jsonEncode(payload),
+          contentType: MediaType('application', 'json'),
+        ),
+      );
+      if (coverBytes != null) {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'coverImage',
+            coverBytes,
+            filename: coverFileName ?? 'event-cover.jpg',
+            contentType: _imageMediaType(coverBytes),
+          ),
+        );
+      }
+      return request;
+    });
+    return GroupEvent.fromJson(_decodeResponse(response));
+  }
+
+  Future<GroupEvent> updateGroupEventRsvp({
+    required int groupId,
+    required int eventId,
+    required String status,
+  }) async {
+    final json = await _postJson('/api/groups/$groupId/events/$eventId/rsvp', {
+      'status': status,
+    });
+    return GroupEvent.fromJson(json);
+  }
+
+  Future<List<EventMember>> fetchGroupEventAttendees({
+    required int groupId,
+    required int eventId,
+  }) async {
+    final json = await _getJsonList(
+      '/api/groups/$groupId/events/$eventId/attendees',
+    );
+    return json.map(EventMember.fromJson).toList();
+  }
+
+  Future<void> deleteGroupEvent({
+    required int groupId,
+    required int eventId,
+  }) async {
+    final response = await _authorizedRequest(
+      (headers) => _client.delete(
+        _uri('/api/groups/$groupId/events/$eventId'),
+        headers: headers,
+      ),
+    );
+    if (response.statusCode != 204) {
+      _decodeAnyResponse(response);
+    }
+  }
+
   Future<CleanupEvent> joinEvent(int eventId, {String? joinCode}) async {
     final json = await _postJson('/api/events/$eventId/join', {
       if (joinCode != null) 'joinCode': joinCode,
@@ -581,6 +780,54 @@ class ApiService {
       '/api/chat/events/$eventId?limit=$limit&offset=$offset',
     );
     return json.map((item) => ChatMessage.fromJson(item)).toList();
+  }
+
+  Future<List<ChatMessage>> fetchGroupMessages(
+    int groupId, {
+    int limit = 30,
+    int offset = 0,
+  }) async {
+    final json = await _getJsonList(
+      '/api/chat/groups/$groupId?limit=$limit&offset=$offset',
+    );
+    return json.map(ChatMessage.fromJson).toList();
+  }
+
+  Future<ChatMessage> sendGroupMessage({
+    required int groupId,
+    required String message,
+  }) async {
+    final json = await _postJson('/api/chat/groups/$groupId', {
+      'message': message,
+    });
+    return ChatMessage.fromJson(json);
+  }
+
+  Future<ChatMessage> sendGroupChatAttachment({
+    required int groupId,
+    required Uint8List bytes,
+    required String fileName,
+    required String contentType,
+  }) async {
+    if (bytes.length > 2 * 1024 * 1024) {
+      throw const ApiException('Ek dosya 2 MB\'den küçük olmalıdır.');
+    }
+    final response = await _authorizedMultipart(() {
+      final request = http.MultipartRequest(
+        'POST',
+        _uri('/api/chat/groups/$groupId/attachments'),
+      );
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          bytes,
+          filename: fileName,
+          contentType: MediaType.parse(contentType),
+        ),
+      );
+      return request;
+    });
+    return ChatMessage.fromJson(_decodeResponse(response));
   }
 
   Future<int> fetchUnreadCommunityCount() async {

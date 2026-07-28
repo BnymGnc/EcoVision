@@ -1,0 +1,913 @@
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../core/turkey_locations.dart';
+import '../models/community_group.dart';
+import '../models/event_member.dart';
+import '../services/api_service.dart';
+import '../widgets/premium_ui.dart';
+import 'group_chat_screen.dart';
+import 'public_profile_screen.dart';
+
+class GroupDetailsScreen extends StatefulWidget {
+  const GroupDetailsScreen({
+    required this.apiService,
+    required this.group,
+    super.key,
+  });
+
+  final ApiService apiService;
+  final CommunityGroup group;
+
+  @override
+  State<GroupDetailsScreen> createState() => _GroupDetailsScreenState();
+}
+
+class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
+  late CommunityGroup _group;
+  late Future<List<GroupEvent>> _events;
+  late Future<List<EventMember>> _members;
+
+  @override
+  void initState() {
+    super.initState();
+    _group = widget.group;
+    _reload();
+  }
+
+  void _reload() {
+    setState(() {
+      _events = widget.apiService.fetchGroupEvents(_group.id);
+      _members = widget.apiService.fetchCommunityGroupMembers(_group.id);
+    });
+  }
+
+  Future<void> _openCreateEvent() async {
+    await showEcoGlassSheet<void>(
+      context: context,
+      builder: (_) => _CreateGroupEventSheet(
+        apiService: widget.apiService,
+        group: _group,
+        onCreated: _reload,
+      ),
+    );
+  }
+
+  Future<void> _deleteGroup() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Grup silinsin mi?'),
+        content: const Text(
+          'Grup, etkinlikleri ve sohbet geçmişi kalıcı olarak silinecek.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Grubu Sil'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.apiService.deleteCommunityGroup(_group.id);
+      if (mounted) Navigator.pop(context, true);
+    } catch (error) {
+      _showError(error);
+    }
+  }
+
+  Future<void> _manageMembers() async {
+    await showEcoGlassSheet<void>(
+      context: context,
+      builder: (_) => _MembersSheet(
+        apiService: widget.apiService,
+        group: _group,
+        members: _members,
+        onChanged: _reload,
+      ),
+    );
+  }
+
+  void _showError(Object error) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(error.toString())));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Grup Profili'),
+        actions: [
+          if (_group.isAdmin)
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'members') _manageMembers();
+                if (value == 'delete') _deleteGroup();
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'members',
+                  child: ListTile(
+                    leading: Icon(Icons.manage_accounts_outlined),
+                    title: Text('Üyeleri Yönet'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: ListTile(
+                    leading: Icon(Icons.delete_outline, color: Colors.red),
+                    title: Text(
+                      'Grubu Sil',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async => _reload(),
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 16 / 7,
+                    child: _group.coverImageUrl == null
+                        ? ColoredBox(
+                            color: colors.primaryContainer,
+                            child: Icon(
+                              Icons.groups_2_rounded,
+                              size: 72,
+                              color: colors.primary,
+                            ),
+                          )
+                        : Image.network(
+                            _group.coverImageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => ColoredBox(
+                              color: colors.primaryContainer,
+                              child: const Icon(
+                                Icons.groups_2_rounded,
+                                size: 72,
+                              ),
+                            ),
+                          ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _group.name,
+                                style: Theme.of(context).textTheme.headlineSmall
+                                    ?.copyWith(fontWeight: FontWeight.w900),
+                              ),
+                            ),
+                            if (_group.isAdmin)
+                              Chip(
+                                avatar: const Icon(
+                                  Icons.admin_panel_settings_outlined,
+                                  size: 18,
+                                ),
+                                label: const Text('Yönetici'),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.location_on_outlined,
+                              size: 18,
+                              color: colors.primary,
+                            ),
+                            const SizedBox(width: 5),
+                            Expanded(child: Text(_group.locationLabel)),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Text(_group.description),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _manageMembers,
+                                icon: const Icon(Icons.group_outlined),
+                                label: Text(
+                                  '${_group.memberCount} / ${_group.memberLimit} Üye',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: FilledButton.icon(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => GroupChatScreen(
+                                      apiService: widget.apiService,
+                                      group: _group,
+                                    ),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.forum_outlined),
+                                label: const Text('Grup Sohbeti'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
+              sliver: SliverToBoxAdapter(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Yaklaşan Etkinlikler',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    if (_group.isAdmin)
+                      FilledButton.tonalIcon(
+                        onPressed: _openCreateEvent,
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('Etkinlik Oluştur'),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            FutureBuilder<List<GroupEvent>>(
+              future: _events,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SliverToBoxAdapter(
+                    child: EcoShimmerList(itemCount: 3),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return SliverToBoxAdapter(
+                    child: _SectionMessage(
+                      icon: Icons.cloud_off_outlined,
+                      title: 'Etkinlikler yüklenemedi',
+                      message: snapshot.error.toString(),
+                      onRetry: _reload,
+                    ),
+                  );
+                }
+                final events = snapshot.data ?? const [];
+                if (events.isEmpty) {
+                  return SliverToBoxAdapter(
+                    child: _SectionMessage(
+                      icon: Icons.event_available_outlined,
+                      title: 'Henüz etkinlik yok',
+                      message: _group.isAdmin
+                          ? 'Grubun ilk etkinliğini oluşturabilirsin.'
+                          : 'Yöneticiler yeni bir etkinlik planladığında burada görünecek.',
+                    ),
+                  );
+                }
+                return SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 32),
+                  sliver: SliverList.separated(
+                    itemCount: events.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) => _GroupEventCard(
+                      apiService: widget.apiService,
+                      group: _group,
+                      event: events[index],
+                      onChanged: _reload,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupEventCard extends StatelessWidget {
+  const _GroupEventCard({
+    required this.apiService,
+    required this.group,
+    required this.event,
+    required this.onChanged,
+  });
+
+  final ApiService apiService;
+  final CommunityGroup group;
+  final GroupEvent event;
+  final VoidCallback onChanged;
+
+  Future<void> _rsvp(BuildContext context, String status) async {
+    try {
+      await EcoHaptics.light();
+      await apiService.updateGroupEventRsvp(
+        groupId: group.id,
+        eventId: event.id,
+        status: status,
+      );
+      onChanged();
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
+  }
+
+  Future<void> _showAttendees(BuildContext context) async {
+    await showEcoGlassSheet<void>(
+      context: context,
+      builder: (_) => FutureBuilder<List<EventMember>>(
+        future: apiService.fetchGroupEventAttendees(
+          groupId: group.id,
+          eventId: event.id,
+        ),
+        builder: (context, snapshot) {
+          final users = snapshot.data ?? const [];
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const EcoSheetHandle(),
+                const ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    'Katılımcılar',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  const EcoShimmerList(itemCount: 3, padding: EdgeInsets.zero)
+                else if (users.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('Henüz katılımcı yok.'),
+                  )
+                else
+                  ...users.map(
+                    (user) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        backgroundImage: user.profilePictureUrl == null
+                            ? null
+                            : NetworkImage(user.profilePictureUrl!),
+                        child: user.profilePictureUrl == null
+                            ? Text(user.fullName[0])
+                            : null,
+                      ),
+                      title: Text(user.fullName),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return GlassPanel(
+      padding: EdgeInsets.zero,
+      tint: colors.secondaryContainer,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (event.coverImageUrl != null)
+            AspectRatio(
+              aspectRatio: 16 / 7,
+              child: Image.network(event.coverImageUrl!, fit: BoxFit.cover),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        event.title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                    if (group.isAdmin)
+                      IconButton(
+                        tooltip: 'Etkinliği sil',
+                        onPressed: () async {
+                          await apiService.deleteGroupEvent(
+                            groupId: group.id,
+                            eventId: event.id,
+                          );
+                          onChanged();
+                        },
+                        icon: const Icon(Icons.delete_outline),
+                      ),
+                  ],
+                ),
+                Text(event.description, maxLines: 3),
+                const SizedBox(height: 12),
+                _EventInfo(
+                  icon: Icons.schedule_outlined,
+                  text: event.dateLabel,
+                ),
+                _EventInfo(
+                  icon: Icons.location_on_outlined,
+                  text:
+                      '${event.exactAddress}, ${event.district}/${event.city}',
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      selected: event.isAttending,
+                      onSelected: (_) => _rsvp(context, 'ATTENDING'),
+                      avatar: const Icon(Icons.check_circle_outline, size: 18),
+                      label: const Text('Katılıyorum'),
+                    ),
+                    ChoiceChip(
+                      selected: event.currentUserAttendance == 'NOT_ATTENDING',
+                      onSelected: (_) => _rsvp(context, 'NOT_ATTENDING'),
+                      avatar: const Icon(Icons.cancel_outlined, size: 18),
+                      label: const Text('Katılamıyorum'),
+                    ),
+                    ActionChip(
+                      onPressed: () => _showAttendees(context),
+                      avatar: const Icon(Icons.people_outline, size: 18),
+                      label: Text('${event.attendeeCount} katılımcı'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EventInfo extends StatelessWidget {
+  const _EventInfo({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 6),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 7),
+        Expanded(child: Text(text)),
+      ],
+    ),
+  );
+}
+
+class _MembersSheet extends StatelessWidget {
+  const _MembersSheet({
+    required this.apiService,
+    required this.group,
+    required this.members,
+    required this.onChanged,
+  });
+
+  final ApiService apiService;
+  final CommunityGroup group;
+  final Future<List<EventMember>> members;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentUserId = apiService.currentUser?.id;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
+      child: Column(
+        children: [
+          const EcoSheetHandle(),
+          const ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'Grup Üyeleri',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<List<EventMember>>(
+              future: members,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const EcoShimmerList(itemCount: 5);
+                }
+                final users = snapshot.data ?? const [];
+                return ListView.separated(
+                  itemCount: users.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final user = users[index];
+                    return ListTile(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => PublicProfileScreen(
+                            apiService: apiService,
+                            userId: user.userId,
+                          ),
+                        ),
+                      ),
+                      leading: CircleAvatar(
+                        backgroundImage: user.profilePictureUrl == null
+                            ? null
+                            : NetworkImage(user.profilePictureUrl!),
+                        child: user.profilePictureUrl == null
+                            ? Text(
+                                user.fullName.isEmpty ? 'E' : user.fullName[0],
+                              )
+                            : null,
+                      ),
+                      title: Text(user.fullName),
+                      subtitle: Text(user.isAdmin ? 'Grup yöneticisi' : 'Üye'),
+                      trailing:
+                          group.isAdmin &&
+                              user.userId != currentUserId &&
+                              user.userId != group.creatorId
+                          ? PopupMenuButton<String>(
+                              onSelected: (value) async {
+                                if (value == 'admin') {
+                                  await apiService.promoteCommunityGroupAdmin(
+                                    group.id,
+                                    user.userId,
+                                  );
+                                } else {
+                                  await apiService.removeCommunityGroupMember(
+                                    group.id,
+                                    user.userId,
+                                  );
+                                }
+                                onChanged();
+                                if (context.mounted) Navigator.pop(context);
+                              },
+                              itemBuilder: (_) => [
+                                if (!user.isAdmin)
+                                  const PopupMenuItem(
+                                    value: 'admin',
+                                    child: Text('Yönetici Yap'),
+                                  ),
+                                const PopupMenuItem(
+                                  value: 'remove',
+                                  child: Text(
+                                    'Gruptan Çıkar',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : user.isAdmin
+                          ? const Icon(Icons.verified_user_outlined)
+                          : null,
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CreateGroupEventSheet extends StatefulWidget {
+  const _CreateGroupEventSheet({
+    required this.apiService,
+    required this.group,
+    required this.onCreated,
+  });
+
+  final ApiService apiService;
+  final CommunityGroup group;
+  final VoidCallback onCreated;
+
+  @override
+  State<_CreateGroupEventSheet> createState() => _CreateGroupEventSheetState();
+}
+
+class _CreateGroupEventSheetState extends State<_CreateGroupEventSheet> {
+  final _form = GlobalKey<FormState>();
+  final _title = TextEditingController();
+  final _description = TextEditingController();
+  final _address = TextEditingController();
+  final _picker = ImagePicker();
+  late String _city;
+  late String _district;
+  DateTime _date = DateTime.now().add(const Duration(days: 2));
+  Uint8List? _cover;
+  String? _coverName;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _city = TurkishLocations.provinces.containsKey(widget.group.city)
+        ? widget.group.city
+        : 'Şanlıurfa';
+    final districts = TurkishLocations.districtsFor(_city);
+    _district = districts.contains(widget.group.district)
+        ? widget.group.district
+        : districts.first;
+  }
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _description.dispose();
+    _address.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      imageQuality: 82,
+    );
+    if (image == null) return;
+    final bytes = await image.readAsBytes();
+    if (bytes.length > 5 * 1024 * 1024) return;
+    if (mounted) {
+      setState(() {
+        _cover = bytes;
+        _coverName = image.name;
+      });
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final date = await showDatePicker(
+      context: context,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 730)),
+      initialDate: _date,
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_date),
+    );
+    if (time == null) return;
+    setState(() {
+      _date = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    });
+  }
+
+  Future<void> _save() async {
+    if (!_form.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      await widget.apiService.createGroupEvent(
+        groupId: widget.group.id,
+        title: _title.text,
+        description: _description.text,
+        eventDate: _date,
+        city: _city,
+        district: _district,
+        exactAddress: _address.text,
+        coverBytes: _cover,
+        coverFileName: _coverName,
+      );
+      widget.onCreated();
+      if (mounted) Navigator.pop(context);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.fromLTRB(
+      20,
+      0,
+      20,
+      MediaQuery.viewInsetsOf(context).bottom + 24,
+    ),
+    child: SingleChildScrollView(
+      child: Form(
+        key: _form,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const EcoSheetHandle(),
+            Text(
+              'Grup Etkinliği Oluştur',
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 16),
+            InkWell(
+              onTap: _pickImage,
+              child: Container(
+                height: 140,
+                width: double.infinity,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: _cover == null
+                    ? const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add_photo_alternate_outlined, size: 36),
+                          Text('Kapak fotoğrafı ekle'),
+                        ],
+                      )
+                    : Image.memory(_cover!, fit: BoxFit.cover),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _title,
+              decoration: const InputDecoration(labelText: 'Etkinlik adı'),
+              validator: (value) =>
+                  (value ?? '').trim().isEmpty ? 'Etkinlik adı gerekli' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _description,
+              minLines: 3,
+              maxLines: 5,
+              decoration: const InputDecoration(labelText: 'Açıklama'),
+              validator: (value) => (value ?? '').trim().length < 10
+                  ? 'Açıklama en az 10 karakter olmalı'
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.schedule_outlined),
+              title: const Text('Tarih ve saat'),
+              subtitle: Text(
+                '${_date.day}.${_date.month}.${_date.year} '
+                '${_date.hour.toString().padLeft(2, '0')}:'
+                '${_date.minute.toString().padLeft(2, '0')}',
+              ),
+              trailing: TextButton(
+                onPressed: _pickDate,
+                child: const Text('Seç'),
+              ),
+            ),
+            DropdownButtonFormField<String>(
+              initialValue: _city,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'İl'),
+              items: TurkishLocations.provinceNames
+                  .map(
+                    (value) =>
+                        DropdownMenuItem(value: value, child: Text(value)),
+                  )
+                  .toList(),
+              onChanged: (value) => setState(() {
+                _city = value!;
+                _district = TurkishLocations.districtsFor(_city).first;
+              }),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              key: ValueKey(_city),
+              initialValue:
+                  TurkishLocations.districtsFor(_city).contains(_district)
+                  ? _district
+                  : TurkishLocations.districtsFor(_city).first,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'İlçe'),
+              items: TurkishLocations.districtsFor(_city)
+                  .map(
+                    (value) =>
+                        DropdownMenuItem(value: value, child: Text(value)),
+                  )
+                  .toList(),
+              onChanged: (value) => setState(() => _district = value!),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _address,
+              minLines: 2,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Buluşma adresi',
+                prefixIcon: Icon(Icons.pin_drop_outlined),
+              ),
+              validator: (value) => (value ?? '').trim().length < 8
+                  ? 'Açık adres en az 8 karakter olmalı'
+                  : null,
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _saving ? null : _save,
+                icon: _saving
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.event_available_outlined),
+                label: const Text('Etkinliği Yayınla'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _SectionMessage extends StatelessWidget {
+  const _SectionMessage({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.onRetry,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(28),
+    child: Column(
+      children: [
+        Icon(icon, size: 52, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(height: 10),
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+        const SizedBox(height: 5),
+        Text(message, textAlign: TextAlign.center),
+        if (onRetry != null) ...[
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Tekrar Dene'),
+          ),
+        ],
+      ],
+    ),
+  );
+}

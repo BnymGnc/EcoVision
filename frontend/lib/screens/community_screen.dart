@@ -5,10 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/turkey_locations.dart';
-import '../models/cleanup_event.dart';
+import '../models/community_group.dart';
 import '../models/social_models.dart';
 import '../services/api_service.dart';
-import 'event_chat_screen.dart';
+import 'create_community_group_sheet.dart';
+import 'group_details_screen.dart';
 import 'public_profile_screen.dart';
 import '../widgets/notification_bell.dart';
 import '../widgets/premium_ui.dart';
@@ -33,7 +34,7 @@ class _CommunityScreenState extends State<CommunityScreen>
   final _search = TextEditingController();
   final _userSearch = TextEditingController();
   Timer? _debounce;
-  late Future<List<CleanupEvent>> _groups;
+  late Future<List<CommunityGroup>> _groups;
   late Future<List<SocialUser>> _friends;
   late Future<List<FriendRequest>> _requests;
   late Future<List<GroupInviteModel>> _invites;
@@ -63,7 +64,7 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   void _reload() => setState(() {
-    _groups = widget.apiService.fetchEvents(
+    _groups = widget.apiService.fetchCommunityGroups(
       query: _search.text,
       cities: _selectedCities,
       district: _selectedCities.length == 1 ? _selectedDistrict : null,
@@ -149,10 +150,10 @@ class _CommunityScreenState extends State<CommunityScreen>
     _reload();
   }
 
-  Future<void> _join(CleanupEvent event) async {
+  Future<void> _join(CommunityGroup group) async {
     await EcoHaptics.light();
     String? code;
-    if (event.privateGroup && !event.isJoined) {
+    if (group.privateGroup && !group.isJoined) {
       final controller = TextEditingController();
       code = await showDialog<String>(
         context: context,
@@ -182,15 +183,18 @@ class _CommunityScreenState extends State<CommunityScreen>
       if (code == null) return;
     }
     try {
-      final joined = event.isJoined
-          ? event
-          : await widget.apiService.joinEvent(event.id, joinCode: code);
+      final joined = group.isJoined
+          ? group
+          : await widget.apiService.joinCommunityGroup(
+              group.id,
+              joinCode: code,
+            );
       if (!mounted) return;
       await Navigator.push(
         context,
         MaterialPageRoute<bool>(
           builder: (_) =>
-              EventChatScreen(apiService: widget.apiService, event: joined),
+              GroupDetailsScreen(apiService: widget.apiService, group: joined),
         ),
       );
       _reload();
@@ -264,8 +268,8 @@ class _CommunityScreenState extends State<CommunityScreen>
           EcoHaptics.light();
           _openCreateGroup();
         },
-        icon: const Icon(Icons.event_available_outlined),
-        label: const Text('Etkinlik Oluştur'),
+        icon: const Icon(Icons.group_add_outlined),
+        label: const Text('Grup Oluştur'),
       ),
       body: TabBarView(
         controller: _tabs,
@@ -324,7 +328,7 @@ class _CommunityScreenState extends State<CommunityScreen>
           ),
         ],
         const SizedBox(height: 14),
-        FutureBuilder<List<CleanupEvent>>(
+        FutureBuilder<List<CommunityGroup>>(
           future: _groups,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting)
@@ -562,8 +566,10 @@ class _CommunityScreenState extends State<CommunityScreen>
 
   void _openCreateGroup() => showEcoGlassSheet<void>(
     context: context,
-    builder: (_) =>
-        _CreateGroupSheet(apiService: widget.apiService, onCreated: _reload),
+    builder: (_) => CreateCommunityGroupSheet(
+      apiService: widget.apiService,
+      onCreated: _reload,
+    ),
   );
 }
 
@@ -874,7 +880,7 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
 
 class _GroupCard extends StatelessWidget {
   const _GroupCard({required this.group, required this.onTap});
-  final CleanupEvent group;
+  final CommunityGroup group;
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => Card(
@@ -901,13 +907,13 @@ class _GroupCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        group.title,
+                        group.name,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      Text(group.location),
+                      Text(group.locationLabel),
                     ],
                   ),
                 ),
@@ -927,7 +933,6 @@ class _GroupCard extends StatelessWidget {
                 Chip(
                   label: Text('${group.memberCount}/${group.memberLimit} üye'),
                 ),
-                Chip(label: Text(group.dateLabel)),
                 if (group.isJoined)
                   const Chip(
                     avatar: Icon(Icons.check_circle, size: 17),

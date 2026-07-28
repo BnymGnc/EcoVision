@@ -2,6 +2,7 @@ class ChatMessage {
   const ChatMessage({
     required this.id,
     required this.eventId,
+    this.groupId,
     required this.senderId,
     required this.senderName,
     this.senderUsername = '',
@@ -18,6 +19,7 @@ class ChatMessage {
 
   final int id;
   final int eventId;
+  final int? groupId;
   final int senderId;
   final String senderName;
   final String senderUsername;
@@ -37,7 +39,9 @@ class ChatMessage {
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     return ChatMessage(
       id: (json['id'] as num).toInt(),
-      eventId: (json['eventId'] as num).toInt(),
+      eventId: (json['eventId'] as num? ?? json['groupId'] as num? ?? 0)
+          .toInt(),
+      groupId: (json['groupId'] as num?)?.toInt(),
       senderId: (json['senderId'] as num).toInt(),
       senderName: (json['senderName'] ?? 'EcoVision Kullanıcısı').toString(),
       senderUsername: (json['senderUsername'] ?? '').toString(),

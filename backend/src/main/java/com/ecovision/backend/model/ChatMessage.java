@@ -22,9 +22,13 @@ public class ChatMessage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "event_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "event_id")
     private Event event;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id")
+    private CommunityGroup group;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "sender_id", nullable = false)
@@ -73,6 +77,15 @@ public class ChatMessage {
 
     public void setEvent(Event event) {
         this.event = event;
+    }
+
+    @JsonIgnore
+    public CommunityGroup getGroup() {
+        return group;
+    }
+
+    public void setGroup(CommunityGroup group) {
+        this.group = group;
     }
 
     @JsonIgnore

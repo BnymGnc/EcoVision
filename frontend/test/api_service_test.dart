@@ -1,9 +1,17 @@
+import 'package:ecovision/core/constants.dart';
 import 'package:ecovision/services/api_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  test('üretim API adresi canlı Render servisini kullanır', () {
+    const expected = 'https://ecovision-backend-wdr0.onrender.com';
+    expect(ApiService.productionBaseUrl, expected);
+    expect(AppConstants.apiBaseUrl, expected);
+    expect(ApiService.productionBaseUrl.endsWith('/'), isFalse);
+  });
+
   test(
     'HTML sunucu hatasını kullanıcı dostu API hatasına dönüştürür',
     () async {

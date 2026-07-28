@@ -4,10 +4,13 @@ import com.ecovision.backend.dto.ChatMessageRequest;
 import com.ecovision.backend.dto.ChatMessageResponse;
 import com.ecovision.backend.model.AppUser;
 import com.ecovision.backend.model.ChatMessage;
+import com.ecovision.backend.model.CommunityGroup;
 import com.ecovision.backend.model.Event;
 import com.ecovision.backend.repository.ChatMessageRepository;
 import com.ecovision.backend.repository.EventRepository;
 import com.ecovision.backend.repository.EventMemberRepository;
+import com.ecovision.backend.repository.CommunityGroupRepository;
+import com.ecovision.backend.repository.GroupMemberRepository;
 import com.ecovision.backend.repository.AppUserRepository;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -26,6 +29,8 @@ public class ChatService {
     private final EventRepository eventRepository;
     private final AppUserRepository userRepository;
     private final EventMemberRepository eventMemberRepository;
+    private final CommunityGroupRepository groupRepository;
+    private final GroupMemberRepository groupMemberRepository;
     private final AgeGateService ageGateService;
     private final FileStorageService fileStorageService;
     private final InputSanitizer inputSanitizer;
@@ -35,6 +40,8 @@ public class ChatService {
             EventRepository eventRepository,
             AppUserRepository userRepository,
             EventMemberRepository eventMemberRepository,
+            CommunityGroupRepository groupRepository,
+            GroupMemberRepository groupMemberRepository,
             AgeGateService ageGateService,
             FileStorageService fileStorageService,
             InputSanitizer inputSanitizer
@@ -43,6 +50,8 @@ public class ChatService {
         this.eventRepository = eventRepository;
         this.userRepository = userRepository;
         this.eventMemberRepository = eventMemberRepository;
+        this.groupRepository = groupRepository;
+        this.groupMemberRepository = groupMemberRepository;
         this.ageGateService = ageGateService;
         this.fileStorageService = fileStorageService;
         this.inputSanitizer = inputSanitizer;
@@ -150,10 +159,106 @@ public class ChatService {
         return ChatMessageResponse.from(chatMessageRepository.save(message));
     }
 
+    @Transactional(readOnly = true)
+    public List<ChatMessageResponse> getGroupMessages(
+            AppUser user,
+            Long groupId,
+            int limit,
+            int offset
+    ) {
+        requireGroupMember(user, groupId);
+        int safeLimit = Math.min(Math.max(limit, 1), 100);
+        int safeOffset = Math.max(offset, 0);
+        List<ChatMessage> messages = new ArrayList<>(chatMessageRepository
+                .findByGroupIdOrderByTimestampDesc(
+                        groupId,
+                        PageRequest.of(safeOffset / safeLimit, safeLimit)
+                )
+                .getContent());
+        Collections.reverse(messages);
+        return messages.stream().map(ChatMessageResponse::from).toList();
+    }
+
+    @Transactional
+    public ChatMessageResponse sendGroupMessage(
+            AppUser sender,
+            Long groupId,
+            ChatMessageRequest request
+    ) {
+        requireGroupMember(sender, groupId);
+        CommunityGroup group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new IllegalArgumentException("Grup bulunamadı"));
+        ChatMessage message = new ChatMessage();
+        message.setGroup(group);
+        message.setSender(sender);
+        message.setMessage(inputSanitizer.plainText(request.message(), "Mesaj", 2000));
+        return ChatMessageResponse.from(chatMessageRepository.save(message));
+    }
+
+    @Transactional
+    public ChatMessageResponse sendGroupAttachment(
+            AppUser sender,
+            Long groupId,
+            MultipartFile file
+    ) {
+        requireGroupMember(sender, groupId);
+        validateAttachment(file);
+        CommunityGroup group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new IllegalArgumentException("Grup bulunamadı"));
+        String contentType = file.getContentType() == null
+                ? "application/octet-stream"
+                : file.getContentType().toLowerCase(Locale.ROOT);
+        String originalName = file.getOriginalFilename() == null
+                ? "dosya"
+                : file.getOriginalFilename();
+        boolean image = contentType.startsWith("image/");
+        ChatMessage message = new ChatMessage();
+        message.setGroup(group);
+        message.setSender(sender);
+        message.setMessage("");
+        message.setFileName(originalName);
+        message.setContentType(image ? contentType : MediaType.APPLICATION_PDF_VALUE);
+        String url = fileStorageService.store(file, "group-chat");
+        if (image) {
+            message.setImageUrl(url);
+        } else {
+            message.setFileUrl(url);
+        }
+        return ChatMessageResponse.from(chatMessageRepository.save(message));
+    }
+
     private void requireMember(AppUser user, Long eventId) {
         ageGateService.requireAdult(user);
         if (!eventMemberRepository.existsByEventIdAndUserId(eventId, user.getId())) {
             throw new IllegalArgumentException("Bu sohbet yalnızca grup üyelerine açıktır");
+        }
+    }
+
+    private void requireGroupMember(AppUser user, Long groupId) {
+        ageGateService.requireAdult(user);
+        if (!groupMemberRepository.existsByGroupIdAndUserId(groupId, user.getId())) {
+            throw new IllegalArgumentException("Bu sohbet yalnızca grup üyelerine açıktır");
+        }
+    }
+
+    private void validateAttachment(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Bir fotoğraf veya PDF seçmelisiniz");
+        }
+        if (file.getSize() > 2L * 1024 * 1024) {
+            throw new IllegalArgumentException("Ek dosya 2 MB'den küçük olmalıdır");
+        }
+        String contentType = file.getContentType() == null
+                ? "application/octet-stream"
+                : file.getContentType().toLowerCase(Locale.ROOT);
+        String originalName = file.getOriginalFilename() == null
+                ? "dosya"
+                : file.getOriginalFilename();
+        boolean image = contentType.startsWith("image/");
+        boolean pdf = contentType.equals(MediaType.APPLICATION_PDF_VALUE)
+                || originalName.toLowerCase(Locale.ROOT).endsWith(".pdf");
+        if (!image && !pdf) {
+            throw new IllegalArgumentException("Yalnızca fotoğraf veya PDF yüklenebilir");
         }
     }
 }

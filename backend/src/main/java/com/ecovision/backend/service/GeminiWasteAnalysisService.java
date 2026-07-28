@@ -10,21 +10,29 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 @Service
 public class GeminiWasteAnalysisService {
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(GeminiWasteAnalysisService.class);
     private static final long MAX_IMAGE_BYTES = 8L * 1024 * 1024;
     private static final String PROMPT = """
-            Bu fotoğraftaki geri dönüştürülebilir atıkları analiz et.
-            Yalnızca geçerli JSON döndür. Şema:
-            {"waste_types":[{"type":"PET|CAM|ALUMINUM|KAGIT|METAL|ELEKTRONIK|ORGANIK|YAG|TIBBI|DIGER","confidence":0.0}]}
-            Birden fazla atık varsa her birini ayrı yaz. confidence 0 ile 1 arasında olsun.
-            Açıklama, markdown veya kod bloğu ekleme.
+            Görseldeki bütün atık nesnelerini ayrı ayrı sınıflandır.
+            Yalnızca şu JSON şemasına uyan bir nesne döndür:
+            {"waste_types":[{"type":"PET","confidence":0.95}]}
+            type yalnızca PET, CAM, ALUMINUM, KAGIT, METAL, ELEKTRONIK,
+            ORGANIK, YAG, TIBBI veya DIGER değerlerinden biri olabilir.
+            confidence 0 ile 1 arasında sayıdır. Markdown ve açıklama ekleme.
             """;
 
     private final RestClient restClient;
@@ -35,7 +43,7 @@ public class GeminiWasteAnalysisService {
     public GeminiWasteAnalysisService(
             ObjectMapper objectMapper,
             @Value("${gemini.api.key}") String apiKey,
-            @Value("${gemini.model:gemini-1.5-flash}") String model
+            @Value("${gemini.model:gemini-2.5-flash}") String model
     ) {
         this.restClient = RestClient.create();
         this.objectMapper = objectMapper;
@@ -50,8 +58,8 @@ public class GeminiWasteAnalysisService {
                     "contents", List.of(Map.of(
                             "parts", List.of(
                                     Map.of("text", PROMPT),
-                                    Map.of("inline_data", Map.of(
-                                            "mime_type", image.getContentType(),
+                                    Map.of("inlineData", Map.of(
+                                            "mimeType", image.getContentType(),
                                             "data", Base64.getEncoder()
                                                     .encodeToString(image.getBytes())
                                     ))
@@ -59,12 +67,14 @@ public class GeminiWasteAnalysisService {
                     )),
                     "generationConfig", Map.of(
                             "temperature", 0.1,
-                            "responseMimeType", "application/json"
+                            "responseMimeType", "application/json",
+                            "maxOutputTokens", 1024
                     )
             );
             String responseBody = restClient.post()
                     .uri("https://generativelanguage.googleapis.com/v1beta/models/"
-                            + model + ":generateContent?key=" + apiKey)
+                            + model + ":generateContent")
+                    .header("x-goog-api-key", apiKey)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(request)
                     .retrieve()
@@ -78,10 +88,29 @@ public class GeminiWasteAnalysisService {
             return parseDetections(textNode.asText());
         } catch (IllegalArgumentException exception) {
             throw exception;
+        } catch (RestClientResponseException exception) {
+            LOGGER.error(
+                    "Gemini analysis failed: model={}, status={}, response={}",
+                    model,
+                    exception.getStatusCode().value(),
+                    safeProviderBody(exception.getResponseBodyAsString())
+            );
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Görüntü analiz servisine şu anda ulaşılamıyor"
+            );
         } catch (Exception exception) {
-            throw new IllegalStateException(
-                    "Atık görseli şu anda analiz edilemedi. Lütfen tekrar deneyin.",
+            LOGGER.error(
+                    "Gemini analysis failed: model={}, fileName={}, contentType={}, size={}",
+                    model,
+                    image.getOriginalFilename(),
+                    image.getContentType(),
+                    image.getSize(),
                     exception
+            );
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Atık görseli analiz edilemedi. Lütfen farklı bir fotoğrafla tekrar deneyin."
             );
         }
     }
@@ -165,5 +194,13 @@ public class GeminiWasteAnalysisService {
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("Gemini servisi yapılandırılmamış");
         }
+    }
+
+    private String safeProviderBody(String body) {
+        if (body == null || body.isBlank()) {
+            return "<empty>";
+        }
+        String singleLine = body.replaceAll("[\\r\\n]+", " ").trim();
+        return singleLine.substring(0, Math.min(singleLine.length(), 1200));
     }
 }

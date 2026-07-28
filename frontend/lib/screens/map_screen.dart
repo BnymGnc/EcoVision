@@ -35,7 +35,7 @@ class _MapScreenState extends State<MapScreen> {
   LatLng? _currentLocation;
   List<MapPin> _pins = [];
   Set<String> _selectedMaterials = {};
-  double _radiusKm = 10;
+  double? _radiusKm = 10;
   bool _openNow = false;
   bool _isLoading = true;
   bool _mapReady = false;
@@ -151,7 +151,9 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                     const Spacer(),
                     Text(
-                      '${draftRadius.round()} km',
+                      draftRadius == null
+                          ? 'Sınırsız'
+                          : '${draftRadius!.round()} km',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.w900,
@@ -159,15 +161,27 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                   ],
                 ),
-                Slider(
-                  value: draftRadius,
-                  min: 1,
-                  max: 50,
-                  divisions: 49,
-                  label: '${draftRadius.round()} km',
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: draftRadius == null,
+                  title: const Text('Sınırsız mesafe'),
+                  subtitle: const Text(
+                    'Türkiye genelindeki tüm makineleri göster',
+                  ),
+                  secondary: const Icon(Icons.public_rounded),
                   onChanged: (value) =>
-                      setSheetState(() => draftRadius = value),
+                      setSheetState(() => draftRadius = value ? null : 10),
                 ),
+                if (draftRadius != null)
+                  Slider(
+                    value: draftRadius!,
+                    min: 1,
+                    max: 50,
+                    divisions: 49,
+                    label: '${draftRadius!.round()} km',
+                    onChanged: (value) =>
+                        setSheetState(() => draftRadius = value),
+                  ),
                 const SizedBox(height: 14),
                 Row(
                   children: [
@@ -521,7 +535,7 @@ class _MachineSummary extends StatelessWidget {
   });
 
   final List<MapPin> pins;
-  final double radiusKm;
+  final double? radiusKm;
   final bool openNow;
   final Set<String> selectedMaterials;
   final LatLng currentLocation;
@@ -553,7 +567,9 @@ class _MachineSummary extends StatelessWidget {
                 TextButton.icon(
                   onPressed: onFilters,
                   icon: const Icon(Icons.tune_rounded, size: 18),
-                  label: Text('${radiusKm.round()} km'),
+                  label: Text(
+                    radiusKm == null ? 'Sınırsız' : '${radiusKm!.round()} km',
+                  ),
                 ),
               ],
             ),
@@ -771,7 +787,7 @@ class _MapFilters {
   });
 
   final Set<String> materials;
-  final double radiusKm;
+  final double? radiusKm;
   final bool openNow;
 }
 

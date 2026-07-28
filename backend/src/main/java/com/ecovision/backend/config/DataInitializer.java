@@ -3,9 +3,15 @@ package com.ecovision.backend.config;
 import com.ecovision.backend.model.AppUser;
 import com.ecovision.backend.model.MapPin;
 import com.ecovision.backend.model.MapPinType;
+import com.ecovision.backend.model.CommunityGroup;
+import com.ecovision.backend.model.GroupMember;
 import com.ecovision.backend.model.Role;
 import com.ecovision.backend.repository.AppUserRepository;
 import com.ecovision.backend.repository.EventRepository;
+import com.ecovision.backend.repository.EventMemberRepository;
+import com.ecovision.backend.repository.ChatMessageRepository;
+import com.ecovision.backend.repository.CommunityGroupRepository;
+import com.ecovision.backend.repository.GroupMemberRepository;
 import com.ecovision.backend.repository.MapPinRepository;
 import com.ecovision.backend.service.UsernameService;
 import java.util.LinkedHashMap;
@@ -91,7 +97,60 @@ public class DataInitializer {
 
     @Bean
     @Order(2)
-    CommandLineRunner seedKayseriRvmMachines(
+    CommandLineRunner migrateLegacyCommunityGroups(
+            EventRepository eventRepository,
+            EventMemberRepository legacyMembers,
+            ChatMessageRepository chatMessages,
+            CommunityGroupRepository groups,
+            GroupMemberRepository members
+    ) {
+        return args -> {
+            for (var legacy : eventRepository.findAllByOrderByEventDateAsc()) {
+                CommunityGroup group = groups.findByLegacyEventId(legacy.getId())
+                        .orElseGet(CommunityGroup::new);
+                group.setLegacyEventId(legacy.getId());
+                group.setCreator(legacy.getCreator());
+                group.setName(legacy.getTitle());
+                group.setDescription(legacy.getDescription());
+                group.setCity(legacy.getCity() == null
+                        ? AppUser.DEFAULT_CITY
+                        : legacy.getCity());
+                group.setDistrict(legacy.getDistrict() == null
+                        ? "Merkez"
+                        : legacy.getDistrict());
+                group.setNeighborhood(legacy.getNeighborhood());
+                group.setCoverImageUrl(legacy.getCoverImageUrl());
+                group.setMemberLimit(legacy.getMemberLimit());
+                group.setJoinCodeHash(legacy.getJoinCodeHash());
+                group = groups.save(group);
+
+                for (var legacyMember : legacyMembers
+                        .findByEventIdOrderByJoinedAtAsc(legacy.getId())) {
+                    if (members.existsByGroupIdAndUserId(
+                            group.getId(),
+                            legacyMember.getUser().getId()
+                    )) {
+                        continue;
+                    }
+                    GroupMember member = new GroupMember();
+                    member.setGroup(group);
+                    member.setUser(legacyMember.getUser());
+                    member.setRole(legacyMember.getRole());
+                    members.save(member);
+                }
+                CommunityGroup migratedGroup = group;
+                var messages = chatMessages.findByEventIdOrderByTimestampAsc(
+                        legacy.getId()
+                );
+                messages.forEach(message -> message.setGroup(migratedGroup));
+                chatMessages.saveAll(messages);
+            }
+        };
+    }
+
+    @Bean
+    @Order(3)
+    CommandLineRunner seedRvmMachines(
             AppUserRepository userRepository,
             MapPinRepository mapPinRepository
     ) {
@@ -100,14 +159,14 @@ public class DataInitializer {
                     .orElseThrow(() -> new IllegalStateException(
                             "RVM makineleri için süper kullanıcı bulunamadı"
                     ));
-            for (RvmSeed machine : kayseriMachines()) {
+            for (RvmSeed machine : allMachines()) {
                 MapPin pin = mapPinRepository.findFirstByTitleIgnoreCase(machine.name())
                         .orElseGet(MapPin::new);
                 pin.setTitle(machine.name());
                 pin.setLatitude(machine.latitude());
                 pin.setLongitude(machine.longitude());
                 pin.setAddress(machine.address());
-                pin.setWorkingHours(null);
+                pin.setWorkingHours(machine.workingHours());
                 pin.setBinStates(machine.binStates());
                 pin.setAcceptedMaterials(machine.binStates().entrySet().stream()
                         .filter(entry -> Boolean.TRUE.equals(entry.getValue()))
@@ -119,6 +178,13 @@ public class DataInitializer {
                 mapPinRepository.save(pin);
             }
         };
+    }
+
+    private List<RvmSeed> allMachines() {
+        return java.util.stream.Stream.concat(
+                kayseriMachines().stream(),
+                sanliurfaMachines().stream()
+        ).toList();
     }
 
     private List<RvmSeed> kayseriMachines() {
@@ -161,7 +227,7 @@ public class DataInitializer {
     }
 
     private RvmSeed rvm(String name, double lat, double lng, String address) {
-        return new RvmSeed(name, lat, lng, address, Map.of());
+        return new RvmSeed(name, lat, lng, address, null, Map.of());
     }
 
     private RvmSeed rvm(
@@ -177,7 +243,68 @@ public class DataInitializer {
         states.put("pet", pet);
         states.put("glass", glass);
         states.put("aluminum", aluminum);
-        return new RvmSeed(name, lat, lng, address, states);
+        return new RvmSeed(name, lat, lng, address, null, states);
+    }
+
+    private RvmSeed rvm(
+            String name,
+            double lat,
+            double lng,
+            String address,
+            String workingHours
+    ) {
+        Map<String, Boolean> states = new LinkedHashMap<>();
+        states.put("pet", true);
+        states.put("glass", true);
+        states.put("aluminum", true);
+        return new RvmSeed(name, lat, lng, address, workingHours, states);
+    }
+
+    private List<RvmSeed> sanliurfaMachines() {
+        return List.of(
+                rvm("MİGROS MJET ŞANLIURFA POLDEM", 37.169498, 38.801101,
+                        "Selahaddin Eyyübi Mah. 218 Sokak No:14/1 Şanlıurfa/Haliliye",
+                        "09:00 - 22:00"),
+                rvm("A101 I678 İSTİKLAL", 37.173198, 38.814094,
+                        "Veysel Karani Mah. 361. Sokak No:1/0 Şanlıurfa/Haliliye",
+                        "09:00 - 21:00"),
+                rvm("BİM-SELÇUKLU/HALİLİYE", 37.170852, 38.765319,
+                        "Devteyşti Mah. 9629 Sok. No:18/1 Şanlıurfa/Haliliye",
+                        "09:00 - 21:00"),
+                rvm("MİGROS GÜZELŞEHİR KARAKÖPRÜ", 37.201103, 38.817825,
+                        "Doğukent Mah. Fatih Sultan Mehmet Blv. No:3/A-B Şanlıurfa/Karaköprü",
+                        "09:00 - 22:00"),
+                rvm("A101 C348 EVREN", 37.138927, 38.739139,
+                        "Batıkent Mah. 4168 Sokak No:2/0 Şanlıurfa/Eyyübiye",
+                        "09:00 - 21:00"),
+                rvm("BİM-ZİRAAT FAK./EYYÜBİYE", 37.119987, 38.815246,
+                        "Hayati Harrani Mah. Akçakale Cad. No:408/1 Şanlıurfa/Eyyübiye",
+                        "09:00 - 21:00"),
+                rvm("A101 6526 11 NİSAN", 36.977809, 38.425064,
+                        "Cumhuriyet Mah. 11 Nisan Caddesi No:14/0 Şanlıurfa/Suruç",
+                        "09:00 - 21:00"),
+                rvm("BİM-ALİGÖR/SURUÇ", 36.975120, 38.424285,
+                        "Aligör Mah. Cumhuriyet Caddesi No:9/1 Şanlıurfa/Suruç",
+                        "09:00 - 21:00"),
+                rvm("BİM-15 TEMMUZ/AKÇAKALE", 36.713348, 38.948440,
+                        "Fevzi Çakmak Mah. Abdullah Gül Bulvarı No:52/1 Şanlıurfa/Akçakale",
+                        "09:00 - 21:00"),
+                rvm("A101 C819 FEVZİ ÇAKMAK", 36.713348, 38.948440,
+                        "Fevzi Çakmak Mah. Abdullah Gül Bulvarı No:52/0 Şanlıurfa/Akçakale",
+                        "09:00 - 21:00"),
+                rvm("A101 J401 KERVAN", 36.862697, 39.017734,
+                        "Cumhuriyet Mah. Necmettin Cevheri Mah. No:1/1 Şanlıurfa/Harran",
+                        "09:00 - 21:00"),
+                rvm("BİM-BORSA/HARRAN", 36.863132, 39.024276,
+                        "Hz. Yakup Mah. Yatılı Bölge Okulu Cad. No:15/A/1 Şanlıurfa/Harran",
+                        "09:00 - 21:00"),
+                rvm("A101 - 3903 15 TEMMUZ", 36.853008, 40.046833,
+                        "Cumhuriyet Mah. 1009 Sokak No:-/- Şanlıurfa/Ceylanpınar",
+                        "09:00 - 21:00"),
+                rvm("BİM-YILDIZ/CEYLANPINAR", 36.853057, 40.047397,
+                        "15 Temmuz Mah. 429.Sok. No:8/1 Şanlıurfa/Ceylanpınar",
+                        "09:00 - 21:00")
+        );
     }
 
     private record RvmSeed(
@@ -185,6 +312,7 @@ public class DataInitializer {
             double latitude,
             double longitude,
             String address,
+            String workingHours,
             Map<String, Boolean> binStates
     ) {
     }

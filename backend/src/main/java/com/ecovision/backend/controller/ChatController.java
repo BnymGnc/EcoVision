@@ -77,4 +77,45 @@ public class ChatController {
     ) {
         return chatService.sendAttachment(currentUserService.currentUser(), eventId, file);
     }
+
+    @GetMapping("/groups/{groupId}")
+    public List<ChatMessageResponse> groupMessages(
+            @PathVariable Long groupId,
+            @RequestParam(defaultValue = "30") int limit,
+            @RequestParam(defaultValue = "0") int offset
+    ) {
+        return chatService.getGroupMessages(
+                currentUserService.currentUser(),
+                groupId,
+                limit,
+                offset
+        );
+    }
+
+    @PostMapping("/groups/{groupId}")
+    public ChatMessageResponse sendGroupMessage(
+            @PathVariable Long groupId,
+            @Valid @RequestBody ChatMessageRequest request
+    ) {
+        return chatService.sendGroupMessage(
+                currentUserService.currentUser(),
+                groupId,
+                request
+        );
+    }
+
+    @PostMapping(
+            value = "/groups/{groupId}/attachments",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ChatMessageResponse sendGroupAttachment(
+            @PathVariable Long groupId,
+            @RequestPart("file") MultipartFile file
+    ) {
+        return chatService.sendGroupAttachment(
+                currentUserService.currentUser(),
+                groupId,
+                file
+        );
+    }
 }

@@ -15,18 +15,33 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     Page<ChatMessage> findByEventIdOrderByTimestampDesc(Long eventId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"event", "sender"})
+    List<ChatMessage> findByEventIdOrderByTimestampAsc(Long eventId);
+
+    @EntityGraph(attributePaths = {"group", "sender"})
+    Page<ChatMessage> findByGroupIdOrderByTimestampDesc(Long groupId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"event", "sender"})
     Page<ChatMessage> findBySenderIdOrderByTimestampDesc(Long senderId, Pageable pageable);
 
     @Query("""
             select count(message) from ChatMessage message
             where message.sender.id <> :userId
               and message.timestamp > :timestamp
-              and exists (
-                  select member.id from EventMember member
-                  where member.event.id = message.event.id and member.user.id = :userId
+              and (
+                  (message.event is not null and exists (
+                      select member.id from EventMember member
+                      where member.event.id = message.event.id and member.user.id = :userId
+                  ))
+                  or
+                  (message.group is not null and exists (
+                      select member.id from GroupMember member
+                      where member.group.id = message.group.id and member.user.id = :userId
+                  ))
               )
             """)
     long countUnreadForMember(@Param("userId") Long userId, @Param("timestamp") Instant timestamp);
 
     void deleteByEventId(Long eventId);
+
+    void deleteByGroupId(Long groupId);
 }

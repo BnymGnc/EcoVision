@@ -325,16 +325,27 @@ class _EcoImpactDashboard extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    Wrap(
-                      spacing: 4,
+                    Row(
                       children: [
                         Text(
                           '$points',
                           style: const TextStyle(fontWeight: FontWeight.w900),
                         ),
-                        const Text('Eko Puan'),
-                        Text('• $streak günlük seri • $badgeCount rozet'),
+                        const SizedBox(width: 4),
+                        const Flexible(
+                          child: Text(
+                            'Eko Puan',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ],
+                    ),
+                    Text(
+                      '$streak günlük seri • $badgeCount rozet',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),
@@ -344,7 +355,6 @@ class _EcoImpactDashboard extends StatelessWidget {
           const SizedBox(height: 16),
           LayoutBuilder(
             builder: (context, constraints) {
-              final compact = constraints.maxWidth < 390;
               final cards = [
                 _ImpactCard(
                   icon: Icons.cloud_outlined,
@@ -365,25 +375,16 @@ class _EcoImpactDashboard extends StatelessWidget {
                   color: const Color(0xFFE56B45),
                 ),
               ];
-              if (compact) {
-                return Column(
-                  children: cards
-                      .map(
-                        (card) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: card,
-                        ),
-                      )
-                      .toList(),
-                );
-              }
-              return Row(
-                children: [
-                  for (var index = 0; index < cards.length; index++) ...[
-                    Expanded(child: cards[index]),
-                    if (index < cards.length - 1) const SizedBox(width: 8),
-                  ],
-                ],
+              const spacing = 8.0;
+              final columns = constraints.maxWidth >= 560 ? 3 : 2;
+              final cardWidth =
+                  (constraints.maxWidth - spacing * (columns - 1)) / columns;
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: cards
+                    .map((card) => SizedBox(width: cardWidth, child: card))
+                    .toList(),
               );
             },
           ),
@@ -408,8 +409,8 @@ class _ImpactCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 112,
-    padding: const EdgeInsets.all(11),
+    constraints: const BoxConstraints(minHeight: 118),
+    padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.11),
       borderRadius: BorderRadius.circular(8),
@@ -424,7 +425,13 @@ class _ImpactCard extends StatelessWidget {
           value,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
         ),
-        Text(label, maxLines: 2, style: const TextStyle(fontSize: 11)),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11, height: 1.2),
+        ),
       ],
     ),
   );

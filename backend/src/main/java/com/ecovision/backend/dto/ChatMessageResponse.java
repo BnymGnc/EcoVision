@@ -6,6 +6,7 @@ import java.time.Instant;
 public record ChatMessageResponse(
         Long id,
         Long eventId,
+        Long groupId,
         Long senderId,
         String senderUsername,
         String senderName,
@@ -22,7 +23,8 @@ public record ChatMessageResponse(
     public static ChatMessageResponse from(ChatMessage message) {
         return new ChatMessageResponse(
                 message.getId(),
-                message.getEvent().getId(),
+                message.getEvent() == null ? null : message.getEvent().getId(),
+                message.getGroup() == null ? null : message.getGroup().getId(),
                 message.getSender().getId(),
                 message.getSender().getPublicUsername(),
                 message.getSender().getName() + " " + message.getSender().getSurname(),
