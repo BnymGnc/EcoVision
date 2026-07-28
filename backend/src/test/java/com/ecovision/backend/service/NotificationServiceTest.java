@@ -51,7 +51,7 @@ class NotificationServiceTest {
         verify(notificationRepository).saveAll(captor.capture());
         assertEquals(2, recipients);
         assertEquals(2, captor.getValue().size());
-        assertEquals(NotificationType.SYSTEM, captor.getValue().getFirst().getType());
+        assertEquals(NotificationType.SYSTEM, captor.getValue().get(0).getType());
     }
 
     @Test

@@ -18,6 +18,11 @@ class CleanupEvent {
     this.memberCount = 0,
     this.privateGroup = false,
     this.currentUserRole,
+    this.eventTime = '',
+    this.exactAddress = '',
+    this.coverImageUrl,
+    this.attendeeCount = 0,
+    this.currentUserAttendance,
   });
 
   final int id;
@@ -38,9 +43,15 @@ class CleanupEvent {
   final int memberCount;
   final bool privateGroup;
   final String? currentUserRole;
+  final String eventTime;
+  final String exactAddress;
+  final String? coverImageUrl;
+  final int attendeeCount;
+  final String? currentUserAttendance;
 
   bool get isJoined => currentUserRole != null;
-  bool get isAdmin => currentUserRole == 'ADMIN';
+  bool get isAdmin => currentUserRole == 'GROUP_ADMIN';
+  bool get isAttending => currentUserAttendance == 'ATTENDING';
 
   String get dateLabel {
     final local = eventDate.toLocal();
@@ -72,6 +83,12 @@ class CleanupEvent {
       memberCount: (json['memberCount'] as num? ?? 0).toInt(),
       privateGroup: json['privateGroup'] as bool? ?? false,
       currentUserRole: json['currentUserRole']?.toString(),
+      eventTime: (json['eventTime'] ?? '').toString(),
+      exactAddress: (json['exactAddress'] ?? '').toString(),
+      coverImageUrl:
+          (json['coverImageUrl'] ?? json['imageUrl'])?.toString(),
+      attendeeCount: (json['attendeeCount'] as num? ?? 0).toInt(),
+      currentUserAttendance: json['currentUserAttendance']?.toString(),
     );
   }
 }

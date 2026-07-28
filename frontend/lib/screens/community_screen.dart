@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../core/turkey_locations.dart';
 import '../models/cleanup_event.dart';
@@ -37,11 +39,17 @@ class _CommunityScreenState extends State<CommunityScreen>
   late Future<List<GroupInviteModel>> _invites;
   UserDiscovery? _discoveredUser;
   bool _searchingUser = false;
+  final Set<String> _selectedCities = {};
+  String _selectedDistrict = '';
 
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
+    final userCity = widget.apiService.currentUser?.city;
+    if (TurkishLocations.provinces.containsKey(userCity)) {
+      _selectedCities.add(userCity!);
+    }
     _reload();
   }
 
@@ -55,7 +63,11 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   void _reload() => setState(() {
-    _groups = widget.apiService.fetchEvents(query: _search.text);
+    _groups = widget.apiService.fetchEvents(
+      query: _search.text,
+      cities: _selectedCities,
+      district: _selectedCities.length == 1 ? _selectedDistrict : null,
+    );
     _friends = widget.apiService.fetchFriends();
     _requests = widget.apiService.fetchFriendRequests();
     _invites = widget.apiService.fetchGroupInvites();
@@ -64,6 +76,77 @@ class _CommunityScreenState extends State<CommunityScreen>
   void _onSearch(String _) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 350), _reload);
+  }
+
+  Future<void> _selectCities() async {
+    var draft = Set<String>.from(_selectedCities);
+    final selected = await showModalBottomSheet<Set<String>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(context).height * .76,
+            child: Column(
+              children: [
+                ListTile(
+                  title: const Text(
+                    'Şehir filtresi',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  subtitle: Text(
+                    draft.isEmpty
+                        ? 'Tüm Şehirler'
+                        : '${draft.length} şehir seçildi',
+                  ),
+                  trailing: TextButton(
+                    onPressed: () => setSheetState(draft.clear),
+                    child: const Text('Tüm Şehirler'),
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: TurkishLocations.provinceNames.length,
+                    itemBuilder: (context, index) {
+                      final city = TurkishLocations.provinceNames[index];
+                      return CheckboxListTile(
+                        value: draft.contains(city),
+                        title: Text(city),
+                        onChanged: (checked) => setSheetState(() {
+                          checked == true
+                              ? draft.add(city)
+                              : draft.remove(city);
+                        }),
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(context, draft),
+                      child: const Text('Filtreyi Uygula'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      _selectedCities
+        ..clear()
+        ..addAll(selected);
+      _selectedDistrict = '';
+    });
+    _reload();
   }
 
   Future<void> _join(CleanupEvent event) async {
@@ -181,8 +264,8 @@ class _CommunityScreenState extends State<CommunityScreen>
           EcoHaptics.light();
           _openCreateGroup();
         },
-        icon: const Icon(Icons.group_add_outlined),
-        label: const Text('Grup Kur'),
+        icon: const Icon(Icons.event_available_outlined),
+        label: const Text('Etkinlik Oluştur'),
       ),
       body: TabBarView(
         controller: _tabs,
@@ -205,6 +288,41 @@ class _CommunityScreenState extends State<CommunityScreen>
             suffixIcon: Icon(Icons.location_city_outlined),
           ),
         ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: _selectCities,
+          icon: const Icon(Icons.location_city_outlined),
+          label: Text(
+            _selectedCities.isEmpty
+                ? 'Tüm Şehirler'
+                : _selectedCities.length == 1
+                ? _selectedCities.first
+                : '${_selectedCities.length} şehir seçildi',
+          ),
+        ),
+        if (_selectedCities.length == 1) ...[
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            key: ValueKey(_selectedCities.first),
+            initialValue: _selectedDistrict.isEmpty ? null : _selectedDistrict,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'İlçe (isteğe bağlı)',
+              prefixIcon: Icon(Icons.holiday_village_outlined),
+            ),
+            items: [
+              const DropdownMenuItem(value: '', child: Text('Tüm İlçeler')),
+              ...TurkishLocations.districtsFor(_selectedCities.first).map(
+                (district) =>
+                    DropdownMenuItem(value: district, child: Text(district)),
+              ),
+            ],
+            onChanged: (district) {
+              setState(() => _selectedDistrict = district ?? '');
+              _reload();
+            },
+          ),
+        ],
         const SizedBox(height: 14),
         FutureBuilder<List<CleanupEvent>>(
           future: _groups,
@@ -462,22 +580,28 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
   final _title = TextEditingController();
   final _description = TextEditingController();
   final _code = TextEditingController();
+  final _neighborhood = TextEditingController();
+  final _exactAddress = TextEditingController();
+  final _imagePicker = ImagePicker();
   late String _city;
   late String _district;
-  late String _neighborhood;
   DateTime _date = DateTime.now().add(const Duration(days: 2));
   int _limit = 20;
   bool _saving = false;
+  Uint8List? _coverBytes;
+  String? _coverFileName;
   @override
   void initState() {
     super.initState();
-    _city = ecoLocations.keys.first;
+    final userCity = widget.apiService.currentUser?.city;
+    _city = TurkishLocations.provinces.containsKey(userCity)
+        ? userCity!
+        : 'Şanlıurfa';
     _resetDistrict();
   }
 
   void _resetDistrict() {
-    _district = ecoLocations[_city]!.keys.first;
-    _neighborhood = ecoLocations[_city]![_district]!.first;
+    _district = TurkishLocations.districtsFor(_city).first;
   }
 
   @override
@@ -485,7 +609,33 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
     _title.dispose();
     _description.dispose();
     _code.dispose();
+    _neighborhood.dispose();
+    _exactAddress.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickCover() async {
+    final image = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 82,
+      maxWidth: 1600,
+    );
+    if (image == null) return;
+    final bytes = await image.readAsBytes();
+    if (bytes.length > 5 * 1024 * 1024) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Kapak fotoğrafı 5 MB altında olmalı.')),
+        );
+      }
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        _coverBytes = bytes;
+        _coverFileName = image.name;
+      });
+    }
   }
 
   Future<void> _pickDate() async {
@@ -521,10 +671,13 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
         description: _description.text.trim(),
         city: _city,
         district: _district,
-        neighborhood: _neighborhood,
+        neighborhood: _neighborhood.text.trim(),
         eventDate: _date,
+        exactAddress: _exactAddress.text.trim(),
         memberLimit: _limit,
         joinCode: _code.text.trim(),
+        coverBytes: _coverBytes,
+        coverFileName: _coverFileName,
       );
       widget.onCreated();
       if (mounted) Navigator.pop(context);
@@ -554,20 +707,57 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
           children: [
             const EcoSheetHandle(),
             Text(
-              'Yeni Temizlik Grubu',
+              'Yeni Temizlik Etkinliği',
               style: Theme.of(
                 context,
               ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 16),
+            InkWell(
+              onTap: _saving ? null : _pickCover,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                height: 150,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: _coverBytes == null
+                    ? const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add_photo_alternate_outlined, size: 38),
+                          SizedBox(height: 8),
+                          Text('Etkinlik kapak fotoğrafı ekle'),
+                        ],
+                      )
+                    : Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.memory(_coverBytes!, fit: BoxFit.cover),
+                          const Align(
+                            alignment: Alignment.topRight,
+                            child: Padding(
+                              padding: EdgeInsets.all(8),
+                              child: CircleAvatar(
+                                child: Icon(Icons.edit_outlined),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+            const SizedBox(height: 14),
             TextFormField(
               controller: _title,
               decoration: const InputDecoration(
-                labelText: 'Grup adı',
-                prefixIcon: Icon(Icons.groups_outlined),
+                labelText: 'Etkinlik başlığı',
+                prefixIcon: Icon(Icons.event_outlined),
               ),
               validator: (v) =>
-                  (v ?? '').trim().isEmpty ? 'Grup adı gerekli' : null,
+                  (v ?? '').trim().isEmpty ? 'Etkinlik başlığı gerekli' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -581,7 +771,7 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
             DropdownButtonFormField<String>(
               initialValue: _city,
               decoration: const InputDecoration(labelText: 'İl'),
-              items: ecoLocations.keys
+              items: TurkishLocations.provinceNames
                   .map((v) => DropdownMenuItem(value: v, child: Text(v)))
                   .toList(),
               onChanged: (v) => setState(() {
@@ -594,23 +784,35 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
               initialValue: _district,
               key: ValueKey('d$_city'),
               decoration: const InputDecoration(labelText: 'İlçe'),
-              items: ecoLocations[_city]!.keys
-                  .map((v) => DropdownMenuItem(value: v, child: Text(v)))
-                  .toList(),
+              items: TurkishLocations.districtsFor(
+                _city,
+              ).map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
               onChanged: (v) => setState(() {
                 _district = v!;
-                _neighborhood = ecoLocations[_city]![_district]!.first;
               }),
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _neighborhood,
-              key: ValueKey('n$_city$_district'),
-              decoration: const InputDecoration(labelText: 'Mahalle'),
-              items: ecoLocations[_city]![_district]!
-                  .map((v) => DropdownMenuItem(value: v, child: Text(v)))
-                  .toList(),
-              onChanged: (v) => setState(() => _neighborhood = v!),
+            TextFormField(
+              controller: _neighborhood,
+              decoration: const InputDecoration(
+                labelText: 'Mahalle',
+                prefixIcon: Icon(Icons.holiday_village_outlined),
+              ),
+              validator: (value) =>
+                  (value ?? '').trim().isEmpty ? 'Mahalle gerekli' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _exactAddress,
+              minLines: 2,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Açık adres / buluşma noktası',
+                prefixIcon: Icon(Icons.pin_drop_outlined),
+              ),
+              validator: (value) => (value ?? '').trim().length < 8
+                  ? 'Açık adres en az 8 karakter olmalı'
+                  : null,
             ),
             const SizedBox(height: 12),
             ListTile(
@@ -660,7 +862,7 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.add),
-                label: const Text('Grubu Oluştur'),
+                label: const Text('Etkinliği Oluştur'),
               ),
             ),
           ],

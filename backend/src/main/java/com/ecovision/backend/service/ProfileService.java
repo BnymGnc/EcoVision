@@ -17,22 +17,25 @@ public class ProfileService {
     private final FileStorageService fileStorageService;
     private final PasswordEncoder passwordEncoder;
     private final UsernameService usernameService;
+    private final InputSanitizer inputSanitizer;
 
     public ProfileService(
             AppUserRepository userRepository,
             FileStorageService fileStorageService,
             PasswordEncoder passwordEncoder,
-            UsernameService usernameService
+            UsernameService usernameService,
+            InputSanitizer inputSanitizer
     ) {
         this.userRepository = userRepository;
         this.fileStorageService = fileStorageService;
         this.passwordEncoder = passwordEncoder;
         this.usernameService = usernameService;
+        this.inputSanitizer = inputSanitizer;
     }
 
     @Transactional
     public UserResponse updateProfilePicture(AppUser user, MultipartFile image) {
-        String url = fileStorageService.store(image, "profiles");
+        String url = fileStorageService.storeImage(image, "profiles");
         user.setProfilePictureUrl(url);
         return UserResponse.from(userRepository.save(user));
     }
@@ -40,12 +43,16 @@ public class ProfileService {
     @Transactional
     public UserResponse updateProfile(AppUser currentUser, UpdateProfileRequest request) {
         AppUser user = lockUser(currentUser.getId());
-        user.setName(request.name().trim());
-        user.setSurname(request.surname().trim());
+        user.setName(inputSanitizer.plainText(request.name(), "Ad", 60));
+        user.setSurname(inputSanitizer.plainText(request.surname(), "Soyad", 60));
         user.setAge(request.age());
-        user.setCity(request.city().trim());
-        user.setDistrict(request.district().trim());
-        user.setNeighborhood(request.neighborhood().trim());
+        user.setCity(inputSanitizer.plainText(request.city(), "İl", 60));
+        user.setDistrict(inputSanitizer.plainText(request.district(), "İlçe", 60));
+        user.setNeighborhood(inputSanitizer.plainText(
+                request.neighborhood(),
+                "Mahalle",
+                100
+        ));
         if (request.username() != null && !request.username().isBlank()) {
             user.setPublicUsername(
                     usernameService.validateForUpdate(user.getId(), request.username())

@@ -28,6 +28,7 @@ public class ChatService {
     private final EventMemberRepository eventMemberRepository;
     private final AgeGateService ageGateService;
     private final FileStorageService fileStorageService;
+    private final InputSanitizer inputSanitizer;
 
     public ChatService(
             ChatMessageRepository chatMessageRepository,
@@ -35,7 +36,8 @@ public class ChatService {
             AppUserRepository userRepository,
             EventMemberRepository eventMemberRepository,
             AgeGateService ageGateService,
-            FileStorageService fileStorageService
+            FileStorageService fileStorageService,
+            InputSanitizer inputSanitizer
     ) {
         this.chatMessageRepository = chatMessageRepository;
         this.eventRepository = eventRepository;
@@ -43,6 +45,7 @@ public class ChatService {
         this.eventMemberRepository = eventMemberRepository;
         this.ageGateService = ageGateService;
         this.fileStorageService = fileStorageService;
+        this.inputSanitizer = inputSanitizer;
     }
 
     @Transactional(readOnly = true)
@@ -94,7 +97,7 @@ public class ChatService {
         ChatMessage message = new ChatMessage();
         message.setEvent(event);
         message.setSender(sender);
-        message.setMessage(request.message());
+        message.setMessage(inputSanitizer.plainText(request.message(), "Mesaj", 2000));
 
         return ChatMessageResponse.from(chatMessageRepository.save(message));
     }

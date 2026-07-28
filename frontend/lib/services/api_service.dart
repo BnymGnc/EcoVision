@@ -2,12 +2,11 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/constants.dart';
 import '../models/chat_message.dart';
 import '../models/avatar_tier.dart';
 import '../models/cleanup_event.dart';
@@ -24,27 +23,41 @@ import '../models/app_notification.dart';
 import '../models/moderation_report.dart';
 
 class ApiService {
-  static const _tokenKey = 'ecovision.jwt';
+  static const String productionBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://ecovision-backend.onrender.com',
+  );
+  static const _accessTokenKey = 'ecovision.access_token';
+  static const _refreshTokenKey = 'ecovision.refresh_token';
   static const _googleWebClientId =
       'dummy-client-id.apps.googleusercontent.com';
 
   final http.Client _client;
+  final FlutterSecureStorage _secureStorage;
   final ValueNotifier<int> _pointsNotifier = ValueNotifier<int>(0);
 
-  String? _jwt;
+  String? _accessToken;
+  String? _refreshToken;
+  bool _rememberMe = true;
   UserProfile? _currentUser;
   static bool _googleInitialized = false;
 
-  ApiService({http.Client? client}) : _client = client ?? http.Client();
+  ApiService({http.Client? client, FlutterSecureStorage? secureStorage})
+    : _client = client ?? http.Client(),
+      _secureStorage = secureStorage ?? const FlutterSecureStorage();
 
   ValueListenable<int> get pointsListenable => _pointsNotifier;
   UserProfile? get currentUser => _currentUser;
-  bool get isAuthenticated => _jwt != null;
+  bool get isAuthenticated => _accessToken != null;
+
+  void setRememberMe(bool value) {
+    _rememberMe = value;
+  }
 
   Future<void> loadStoredSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    _jwt = prefs.getString(_tokenKey);
-    if (_jwt != null) {
+    _accessToken = await _secureStorage.read(key: _accessTokenKey);
+    _refreshToken = await _secureStorage.read(key: _refreshTokenKey);
+    if (_accessToken != null || _refreshToken != null) {
       try {
         await fetchCurrentUser();
       } catch (_) {
@@ -68,13 +81,27 @@ class ApiService {
     required String email,
     required String password,
     int? age,
+    DateTime? dateOfBirth,
+    String? city,
+    String? district,
+    bool termsAccepted = false,
+    bool privacyAccepted = false,
   }) async {
+    final birthDate =
+        dateOfBirth ?? DateTime(DateTime.now().year - (age ?? 13), 1, 1);
     final response = await _postJson('/api/auth/register', {
       'name': name.trim(),
       'surname': surname.trim(),
       'email': email.trim(),
       'password': password,
-      'age': age,
+      'dateOfBirth':
+          '${birthDate.year.toString().padLeft(4, '0')}-'
+          '${birthDate.month.toString().padLeft(2, '0')}-'
+          '${birthDate.day.toString().padLeft(2, '0')}',
+      if (city != null) 'city': city,
+      if (district != null) 'district': district,
+      'termsAccepted': termsAccepted,
+      'privacyAccepted': privacyAccepted,
     }, authenticated: false);
     await _persistAuthResponse(response);
     return true;
@@ -106,14 +133,33 @@ class ApiService {
   }
 
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
-    _jwt = null;
+    final refreshToken = _refreshToken;
+    if (refreshToken != null) {
+      try {
+        await _client.post(
+          _uri('/api/auth/logout'),
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode({'refreshToken': refreshToken}),
+        );
+      } catch (_) {
+        // Local token destruction remains authoritative for logout.
+      }
+    }
+    await _secureStorage.delete(key: _accessTokenKey);
+    await _secureStorage.delete(key: _refreshTokenKey);
+    _accessToken = null;
+    _refreshToken = null;
     _currentUser = null;
     _pointsNotifier.value = 0;
     if (_googleInitialized) {
       await GoogleSignIn.instance.signOut();
     }
+  }
+
+  Future<void> requestPasswordReset(String email) async {
+    await _postJson('/api/auth/forgot-password', {
+      'email': email.trim(),
+    }, authenticated: false);
   }
 
   Future<UserProfile> fetchCurrentUser() async {
@@ -172,26 +218,46 @@ class ApiService {
     return _applyUser(json);
   }
 
-  Future<UserProfile> uploadProfilePicture(String imagePath) async {
-    final request = http.MultipartRequest(
-      'POST',
-      _uri('/api/auth/me/profile-picture'),
-    );
-    request.headers.addAll(_authHeaders(includeJson: false));
-    request.files.add(await http.MultipartFile.fromPath('image', imagePath));
-
-    final streamed = await _client.send(request);
-    final response = await http.Response.fromStream(streamed);
-    final json = _decodeResponse(response);
-    return _applyUser(json);
+  Future<UserProfile> uploadProfilePicture({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    final response = await _authorizedMultipart(() {
+      final request = http.MultipartRequest(
+        'POST',
+        _uri('/api/users/profile-picture'),
+      );
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'image',
+          bytes,
+          filename: fileName,
+          contentType: _imageMediaType(bytes),
+        ),
+      );
+      return request;
+    });
+    return _applyUser(_decodeResponse(response));
   }
 
-  Future<ScanResult> claimScanPoints(String detectedClass) async {
-    final json = await _postJson('/api/scans/analyze', {
-      'detected_class': detectedClass,
+  Future<ScanResult> analyzeWasteImage({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    final response = await _authorizedMultipart(() {
+      final request = http.MultipartRequest('POST', _uri('/api/scans/analyze'));
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'image',
+          bytes,
+          filename: fileName,
+          contentType: _imageMediaType(bytes),
+        ),
+      );
+      return request;
     });
-
-    final result = ScanResult.fromJson(json);
+    final json = _decodeResponse(response);
+    final result = ScanResult.fromGeminiJson(json);
     final updatedPoints = json['updated_user_points'];
     if (updatedPoints is num) {
       _pointsNotifier.value = updatedPoints.toInt();
@@ -199,6 +265,26 @@ class ApiService {
       await fetchCurrentUser();
     }
     return result;
+  }
+
+  Future<http.Response> _authorizedMultipart(
+    http.MultipartRequest Function() requestFactory,
+  ) async {
+    if (_accessToken == null && !await _refreshSession()) {
+      throw const ApiException('Bu işlem için giriş yapmalısınız.');
+    }
+
+    Future<http.Response> send() async {
+      final request = requestFactory();
+      request.headers.addAll(_authHeaders(includeJson: false));
+      return http.Response.fromStream(await _client.send(request));
+    }
+
+    var response = await send();
+    if (response.statusCode == 401 && await _refreshSession()) {
+      response = await send();
+    }
+    return response;
   }
 
   Future<int> getUserPoints() async {
@@ -243,9 +329,20 @@ class ApiService {
     return _applyUser(json);
   }
 
-  Future<List<CleanupEvent>> fetchEvents({String query = ''}) async {
-    final encoded = Uri.encodeQueryComponent(query.trim());
-    final json = await _getJsonList('/api/events?query=$encoded');
+  Future<List<CleanupEvent>> fetchEvents({
+    String query = '',
+    String? city,
+    String? district,
+    Set<String> cities = const {},
+  }) async {
+    final queryParameters = <String, String>{
+      'query': query.trim(),
+      if (city != null && city.isNotEmpty) 'city': city,
+      if (district != null && district.isNotEmpty) 'district': district,
+      if (cities.isNotEmpty) 'cities': cities.join(','),
+    };
+    final path = Uri(path: '/api/events', queryParameters: queryParameters);
+    final json = await _getJsonList(path.toString());
     return json.map((item) => CleanupEvent.fromJson(item)).toList();
   }
 
@@ -267,6 +364,28 @@ class ApiService {
       const {},
     );
     return EventMember.fromJson(json);
+  }
+
+  Future<void> removeEventMember(int eventId, int userId) async {
+    final response = await _authorizedRequest(
+      (headers) => _client.delete(
+        _uri('/api/events/$eventId/members/$userId'),
+        headers: headers,
+      ),
+    );
+    if (response.statusCode != 204) {
+      _decodeAnyResponse(response);
+    }
+  }
+
+  Future<CleanupEvent> updateEventRsvp(int eventId, String status) async =>
+      CleanupEvent.fromJson(
+        await _putJson('/api/events/$eventId/rsvp', {'status': status}),
+      );
+
+  Future<List<EventMember>> fetchEventAttendees(int eventId) async {
+    final json = await _getJsonList('/api/events/$eventId/attendees');
+    return json.map(EventMember.fromJson).toList();
   }
 
   Future<List<GroupWasteReport>> fetchGroupWasteReports(int eventId) async {
@@ -337,12 +456,16 @@ class ApiService {
     required double longitude,
     double? radiusKm,
     int? limit,
+    Set<String> materials = const {},
+    bool openNow = false,
   }) async {
     final query = <String, String>{
       'lat': latitude.toString(),
       'lng': longitude.toString(),
       if (radiusKm != null) 'radiusKm': radiusKm.toString(),
       if (limit != null) 'limit': limit.toString(),
+      if (materials.isNotEmpty) 'materials': materials.join(','),
+      'openNow': openNow.toString(),
     };
     final uri = _uri('/api/map-pins/nearest').replace(queryParameters: query);
     final response = await _client.get(uri, headers: _authHeaders());
@@ -376,21 +499,54 @@ class ApiService {
     required String district,
     required String neighborhood,
     required DateTime eventDate,
+    String exactAddress = '',
     int memberLimit = 20,
     String? joinCode,
+    Uint8List? coverBytes,
+    String? coverFileName,
   }) async {
-    final json = await _postJson('/api/events', {
+    final payload = {
       'title': title,
       'description': description,
       'city': city,
       'district': district,
       'neighborhood': neighborhood,
       'eventDate': eventDate.toUtc().toIso8601String(),
+      'eventTime':
+          '${eventDate.hour.toString().padLeft(2, '0')}:'
+          '${eventDate.minute.toString().padLeft(2, '0')}',
+      'exactAddress': exactAddress.trim().isEmpty
+          ? '$neighborhood, $district/$city'
+          : exactAddress.trim(),
       'memberLimit': memberLimit,
       if (joinCode != null && joinCode.trim().isNotEmpty)
         'joinCode': joinCode.trim(),
-    });
-    return CleanupEvent.fromJson(json);
+    };
+    if (coverBytes == null) {
+      return CleanupEvent.fromJson(await _postJson('/api/events', payload));
+    }
+
+    final request = http.MultipartRequest('POST', _uri('/api/events'));
+    request.headers.addAll(_authHeaders(includeJson: false));
+    request.files.add(
+      http.MultipartFile.fromString(
+        'event',
+        jsonEncode(payload),
+        contentType: MediaType('application', 'json'),
+      ),
+    );
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'coverImage',
+        coverBytes,
+        filename: coverFileName ?? 'event-cover.jpg',
+        contentType: _imageMediaType(coverBytes),
+      ),
+    );
+    final response = await http.Response.fromStream(
+      await _client.send(request),
+    );
+    return CleanupEvent.fromJson(_decodeResponse(response));
   }
 
   Future<List<ChatMessage>> fetchMessages(
@@ -468,6 +624,29 @@ class ApiService {
 
   Future<PublicProfile> fetchPublicProfile(int userId) async =>
       PublicProfile.fromJson(await _getJson('/api/social/users/$userId'));
+
+  MediaType _imageMediaType(Uint8List bytes) {
+    if (bytes.length >= 8 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47) {
+      return MediaType('image', 'png');
+    }
+    if (bytes.length >= 12 &&
+        bytes[0] == 0x52 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x46 &&
+        bytes[8] == 0x57 &&
+        bytes[9] == 0x45 &&
+        bytes[10] == 0x42 &&
+        bytes[11] == 0x50) {
+      return MediaType('image', 'webp');
+    }
+    return MediaType('image', 'jpeg');
+  }
+
   Future<void> likeProfile(int userId) async =>
       _postJson('/api/social/users/$userId/like', const {});
   Future<void> unlikeProfile(int userId) async =>
@@ -565,7 +744,9 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> _getJson(String path) async {
-    final response = await _client.get(_uri(path), headers: _authHeaders());
+    final response = await _authorizedRequest(
+      (headers) => _client.get(_uri(path), headers: headers),
+    );
     return _decodeResponse(response);
   }
 
@@ -583,7 +764,9 @@ class ApiService {
   }
 
   Future<List<Map<String, dynamic>>> _getJsonList(String path) async {
-    final response = await _client.get(_uri(path), headers: _authHeaders());
+    final response = await _authorizedRequest(
+      (headers) => _client.get(_uri(path), headers: headers),
+    );
     final decoded = _decodeAnyResponse(response);
     if (decoded is List) {
       return decoded.cast<Map<String, dynamic>>();
@@ -596,13 +779,19 @@ class ApiService {
     Map<String, dynamic> body, {
     bool authenticated = true,
   }) async {
-    final response = await _client.post(
-      _uri(path),
-      headers: authenticated
-          ? _authHeaders()
-          : {'Content-Type': 'application/json'},
-      body: jsonEncode(body),
-    );
+    final response = authenticated
+        ? await _authorizedRequest(
+            (headers) => _client.post(
+              _uri(path),
+              headers: headers,
+              body: jsonEncode(body),
+            ),
+          )
+        : await _client.post(
+            _uri(path),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode(body),
+          );
     return _decodeResponse(response);
   }
 
@@ -610,16 +799,17 @@ class ApiService {
     String path,
     Map<String, dynamic> body,
   ) async {
-    final response = await _client.put(
-      _uri(path),
-      headers: _authHeaders(),
-      body: jsonEncode(body),
+    final response = await _authorizedRequest(
+      (headers) =>
+          _client.put(_uri(path), headers: headers, body: jsonEncode(body)),
     );
     return _decodeResponse(response);
   }
 
   Future<Map<String, dynamic>> _deleteJson(String path) async {
-    final response = await _client.delete(_uri(path), headers: _authHeaders());
+    final response = await _authorizedRequest(
+      (headers) => _client.delete(_uri(path), headers: headers),
+    );
     return _decodeResponse(response);
   }
 
@@ -646,30 +836,75 @@ class ApiService {
   }
 
   Future<void> _persistAuthResponse(Map<String, dynamic> json) async {
-    final token = json['token']?.toString();
+    final accessToken = json['accessToken']?.toString();
+    final refreshToken = json['refreshToken']?.toString();
     final userJson = json['user'];
-    if (token == null || token.isEmpty || userJson is! Map<String, dynamic>) {
+    if (accessToken == null ||
+        accessToken.isEmpty ||
+        refreshToken == null ||
+        refreshToken.isEmpty ||
+        userJson is! Map<String, dynamic>) {
       throw ApiException('Kimlik doğrulama yanıtı geçersiz.');
     }
 
-    _jwt = token;
+    _accessToken = accessToken;
+    _refreshToken = refreshToken;
     _currentUser = UserProfile.fromJson(userJson);
     _pointsNotifier.value = _currentUser!.totalPoints;
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
+    if (_rememberMe) {
+      await _secureStorage.write(key: _accessTokenKey, value: accessToken);
+      await _secureStorage.write(key: _refreshTokenKey, value: refreshToken);
+    } else {
+      await _secureStorage.delete(key: _accessTokenKey);
+      await _secureStorage.delete(key: _refreshTokenKey);
+    }
   }
 
-  Uri _uri(String path) => Uri.parse('${AppConstants.apiBaseUrl}$path');
+  Uri _uri(String path) => Uri.parse('$productionBaseUrl$path');
 
   Map<String, String> _authHeaders({bool includeJson = true}) {
-    if (_jwt == null) {
+    if (_accessToken == null) {
       throw ApiException('Bu işlem için giriş yapmalısınız.');
     }
     return {
       if (includeJson) 'Content-Type': 'application/json',
-      'Authorization': 'Bearer $_jwt',
+      'Authorization': 'Bearer $_accessToken',
     };
+  }
+
+  Future<http.Response> _authorizedRequest(
+    Future<http.Response> Function(Map<String, String> headers) request,
+  ) async {
+    if (_accessToken == null && !await _refreshSession()) {
+      throw ApiException('Bu işlem için giriş yapmalısınız.');
+    }
+    var response = await request(_authHeaders());
+    if (response.statusCode == 401 && await _refreshSession()) {
+      response = await request(_authHeaders());
+    }
+    return response;
+  }
+
+  Future<bool> _refreshSession() async {
+    final refreshToken = _refreshToken;
+    if (refreshToken == null || refreshToken.isEmpty) {
+      return false;
+    }
+    try {
+      final response = await _client.post(
+        _uri('/api/auth/refresh'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({'refreshToken': refreshToken}),
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return false;
+      }
+      await _persistAuthResponse(_decodeResponse(response));
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _initializeGoogleSignIn() async {

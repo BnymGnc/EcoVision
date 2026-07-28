@@ -19,3 +19,8 @@ backend/*.log
 .vscode/
 *.iml
 .DS_Store
+frontend/android/build/
+frontend/flutter_*.log
+hs_err_pid*.log
+replay_pid*.log
+backend/uploads/

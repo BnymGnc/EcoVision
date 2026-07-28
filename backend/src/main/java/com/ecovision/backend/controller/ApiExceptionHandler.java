@@ -1,11 +1,17 @@
 package com.ecovision.backend.controller;
 
-import java.util.Map;
+import com.ecovision.backend.dto.ApiError;
 import com.ecovision.backend.service.ScanCooldownException;
+import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -14,43 +20,64 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
     @ExceptionHandler(IllegalArgumentException.class)
-    ResponseEntity<Map<String, String>> badRequest(IllegalArgumentException exception) {
-        return ResponseEntity.badRequest().body(Map.of("message", exception.getMessage()));
+    ResponseEntity<ApiError> badRequest(
+            IllegalArgumentException exception,
+            HttpServletRequest request
+    ) {
+        return error(HttpStatus.BAD_REQUEST, safeMessage(exception), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    ResponseEntity<Map<String, String>> validation(MethodArgumentNotValidException exception) {
+    ResponseEntity<ApiError> validation(
+            MethodArgumentNotValidException exception,
+            HttpServletRequest request
+    ) {
         String message = exception.getBindingResult()
                 .getFieldErrors()
                 .stream()
                 .findFirst()
-                .map(error -> error.getField() + " " + error.getDefaultMessage())
+                .map(fieldError -> fieldError.getField() + " " + fieldError.getDefaultMessage())
                 .orElse("Girilen bilgiler geçersiz");
-        return ResponseEntity.badRequest().body(Map.of("message", message));
+        return error(HttpStatus.BAD_REQUEST, message, request);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    ResponseEntity<Map<String, String>> unreadableBody() {
-        return ResponseEntity.badRequest().body(Map.of("message", "İstek içeriği okunamadı"));
+    ResponseEntity<ApiError> unreadableBody(HttpServletRequest request) {
+        return error(HttpStatus.BAD_REQUEST, "İstek içeriği okunamadı", request);
+    }
+
+    @ExceptionHandler(LockedException.class)
+    ResponseEntity<ApiError> locked(HttpServletRequest request) {
+        return error(
+                HttpStatus.LOCKED,
+                "Çok fazla başarısız deneme. Hesap 15 dakika kilitlendi",
+                request
+        );
     }
 
     @ExceptionHandler(AuthenticationException.class)
-    ResponseEntity<Map<String, String>> authentication() {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of("message", "E-posta veya parola hatalı"));
+    ResponseEntity<ApiError> authentication(HttpServletRequest request) {
+        return error(HttpStatus.UNAUTHORIZED, "E-posta veya parola hatalı", request);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    ResponseEntity<Map<String, String>> accessDenied() {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("message", "Bu işlem için yetkiniz yok"));
+    ResponseEntity<ApiError> accessDenied(HttpServletRequest request) {
+        return error(HttpStatus.FORBIDDEN, "Bu işlem için yetkiniz yok", request);
     }
 
     @ExceptionHandler(ResponseStatusException.class)
-    ResponseEntity<Map<String, String>> responseStatus(ResponseStatusException exception) {
-        String message = exception.getReason() == null ? "İstek tamamlanamadı" : exception.getReason();
-        return ResponseEntity.status(exception.getStatusCode()).body(Map.of("message", message));
+    ResponseEntity<ApiError> responseStatus(
+            ResponseStatusException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = HttpStatus.valueOf(exception.getStatusCode().value());
+        String message = exception.getReason() == null
+                ? "İstek tamamlanamadı"
+                : exception.getReason();
+        return error(status, message, request);
     }
 
     @ExceptionHandler(ScanCooldownException.class)
@@ -58,14 +85,40 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header("Retry-After", String.valueOf(exception.getRetryAfterSeconds()))
                 .body(Map.of(
+                        "timestamp", Instant.now(),
+                        "status", HttpStatus.TOO_MANY_REQUESTS.value(),
+                        "error", HttpStatus.TOO_MANY_REQUESTS.getReasonPhrase(),
                         "message", exception.getMessage(),
                         "retryAfterSeconds", exception.getRetryAfterSeconds()
                 ));
     }
 
     @ExceptionHandler(Exception.class)
-    ResponseEntity<Map<String, String>> generic(Exception exception) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("message", "Beklenmeyen bir sunucu hatası oluştu"));
+    ResponseEntity<ApiError> generic(Exception exception, HttpServletRequest request) {
+        LOGGER.error("Unhandled API error on {}", request.getRequestURI(), exception);
+        return error(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Beklenmeyen bir sunucu hatası oluştu",
+                request
+        );
+    }
+
+    private ResponseEntity<ApiError> error(
+            HttpStatus status,
+            String message,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(status).body(new ApiError(
+                Instant.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                message,
+                request.getRequestURI()
+        ));
+    }
+
+    private String safeMessage(IllegalArgumentException exception) {
+        String message = exception.getMessage();
+        return message == null || message.isBlank() ? "İstek geçersiz" : message;
     }
 }

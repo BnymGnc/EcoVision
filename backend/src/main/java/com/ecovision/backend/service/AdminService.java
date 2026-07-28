@@ -11,6 +11,8 @@ import com.ecovision.backend.model.Role;
 import com.ecovision.backend.repository.AppUserRepository;
 import com.ecovision.backend.repository.MapPinRepository;
 import java.util.List;
+import java.util.Set;
+import java.util.Locale;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -71,8 +73,34 @@ public class AdminService {
             Double radiusKm,
             Integer limit
     ) {
+        return getNearestMapPins(
+                latitude,
+                longitude,
+                radiusKm,
+                limit,
+                Set.of(),
+                false
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<MapPinResponse> getNearestMapPins(
+            double latitude,
+            double longitude,
+            Double radiusKm,
+            Integer limit,
+            Set<String> materials,
+            boolean openNow
+    ) {
+        Set<String> normalizedMaterials = materials.stream()
+                .map(this::normalizeMaterial)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
         List<MapPinResponse> localPins = mapPinRepository.findAll()
                 .stream()
+                .filter(MapPin::isActive)
+                .filter(pin -> !openNow || MapPinHours.isOpenNow(pin.getWorkingHours()))
+                .filter(pin -> normalizedMaterials.isEmpty()
+                        || normalizedMaterials.stream().allMatch(pin::acceptsMaterial))
                 .map(pin -> new PinDistance(pin, haversineKm(
                         latitude,
                         longitude,
@@ -85,11 +113,20 @@ public class AdminService {
                 .map(item -> MapPinResponse.from(item.pin(), item.distanceKm()))
                 .toList();
 
-        if (!localPins.isEmpty()) {
+        if (!localPins.isEmpty() || !normalizedMaterials.isEmpty() || openNow) {
             return localPins;
         }
 
         return overpassMapPinService.findNearest(latitude, longitude, radiusKm, limit);
+    }
+
+    private String normalizeMaterial(String material) {
+        return material == null
+                ? ""
+                : material.trim()
+                .toUpperCase(Locale.forLanguageTag("tr-TR"))
+                .replace("GLASS", "CAM")
+                .replace("ALUMINUM", "ALÜMİNYUM");
     }
 
     private double haversineKm(double lat1, double lon1, double lat2, double lon2) {

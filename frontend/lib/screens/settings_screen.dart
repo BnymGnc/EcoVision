@@ -75,7 +75,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (file == null) return;
     setState(() => _uploading = true);
     try {
-      await widget.apiService.uploadProfilePicture(file.path);
+      await widget.apiService.uploadProfilePicture(
+        bytes: await file.readAsBytes(),
+        fileName: file.name,
+      );
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profil fotoğrafı güncellendi.')),

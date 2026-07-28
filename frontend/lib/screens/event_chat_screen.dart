@@ -43,10 +43,14 @@ class _EventChatScreenState extends State<EventChatScreen> {
   bool _hasMore = true;
   bool _isTyping = false;
   Object? _error;
+  String? _currentAttendance;
+  late int _attendeeCount;
 
   @override
   void initState() {
     super.initState();
+    _currentAttendance = widget.event.currentUserAttendance;
+    _attendeeCount = widget.event.attendeeCount;
     _loadMessages();
     _loadMissions();
     _messageController.addListener(_onComposingChanged);
@@ -56,6 +60,101 @@ class _EventChatScreenState extends State<EventChatScreen> {
       const Duration(seconds: 5),
       (_) => _loadMessages(silent: true),
     );
+  }
+
+  Future<void> _rsvp(String status) async {
+    try {
+      final updated = await widget.apiService.updateEventRsvp(
+        widget.event.id,
+        status,
+      );
+      if (!mounted) return;
+      setState(() {
+        _currentAttendance = updated.currentUserAttendance;
+        _attendeeCount = updated.attendeeCount;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            status == 'ATTENDING'
+                ? 'Katılımın etkinlik listesine eklendi.'
+                : 'Katılamayacağın kaydedildi.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
+  }
+
+  Future<void> _showAttendees() async {
+    try {
+      final attendees = await widget.apiService.fetchEventAttendees(
+        widget.event.id,
+      );
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Katılanlar (${attendees.length})',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (attendees.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: Text('Henüz katılım bildiren kimse yok.'),
+                    ),
+                  )
+                else
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: attendees.length,
+                      itemBuilder: (context, index) {
+                        final attendee = attendees[index];
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundImage: attendee.profilePictureUrl == null
+                                ? null
+                                : NetworkImage(attendee.profilePictureUrl!),
+                            child: attendee.profilePictureUrl == null
+                                ? Text('${attendee.avatarLevel}')
+                                : null,
+                          ),
+                          title: Text(attendee.fullName),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
   }
 
   void _onComposingChanged() {
@@ -673,6 +772,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
     final colors = Theme.of(context).colorScheme;
     final currentUserId = widget.apiService.currentUser?.id;
     final isAdmin = widget.event.isAdmin;
+    final isCreator = widget.event.creatorId == currentUserId;
 
     return Scaffold(
       appBar: AppBar(
@@ -768,7 +868,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
                     title: Text('Grup Görevi Oluştur'),
                   ),
                 ),
-              if (isAdmin)
+              if (isCreator)
                 const PopupMenuItem(
                   value: 'delete',
                   child: ListTile(
@@ -850,6 +950,16 @@ class _EventChatScreenState extends State<EventChatScreen> {
         }
         final messageIndex = index - (_isLoadingOlder ? 1 : 0);
         final message = _messages[messageIndex];
+        if (message.messageType == 'SYSTEM_EVENT') {
+          return _EventChatCard(
+            event: widget.event,
+            attendance: _currentAttendance,
+            attendeeCount: _attendeeCount,
+            onAttending: () => _rsvp('ATTENDING'),
+            onNotAttending: () => _rsvp('NOT_ATTENDING'),
+            onAttendees: _showAttendees,
+          );
+        }
         if (message.isSystem) {
           return _SystemActivityMessage(message: message);
         }
@@ -883,6 +993,146 @@ class _EventChatScreenState extends State<EventChatScreen> {
       return 'EV';
     }
     return words.take(2).map((word) => word[0].toUpperCase()).join();
+  }
+}
+
+class _EventChatCard extends StatelessWidget {
+  const _EventChatCard({
+    required this.event,
+    required this.attendance,
+    required this.attendeeCount,
+    required this.onAttending,
+    required this.onNotAttending,
+    required this.onAttendees,
+  });
+
+  final CleanupEvent event;
+  final String? attendance;
+  final int attendeeCount;
+  final VoidCallback onAttending;
+  final VoidCallback onNotAttending;
+  final VoidCallback onAttendees;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (event.coverImageUrl != null)
+                  Image.network(
+                    event.coverImageUrl!,
+                    width: double.infinity,
+                    height: 150,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.event_available_rounded,
+                            color: colors.primary,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              event.title,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(event.description),
+                      const SizedBox(height: 12),
+                      _EventMeta(
+                        icon: Icons.schedule_rounded,
+                        text: event.dateLabel,
+                      ),
+                      _EventMeta(
+                        icon: Icons.location_on_outlined,
+                        text: event.exactAddress.isEmpty
+                            ? event.location
+                            : '${event.location}\n${event.exactAddress}',
+                      ),
+                      const SizedBox(height: 10),
+                      TextButton.icon(
+                        onPressed: onAttendees,
+                        icon: const Icon(Icons.groups_2_outlined),
+                        label: Text('$attendeeCount katılımcıyı görüntüle'),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: onAttending,
+                              icon: Icon(
+                                attendance == 'ATTENDING'
+                                    ? Icons.check_circle
+                                    : Icons.check_circle_outline,
+                              ),
+                              label: const Text('Katılıyorum'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: onNotAttending,
+                              icon: Icon(
+                                attendance == 'NOT_ATTENDING'
+                                    ? Icons.cancel
+                                    : Icons.cancel_outlined,
+                              ),
+                              label: const Text('Katılamıyorum'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EventMeta extends StatelessWidget {
+  const _EventMeta({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text)),
+        ],
+      ),
+    );
   }
 }
 

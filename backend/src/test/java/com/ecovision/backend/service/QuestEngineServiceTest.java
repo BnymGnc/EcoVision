@@ -83,8 +83,8 @@ class QuestEngineServiceTest {
         );
 
         assertEquals(1, updated.size());
-        assertEquals(1, updated.getFirst().getCurrentAmount());
-        assertTrue(updated.getFirst().isCompleted());
+        assertEquals(1, updated.get(0).getCurrentAmount());
+        assertTrue(updated.get(0).isCompleted());
     }
 
     @Test
@@ -157,9 +157,9 @@ class QuestEngineServiceTest {
                 )
         );
 
-        assertEquals(3, updated.getFirst().getCurrentAmount());
-        assertFalse(updated.getFirst().isCompleted());
-        assertTrue(updated.getFirst().getStateJson().contains("plastic"));
+        assertEquals(3, updated.get(0).getCurrentAmount());
+        assertFalse(updated.get(0).isCompleted());
+        assertTrue(updated.get(0).getStateJson().contains("plastic"));
     }
 
     private Quest quest(

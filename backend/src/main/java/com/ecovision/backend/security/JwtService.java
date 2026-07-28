@@ -30,6 +30,7 @@ public class JwtService {
                 .subject(user.getEmail())
                 .claim("userId", user.getId())
                 .claim("role", user.getRole().name())
+                .claim("tokenType", "access")
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(expirationMs)))
                 .signWith(key)
@@ -43,7 +44,12 @@ public class JwtService {
     public boolean isValid(String token, AppUser user) {
         Claims claims = claims(token);
         return claims.getSubject().equals(user.getEmail())
+                && "access".equals(claims.get("tokenType", String.class))
                 && claims.getExpiration().after(new Date());
+    }
+
+    public long getExpirationSeconds() {
+        return expirationMs / 1000;
     }
 
     private Claims claims(String token) {

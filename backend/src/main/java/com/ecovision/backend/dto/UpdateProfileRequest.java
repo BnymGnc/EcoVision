@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Pattern;
 public record UpdateProfileRequest(
         @NotBlank String name,
         @NotBlank String surname,
-        @Min(1) Integer age,
+        @Min(13) Integer age,
         @NotBlank String city,
         @NotBlank String district,
         @NotBlank String neighborhood,

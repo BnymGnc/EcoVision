@@ -2,6 +2,8 @@ package com.ecovision.backend.dto;
 
 import com.ecovision.backend.model.MapPin;
 import java.time.Instant;
+import java.util.Set;
+import java.util.Map;
 
 public record MapPinResponse(
         Long id,
@@ -12,7 +14,13 @@ public record MapPinResponse(
         Long createdById,
         String createdByName,
         Instant createdAt,
-        Double distanceKm
+        Double distanceKm,
+        String address,
+        String workingHours,
+        Set<String> acceptedMaterials,
+        Map<String, Boolean> binStates,
+        boolean active,
+        boolean openNow
 ) {
     public static MapPinResponse from(MapPin pin) {
         return from(pin, null);
@@ -28,7 +36,15 @@ public record MapPinResponse(
                 pin.getCreatedBy().getId(),
                 pin.getCreatedBy().getName() + " " + pin.getCreatedBy().getSurname(),
                 pin.getCreatedAt(),
-                distanceKm
+                distanceKm,
+                pin.getAddress(),
+                pin.getWorkingHours(),
+                pin.currentlyAcceptedMaterials(),
+                Map.copyOf(pin.getBinStates()),
+                pin.isActive(),
+                pin.isActive() && com.ecovision.backend.service.MapPinHours.isOpenNow(
+                        pin.getWorkingHours()
+                )
         );
     }
 
@@ -51,7 +67,13 @@ public record MapPinResponse(
                 0L,
                 sourceName,
                 createdAt,
-                distanceKm
+                distanceKm,
+                null,
+                null,
+                Set.of(),
+                Map.of(),
+                true,
+                true
         );
     }
 }

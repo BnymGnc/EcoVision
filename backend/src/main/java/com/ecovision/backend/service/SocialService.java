@@ -228,5 +228,5 @@ public class SocialService {
     private void requireOther(AppUser current, Long id) { ageGate.requireAdult(current); if (current.getId().equals(id)) throw new IllegalArgumentException("Kendi profilinizde bu işlem yapılamaz"); }
     private boolean blockedEitherWay(Long a, Long b) { return blocks.existsByBlockerIdAndBlockedUserId(a,b) || blocks.existsByBlockerIdAndBlockedUserId(b,a); }
     private boolean isAccepted(Friendship friendship) { return friendship != null && friendship.getStatus() == FriendshipStatus.ACCEPTED; }
-    private void requireGroupAdmin(AppUser current, Long eventId) { if (members.findByEventIdAndUserId(eventId, current.getId()).map(m -> m.getRole() == GroupRole.ADMIN).orElse(false) == false) throw new IllegalArgumentException("Yalnızca grup yöneticileri davet gönderebilir"); }
+    private void requireGroupAdmin(AppUser current, Long eventId) { if (members.findByEventIdAndUserId(eventId, current.getId()).map(m -> m.getRole() == GroupRole.GROUP_ADMIN).orElse(false) == false) throw new IllegalArgumentException("Yalnızca grup yöneticileri davet gönderebilir"); }
 }

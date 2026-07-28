@@ -11,6 +11,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "events")
@@ -42,6 +43,13 @@ public class Event {
     private Instant eventDate;
 
     private String imageUrl;
+
+    private String coverImageUrl;
+
+    @Column(length = 500)
+    private String exactAddress;
+
+    private LocalTime eventTime;
 
     private Double latitude;
 
@@ -113,6 +121,31 @@ public class Event {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public String getCoverImageUrl() {
+        return coverImageUrl == null ? imageUrl : coverImageUrl;
+    }
+
+    public void setCoverImageUrl(String coverImageUrl) {
+        this.coverImageUrl = coverImageUrl;
+        this.imageUrl = coverImageUrl;
+    }
+
+    public String getExactAddress() {
+        return exactAddress;
+    }
+
+    public void setExactAddress(String exactAddress) {
+        this.exactAddress = exactAddress;
+    }
+
+    public LocalTime getEventTime() {
+        return eventTime;
+    }
+
+    public void setEventTime(LocalTime eventTime) {
+        this.eventTime = eventTime;
     }
 
     public Double getLatitude() {

@@ -1,9 +1,8 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/api_service.dart';
-import '../services/tflite_service.dart';
 import '../widgets/premium_ui.dart';
 import 'result_screen.dart';
 import '../widgets/notification_bell.dart';
@@ -33,15 +32,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final ImagePicker _imagePicker = ImagePicker();
-  final TfliteService _tfliteService = TfliteService();
   bool _isScanning = false;
-  String _scanStatus = 'Cihazda analiz ediliyor...';
-
-  @override
-  void dispose() {
-    _tfliteService.close();
-    super.dispose();
-  }
+  String _scanStatus = 'Yapay zeka analiz ediyor...';
 
   Future<void> _pickAndAnalyze(ImageSource source) async {
     try {
@@ -58,9 +50,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {
         _isScanning = true;
-        _scanStatus = 'Cihazda analiz ediliyor...';
+        _scanStatus = 'Fotoğraf güvenli biçimde yükleniyor...';
       });
-      final detectedClass = await _tfliteService.runModelOnImage(image.path);
+      final bytes = await image.readAsBytes();
 
       if (!mounted) {
         return;
@@ -68,7 +60,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() => _scanStatus = 'Puanlar işleniyor...');
       final previousPoints = widget.apiService.pointsListenable.value;
-      final result = await widget.apiService.claimScanPoints(detectedClass);
+      final result = await widget.apiService.analyzeWasteImage(
+        bytes: bytes,
+        fileName: image.name,
+      );
       final currentPoints = widget.apiService.pointsListenable.value;
       final earnedBadge =
           (previousPoints == 0 && currentPoints > 0) ||

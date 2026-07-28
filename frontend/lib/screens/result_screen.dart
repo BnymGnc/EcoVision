@@ -153,6 +153,41 @@ class _ResultScreenState extends State<ResultScreen> {
                       ],
                     ),
                     const SizedBox(height: 22),
+                    if (result.detections.isNotEmpty) ...[
+                      Text(
+                        'Fotoğrafta bulunan atıklar',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      for (final detection in result.detections)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            detection.machineEligible
+                                ? Icons.check_circle_rounded
+                                : Icons.cancel_rounded,
+                            color: detection.machineEligible
+                                ? colorScheme.primary
+                                : colorScheme.error,
+                          ),
+                          title: Text(detection.material),
+                          subtitle: Text(
+                            'Güven: %${(detection.confidence * 100).round()}',
+                          ),
+                          trailing: Text(
+                            detection.eligibilityLabel,
+                            style: TextStyle(
+                              color: detection.machineEligible
+                                  ? colorScheme.primary
+                                  : colorScheme.error,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      const Divider(height: 28),
+                    ],
                     _ResultMetric(
                       icon: Icons.hourglass_bottom_outlined,
                       label: 'Doğada çözünme süresi',

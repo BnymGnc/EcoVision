@@ -2,7 +2,9 @@ package com.ecovision.backend.controller;
 
 import com.ecovision.backend.dto.AuthResponse;
 import com.ecovision.backend.dto.GoogleAuthRequest;
+import com.ecovision.backend.dto.ForgotPasswordRequest;
 import com.ecovision.backend.dto.LoginRequest;
+import com.ecovision.backend.dto.RefreshTokenRequest;
 import com.ecovision.backend.dto.RegisterRequest;
 import com.ecovision.backend.dto.UserResponse;
 import com.ecovision.backend.service.AuthService;
@@ -10,6 +12,8 @@ import com.ecovision.backend.service.CurrentUserService;
 import com.ecovision.backend.service.ProfileService;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -48,6 +52,28 @@ public class AuthController {
     @PostMapping("/google")
     public AuthResponse google(@Valid @RequestBody GoogleAuthRequest request) {
         return authService.googleLogin(request);
+    }
+
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return authService.refresh(request.refreshToken());
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@Valid @RequestBody RefreshTokenRequest request) {
+        authService.logout(request.refreshToken());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<java.util.Map<String, String>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request
+    ) {
+        authService.requestPasswordReset(request.email());
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(java.util.Map.of(
+                "message",
+                "Hesap mevcutsa parola sıfırlama talimatları gönderildi"
+        ));
     }
 
     @GetMapping("/me")

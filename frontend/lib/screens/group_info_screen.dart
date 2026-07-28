@@ -111,6 +111,46 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
     }
   }
 
+  Future<void> _removeMember(EventMember member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Üyeyi Gruptan Çıkar'),
+        content: Text(
+          '${member.fullName} bu grubun sohbetine ve etkinliklerine erişemeyecek.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Üyeyi Çıkar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.apiService.removeEventMember(
+        widget.event.id,
+        member.userId,
+      );
+      if (mounted) {
+        _reload();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${member.fullName} gruptan çıkarıldı.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) _error(error);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
@@ -227,20 +267,35 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
     ),
     title: Text(member.fullName),
     subtitle: Text(member.isAdmin ? 'Yönetici' : 'Üye'),
-    trailing: widget.event.isAdmin && !member.isAdmin
-        ? TextButton(
-            onPressed: () async {
-              try {
-                await widget.apiService.promoteEventAdmin(
-                  widget.event.id,
-                  member.userId,
-                );
-                _reload();
-              } catch (e) {
-                _error(e);
-              }
-            },
-            child: const Text('Yönetici Yap'),
+    trailing:
+        widget.event.isAdmin &&
+            member.userId != widget.apiService.currentUser?.id
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!member.isAdmin)
+                IconButton(
+                  tooltip: 'Grup yöneticisi yap',
+                  onPressed: () async {
+                    try {
+                      await widget.apiService.promoteEventAdmin(
+                        widget.event.id,
+                        member.userId,
+                      );
+                      _reload();
+                    } catch (error) {
+                      _error(error);
+                    }
+                  },
+                  icon: const Icon(Icons.admin_panel_settings_outlined),
+                ),
+              IconButton(
+                tooltip: 'Üyeyi gruptan çıkar',
+                onPressed: () => _removeMember(member),
+                color: Theme.of(context).colorScheme.error,
+                icon: const Icon(Icons.person_remove_outlined),
+              ),
+            ],
           )
         : const Icon(Icons.chevron_right),
   );

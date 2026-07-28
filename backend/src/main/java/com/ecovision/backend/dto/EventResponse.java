@@ -2,6 +2,7 @@ package com.ecovision.backend.dto;
 
 import com.ecovision.backend.model.Event;
 import java.time.Instant;
+import java.time.LocalTime;
 
 public record EventResponse(
         Long id,
@@ -15,16 +16,27 @@ public record EventResponse(
         String district,
         String neighborhood,
         Instant eventDate,
+        LocalTime eventTime,
+        String exactAddress,
+        String coverImageUrl,
         Integer memberLimit,
         long memberCount,
+        long attendeeCount,
         boolean privateGroup,
-        String currentUserRole
+        String currentUserRole,
+        String currentUserAttendance
 ) {
     public static EventResponse from(Event event) {
-        return from(event, 0, null);
+        return from(event, 0, 0, null, null);
     }
 
-    public static EventResponse from(Event event, long memberCount, String currentUserRole) {
+    public static EventResponse from(
+            Event event,
+            long memberCount,
+            long attendeeCount,
+            String currentUserRole,
+            String currentUserAttendance
+    ) {
         return new EventResponse(
                 event.getId(),
                 event.getCreator().getId(),
@@ -37,10 +49,15 @@ public record EventResponse(
                 event.getDistrict(),
                 event.getNeighborhood(),
                 event.getEventDate(),
+                event.getEventTime(),
+                event.getExactAddress(),
+                event.getCoverImageUrl(),
                 event.getMemberLimit(),
                 memberCount,
+                attendeeCount,
                 event.isPrivateGroup(),
-                currentUserRole
+                currentUserRole,
+                currentUserAttendance
         );
     }
 }

@@ -6,6 +6,7 @@ class ScanResult {
     required this.recycledInto,
     required this.scannedAt,
     this.pointsAwarded = 0,
+    this.detections = const [],
   });
 
   final String material;
@@ -14,6 +15,27 @@ class ScanResult {
   final String recycledInto;
   final DateTime scannedAt;
   final int pointsAwarded;
+  final List<WasteDetection> detections;
+
+  factory ScanResult.fromGeminiJson(Map<String, dynamic> json) {
+    final scan = json['scan'] is Map<String, dynamic>
+        ? json['scan'] as Map<String, dynamic>
+        : json;
+    final detections = (json['detections'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(WasteDetection.fromJson)
+        .toList(growable: false);
+    final parsed = ScanResult.fromJson(scan);
+    return ScanResult(
+      material: parsed.material,
+      isRecyclable: parsed.isRecyclable,
+      decayYears: parsed.decayYears,
+      recycledInto: parsed.recycledInto,
+      scannedAt: parsed.scannedAt,
+      pointsAwarded: parsed.pointsAwarded,
+      detections: detections,
+    );
+  }
 
   factory ScanResult.fromJson(Map<String, dynamic> json) {
     return ScanResult(
@@ -54,5 +76,32 @@ class ScanResult {
       return value.toLowerCase() == 'true';
     }
     return false;
+  }
+}
+
+class WasteDetection {
+  const WasteDetection({
+    required this.type,
+    required this.material,
+    required this.confidence,
+    required this.machineEligible,
+    required this.eligibilityLabel,
+  });
+
+  final String type;
+  final String material;
+  final double confidence;
+  final bool machineEligible;
+  final String eligibilityLabel;
+
+  factory WasteDetection.fromJson(Map<String, dynamic> json) {
+    return WasteDetection(
+      type: (json['type'] ?? 'DIGER').toString(),
+      material: (json['material'] ?? json['type'] ?? 'Bilinmeyen').toString(),
+      confidence: (json['confidence'] as num? ?? 0).toDouble(),
+      machineEligible: json['machine_eligible'] as bool? ?? false,
+      eligibilityLabel:
+          (json['eligibility_label'] ?? 'Uygun değil').toString(),
+    );
   }
 }

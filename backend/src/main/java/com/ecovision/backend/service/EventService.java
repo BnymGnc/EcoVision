@@ -3,19 +3,26 @@ package com.ecovision.backend.service;
 import com.ecovision.backend.dto.EventRequest;
 import com.ecovision.backend.dto.EventResponse;
 import com.ecovision.backend.dto.EventMemberResponse;
+import com.ecovision.backend.dto.EventAttendeeResponse;
+import com.ecovision.backend.dto.EventRsvpRequest;
 import com.ecovision.backend.dto.GroupMissionRequest;
 import com.ecovision.backend.dto.GroupMissionResponse;
 import com.ecovision.backend.dto.GroupWasteReportRequest;
 import com.ecovision.backend.dto.GroupWasteReportResponse;
 import com.ecovision.backend.dto.JoinEventRequest;
 import com.ecovision.backend.model.AppUser;
+import com.ecovision.backend.model.AttendanceStatus;
+import com.ecovision.backend.model.ChatMessage;
+import com.ecovision.backend.model.ChatMessageType;
 import com.ecovision.backend.model.Event;
+import com.ecovision.backend.model.EventAttendance;
 import com.ecovision.backend.model.EventMember;
 import com.ecovision.backend.model.GroupMission;
 import com.ecovision.backend.model.GroupRole;
 import com.ecovision.backend.model.GroupWasteReport;
 import com.ecovision.backend.repository.ChatMessageRepository;
 import com.ecovision.backend.repository.EventMemberRepository;
+import com.ecovision.backend.repository.EventAttendanceRepository;
 import com.ecovision.backend.repository.EventRepository;
 import com.ecovision.backend.repository.GroupMissionRepository;
 import com.ecovision.backend.repository.GroupWasteReportRepository;
@@ -26,6 +33,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class EventService {
@@ -39,6 +47,9 @@ public class EventService {
     private final GroupInviteRepository groupInviteRepository;
     private final SocialReportRepository socialReportRepository;
     private final NotificationService notificationService;
+    private final EventAttendanceRepository attendanceRepository;
+    private final FileStorageService fileStorageService;
+    private final InputSanitizer inputSanitizer;
 
     public EventService(
             EventRepository eventRepository,
@@ -50,7 +61,10 @@ public class EventService {
             AgeGateService ageGateService,
             GroupInviteRepository groupInviteRepository,
             SocialReportRepository socialReportRepository,
-            NotificationService notificationService
+            NotificationService notificationService,
+            EventAttendanceRepository attendanceRepository,
+            FileStorageService fileStorageService,
+            InputSanitizer inputSanitizer
     ) {
         this.eventRepository = eventRepository;
         this.eventMemberRepository = eventMemberRepository;
@@ -62,27 +76,105 @@ public class EventService {
         this.groupInviteRepository = groupInviteRepository;
         this.socialReportRepository = socialReportRepository;
         this.notificationService = notificationService;
+        this.attendanceRepository = attendanceRepository;
+        this.fileStorageService = fileStorageService;
+        this.inputSanitizer = inputSanitizer;
     }
 
     @Transactional(readOnly = true)
-    public List<EventResponse> getEvents(AppUser currentUser, String query) {
+    public List<EventResponse> getEvents(
+            AppUser currentUser,
+            String query,
+            String city,
+            String district,
+            String cities
+    ) {
         ageGateService.requireAdult(currentUser);
-        String city = currentUser.getCity() == null ? AppUser.DEFAULT_CITY : currentUser.getCity();
-        return eventRepository.findByCityIgnoreCaseAndTitleContainingIgnoreCaseOrderByEventDateAsc(
-                        city, query == null ? "" : query.trim())
+        java.util.Set<String> selectedCities = java.util.Arrays.stream(
+                        cities == null ? new String[0] : cities.split(",")
+                )
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        String selectedCity = city == null ? "" : city.trim();
+        if (selectedCities.isEmpty() && !selectedCity.isBlank()) {
+            selectedCities = java.util.Set.of(selectedCity);
+        }
+        String selectedDistrict = district == null ? "" : district.trim();
+        String search = query == null ? "" : query.trim();
+        java.util.Set<String> cityFilter = selectedCities;
+        return eventRepository.findAllByOrderByEventDateAsc()
                 .stream()
+                .filter(event -> cityFilter.isEmpty()
+                        || cityFilter.stream().anyMatch(
+                        selected -> selected.equalsIgnoreCase(event.getCity())
+                ))
+                .filter(event -> selectedDistrict.isBlank()
+                        || selectedDistrict.equalsIgnoreCase(event.getDistrict()))
+                .filter(event -> search.isBlank()
+                        || event.getTitle().toLowerCase(java.util.Locale.ROOT)
+                        .contains(search.toLowerCase(java.util.Locale.ROOT)))
                 .map(event -> response(event, currentUser))
                 .toList();
     }
 
     @Transactional
     public EventResponse createEvent(AppUser creator, EventRequest request) {
+        return createEvent(creator, request, null);
+    }
+
+    @Transactional
+    public EventResponse createEvent(
+            AppUser creator,
+            EventRequest request,
+            MultipartFile coverImage
+    ) {
         ageGateService.requireAdult(creator);
         Event event = toEvent(creator, request);
+        event.setCoverImageUrl(fileStorageService.storeImage(coverImage, "events"));
         eventRepository.save(event);
-        addMember(event, creator, GroupRole.ADMIN);
+        addMember(event, creator, GroupRole.GROUP_ADMIN);
+        addEventCard(event, creator);
         notificationService.notifyCityEvent(event);
         return response(event, creator);
+    }
+
+    @Transactional
+    public EventResponse updateEvent(
+            AppUser user,
+            Long eventId,
+            EventRequest request,
+            MultipartFile coverImage
+    ) {
+        Event event = findEvent(eventId);
+        requireAdmin(user, event);
+        event.setTitle(inputSanitizer.plainText(request.title(), "Başlık", 150));
+        event.setDescription(inputSanitizer.plainText(
+                request.description(),
+                "Açıklama",
+                2000
+        ));
+        event.setCity(inputSanitizer.plainText(request.city(), "İl", 60));
+        event.setDistrict(inputSanitizer.plainText(request.district(), "İlçe", 60));
+        event.setNeighborhood(inputSanitizer.plainText(
+                request.neighborhood(),
+                "Mahalle",
+                100
+        ));
+        event.setExactAddress(inputSanitizer.plainText(
+                request.exactAddress(),
+                "Açık adres",
+                500
+        ));
+        event.setLocation(event.getCity() + ", " + event.getDistrict()
+                + " - " + event.getNeighborhood());
+        event.setEventDate(request.eventDate());
+        event.setEventTime(request.eventTime());
+        configureGroup(event, request.memberLimit(), request.joinCode());
+        if (coverImage != null && !coverImage.isEmpty()) {
+            event.setCoverImageUrl(fileStorageService.storeImage(coverImage, "events"));
+        }
+        return response(eventRepository.save(event), user);
     }
 
     @Transactional
@@ -120,8 +212,52 @@ public class EventService {
         requireAdmin(user, event);
         EventMember member = eventMemberRepository.findByEventIdAndUserId(eventId, memberUserId)
                 .orElseThrow(() -> new IllegalArgumentException("Grup üyesi bulunamadı"));
-        member.setRole(GroupRole.ADMIN);
+        member.setRole(GroupRole.GROUP_ADMIN);
         return EventMemberResponse.from(eventMemberRepository.save(member));
+    }
+
+    @Transactional
+    public void removeMember(AppUser user, Long eventId, Long memberUserId) {
+        Event event = findEvent(eventId);
+        requireAdmin(user, event);
+        if (event.getCreator().getId().equals(memberUserId)) {
+            throw new IllegalArgumentException("Grup kurucusu gruptan çıkarılamaz");
+        }
+        EventMember member = eventMemberRepository.findByEventIdAndUserId(eventId, memberUserId)
+                .orElseThrow(() -> new IllegalArgumentException("Grup üyesi bulunamadı"));
+        attendanceRepository.deleteByEventIdAndUserId(eventId, memberUserId);
+        eventMemberRepository.delete(member);
+    }
+
+    @Transactional
+    public EventResponse updateAttendance(
+            AppUser user,
+            Long eventId,
+            EventRsvpRequest request
+    ) {
+        Event event = findEvent(eventId);
+        requireMember(user, eventId);
+        EventAttendance attendance = attendanceRepository
+                .findByEventIdAndUserId(eventId, user.getId())
+                .orElseGet(EventAttendance::new);
+        attendance.setEvent(event);
+        attendance.setUser(user);
+        attendance.setStatus(request.status());
+        attendanceRepository.save(attendance);
+        return response(event, user);
+    }
+
+    @Transactional(readOnly = true)
+    public List<EventAttendeeResponse> getAttendees(AppUser user, Long eventId) {
+        requireMember(user, eventId);
+        return attendanceRepository
+                .findByEventIdAndStatusOrderByRespondedAtAsc(
+                        eventId,
+                        AttendanceStatus.ATTENDING
+                )
+                .stream()
+                .map(EventAttendeeResponse::from)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -180,7 +316,9 @@ public class EventService {
     public void deleteEvent(AppUser user, Long eventId) {
         ageGateService.requireAdult(user);
         Event event = findEvent(eventId);
-        requireAdmin(user, event);
+        if (!event.getCreator().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Yalnızca etkinlik kurucusu etkinliği silebilir");
+        }
         deleteEventData(event);
     }
 
@@ -192,6 +330,7 @@ public class EventService {
     private void deleteEventData(Event event) {
         Long eventId = event.getId();
         chatMessageRepository.deleteByEventId(eventId);
+        attendanceRepository.deleteByEventId(eventId);
         groupWasteReportRepository.deleteByEventId(eventId);
         groupMissionRepository.deleteByEventId(eventId);
         groupInviteRepository.deleteByEventId(eventId);
@@ -203,13 +342,21 @@ public class EventService {
     private Event toEvent(AppUser creator, EventRequest request) {
         Event event = new Event();
         event.setCreator(creator);
-        event.setTitle(request.title());
-        event.setDescription(request.description());
-        event.setCity(request.city().trim());
-        event.setDistrict(request.district().trim());
-        event.setNeighborhood(request.neighborhood().trim());
-        event.setLocation(request.city().trim() + ", " + request.district().trim() + " - " + request.neighborhood().trim());
+        event.setTitle(inputSanitizer.plainText(request.title(), "Başlık", 150));
+        event.setDescription(inputSanitizer.plainText(request.description(), "Açıklama", 2000));
+        event.setCity(inputSanitizer.plainText(request.city(), "İl", 60));
+        event.setDistrict(inputSanitizer.plainText(request.district(), "İlçe", 60));
+        event.setNeighborhood(inputSanitizer.plainText(request.neighborhood(), "Mahalle", 100));
+        event.setExactAddress(inputSanitizer.plainText(
+                request.exactAddress(),
+                "Açık adres",
+                500
+        ));
+        event.setLocation(
+                event.getCity() + ", " + event.getDistrict() + " - " + event.getNeighborhood()
+        );
         event.setEventDate(request.eventDate());
+        event.setEventTime(request.eventTime());
         configureGroup(
                 event,
                 request.memberLimit(),
@@ -226,7 +373,7 @@ public class EventService {
     private void requireAdmin(AppUser user, Event event) {
         ageGateService.requireAdult(user);
         boolean admin = eventMemberRepository.findByEventIdAndUserId(event.getId(), user.getId())
-                .map(member -> member.getRole() == GroupRole.ADMIN)
+                .map(member -> member.getRole() == GroupRole.GROUP_ADMIN)
                 .orElse(event.getCreator().getId().equals(user.getId()));
         if (!admin) {
             throw new IllegalArgumentException("Bu işlem yalnızca grup yöneticilerine açıktır");
@@ -244,7 +391,20 @@ public class EventService {
         String role = eventMemberRepository.findByEventIdAndUserId(event.getId(), user.getId())
                 .map(member -> member.getRole().name())
                 .orElse(null);
-        return EventResponse.from(event, eventMemberRepository.countByEventId(event.getId()), role);
+        String attendance = attendanceRepository
+                .findByEventIdAndUserId(event.getId(), user.getId())
+                .map(item -> item.getStatus().name())
+                .orElse(null);
+        return EventResponse.from(
+                event,
+                eventMemberRepository.countByEventId(event.getId()),
+                attendanceRepository.countByEventIdAndStatus(
+                        event.getId(),
+                        AttendanceStatus.ATTENDING
+                ),
+                role,
+                attendance
+        );
     }
 
     private void configureGroup(
@@ -266,5 +426,14 @@ public class EventService {
         member.setUser(user);
         member.setRole(role);
         eventMemberRepository.save(member);
+    }
+
+    private void addEventCard(Event event, AppUser creator) {
+        ChatMessage message = new ChatMessage();
+        message.setEvent(event);
+        message.setSender(creator);
+        message.setMessage(event.getTitle());
+        message.setMessageType(ChatMessageType.SYSTEM_EVENT);
+        chatMessageRepository.save(message);
     }
 }

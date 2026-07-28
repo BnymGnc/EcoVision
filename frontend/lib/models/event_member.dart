@@ -13,7 +13,7 @@ class EventMember {
   final int avatarLevel;
   final String? profilePictureUrl;
 
-  bool get isAdmin => role == 'ADMIN';
+  bool get isAdmin => role == 'GROUP_ADMIN';
 
   factory EventMember.fromJson(Map<String, dynamic> json) => EventMember(
     userId: (json['userId'] as num).toInt(),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/constants.dart';
 import '../models/map_pin.dart';
@@ -25,17 +26,20 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
+  static const _materials = ['pet', 'glass', 'aluminum'];
+
   final LocationService _locationService = LocationService();
-  final Distance _distance = const Distance();
   final MapController _mapController = MapController();
+  final Distance _distance = const Distance();
 
   LatLng? _currentLocation;
-  List<MapPin> _officialPins = [];
+  List<MapPin> _pins = [];
+  Set<String> _selectedMaterials = {};
+  double _radiusKm = 10;
+  bool _openNow = false;
   bool _isLoading = true;
-  bool _isAddingPin = false;
   bool _mapReady = false;
-  double? _radiusKm = 5;
-  int? _limit = 5;
+  bool _isAddingPin = false;
 
   bool get _canAddPins => widget.apiService.currentUser?.isAdmin ?? false;
 
@@ -53,199 +57,346 @@ class _MapScreenState extends State<MapScreen> {
         latitude: location.latitude,
         longitude: location.longitude,
         radiusKm: _radiusKm,
-        limit: _limit,
+        materials: _selectedMaterials,
+        openNow: _openNow,
       );
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _currentLocation = location;
-        _officialPins = pins;
+        _pins = pins;
         _isLoading = false;
       });
-      _moveMapTo(location);
+      _moveTo(location);
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _currentLocation ??= AppConstants.sanliurfaFallback;
         _isLoading = false;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
+      _showError(error);
     }
   }
 
-  void _moveMapTo(LatLng location) {
-    if (!_mapReady) {
-      return;
-    }
+  void _moveTo(LatLng location) {
+    if (!_mapReady) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _mapController.move(location, 15);
-      }
+      if (mounted) _mapController.move(location, 14);
     });
   }
 
-  Future<void> _addOfficialPin(LatLng point) async {
-    if (!_canAddPins || _isAddingPin) {
-      return;
-    }
+  Future<void> _openFilters() async {
+    var draftMaterials = Set<String>.from(_selectedMaterials);
+    var draftRadius = _radiusKm;
+    var draftOpenNow = _openNow;
 
-    final confirmed = await showDialog<bool>(
+    final result = await showModalBottomSheet<_MapFilters>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: const Text('Resmî Geri Dönüşüm Kutusu Ekle'),
-        content: Text(
-          '${point.latitude.toStringAsFixed(5)}, ${point.longitude.toStringAsFixed(5)} konumuna doğrulanmış kutu eklensin mi?',
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 4, 22, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'DOA Makine Filtreleri',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Sana uygun ve gerçekten erişilebilir makineleri göster.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Kabul edilen malzemeler',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                for (final material in _materials)
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: draftMaterials.contains(material),
+                    title: Text(_materialLabel(material)),
+                    secondary: Icon(_materialIcon(material)),
+                    onChanged: (selected) => setSheetState(() {
+                      if (selected ?? false) {
+                        draftMaterials.add(material);
+                      } else {
+                        draftMaterials.remove(material);
+                      }
+                    }),
+                  ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: draftOpenNow,
+                  title: const Text('Şu an açık'),
+                  subtitle: const Text('Çalışma saatine göre filtrele'),
+                  secondary: const Icon(Icons.schedule_rounded),
+                  onChanged: (value) =>
+                      setSheetState(() => draftOpenNow = value),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Text(
+                      'Arama yarıçapı',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${draftRadius.round()} km',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: draftRadius,
+                  min: 1,
+                  max: 50,
+                  divisions: 49,
+                  label: '${draftRadius.round()} km',
+                  onChanged: (value) =>
+                      setSheetState(() => draftRadius = value),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => setSheetState(() {
+                        draftMaterials = {};
+                        draftRadius = 10;
+                        draftOpenNow = false;
+                      }),
+                      child: const Text('Sıfırla'),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => Navigator.pop(
+                          context,
+                          _MapFilters(
+                            materials: draftMaterials,
+                            radiusKm: draftRadius,
+                            openNow: draftOpenNow,
+                          ),
+                        ),
+                        icon: const Icon(Icons.tune_rounded),
+                        label: const Text('Sonuçları Göster'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Vazgeç'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Kutu Ekle'),
-          ),
-        ],
       ),
     );
-
-    if (confirmed != true || !mounted) {
-      return;
-    }
-
-    setState(() => _isAddingPin = true);
-    try {
-      final pin = await widget.apiService.addOfficialMapPin(
-        title: 'Resmî Geri Dönüşüm Kutusu',
-        latitude: point.latitude,
-        longitude: point.longitude,
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _officialPins = [pin, ..._officialPins];
-        _isAddingPin = false;
-      });
-    } catch (error) {
-      if (mounted) {
-        setState(() => _isAddingPin = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
-      }
-    }
-  }
-
-  Future<void> _openFilterSheet() async {
-    final selected =
-        await showModalBottomSheet<({double? radiusKm, int? limit})>(
-          context: context,
-          showDragHandle: true,
-          builder: (context) {
-            double? tempRadius = _radiusKm;
-            int? tempLimit = _limit;
-
-            return StatefulBuilder(
-              builder: (context, setModalState) {
-                ChoiceChip radiusChip(String label, double? value) {
-                  return ChoiceChip(
-                    label: Text(label),
-                    selected: tempRadius == value,
-                    onSelected: (_) => setModalState(() => tempRadius = value),
-                  );
-                }
-
-                ChoiceChip limitChip(String label, int? value) {
-                  return ChoiceChip(
-                    label: Text(label),
-                    selected: tempLimit == value,
-                    onSelected: (_) => setModalState(() => tempLimit = value),
-                  );
-                }
-
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'En Yakın Kutu Filtreleri',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text('Yarıçap'),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          radiusChip('1 km', 1),
-                          radiusChip('5 km', 5),
-                          radiusChip('Sınırsız', null),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      const Text('Sınır'),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          limitChip('3', 3),
-                          limitChip('5', 5),
-                          limitChip('Sınırsız', null),
-                        ],
-                      ),
-                      const SizedBox(height: 22),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pop((radiusKm: tempRadius, limit: tempLimit)),
-                          icon: const Icon(Icons.filter_alt_outlined),
-                          label: const Text('Filtreleri Uygula'),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
-        );
-
-    if (selected == null || !mounted) {
-      return;
-    }
-
+    if (result == null || !mounted) return;
     setState(() {
-      _radiusKm = selected.radiusKm;
-      _limit = selected.limit;
+      _selectedMaterials = result.materials;
+      _radiusKm = result.radiusKm;
+      _openNow = result.openNow;
     });
     await _loadMap();
   }
 
-  String get _radiusLabel =>
-      _radiusKm == null ? 'Tüm uzaklıklar' : '${_radiusKm!.round()} km';
+  Future<void> _showMachine(MapPin pin) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 4, 22, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.recycling_rounded,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          pin.title,
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 5),
+                        _StatusPill(open: pin.openNow),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              _DetailRow(
+                icon: Icons.location_on_outlined,
+                title: 'Adres',
+                value: pin.address.isEmpty
+                    ? 'Adres bilgisi bulunmuyor'
+                    : pin.address,
+              ),
+              _DetailRow(
+                icon: Icons.schedule_outlined,
+                title: 'Çalışma saatleri',
+                value: pin.workingHours.isEmpty
+                    ? 'Belirtilmemiş'
+                    : pin.workingHours,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Kabul edilen malzemeler',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              for (final material in _materials)
+                _MaterialAcceptance(
+                  material: _materialLabel(material),
+                  icon: _materialIcon(material),
+                  accepted: pin.accepts(material),
+                ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _mapController.move(pin.point, 16);
+                  },
+                  icon: const Icon(Icons.my_location_rounded),
+                  label: const Text('Haritada Odaklan'),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showDirections(pin);
+                  },
+                  icon: const Icon(Icons.directions_rounded),
+                  label: const Text('Yol Tarifi Al'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-  String get _limitLabel => _limit == null ? 'Tüm kutular' : 'İlk $_limit';
+  Future<void> _showDirections(MapPin pin) async {
+    final destinations = <(String, IconData, Uri)>[
+      (
+        'Google Maps',
+        Icons.map_outlined,
+        Uri.parse(
+          'https://www.google.com/maps/dir/?api=1&destination='
+          '${pin.latitude},${pin.longitude}',
+        ),
+      ),
+      (
+        'Apple Maps',
+        Icons.navigation_outlined,
+        Uri.parse(
+          'https://maps.apple.com/?daddr=${pin.latitude},${pin.longitude}',
+        ),
+      ),
+      (
+        'Yandex Maps',
+        Icons.route_outlined,
+        Uri.parse(
+          'https://yandex.com/maps/?rtext=~${pin.latitude},${pin.longitude}'
+          '&rtt=auto',
+        ),
+      ),
+    ];
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              title: Text(
+                'Navigasyon uygulaması seç',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+            for (final destination in destinations)
+              ListTile(
+                leading: Icon(destination.$2),
+                title: Text(destination.$1),
+                trailing: const Icon(Icons.open_in_new_rounded),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final opened = await launchUrl(
+                    destination.$3,
+                    mode: LaunchMode.externalApplication,
+                  );
+                  if (!opened && mounted) {
+                    _showError('Navigasyon uygulaması açılamadı.');
+                  }
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addOfficialPin(LatLng point) async {
+    if (!_canAddPins || _isAddingPin) return;
+    setState(() => _isAddingPin = true);
+    try {
+      final pin = await widget.apiService.addOfficialMapPin(
+        title: 'Resmî Geri Dönüşüm Noktası',
+        latitude: point.latitude,
+        longitude: point.longitude,
+      );
+      if (mounted) setState(() => _pins = [pin, ..._pins]);
+    } catch (error) {
+      if (mounted) _showError(error);
+    } finally {
+      if (mounted) setState(() => _isAddingPin = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final location = _currentLocation ?? AppConstants.sanliurfaFallback;
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Geri Dönüşüm Kutuları'),
+        title: const Text('DOA Geri Dönüşüm'),
         actions: [
           if (widget.onNotifications != null)
             NotificationBell(
@@ -253,95 +404,235 @@ class _MapScreenState extends State<MapScreen> {
               onPressed: widget.onNotifications!,
             ),
           IconButton(
-            tooltip: 'En yakın kutuları filtrele',
-            onPressed: _isLoading ? null : _openFilterSheet,
-            icon: const Icon(Icons.filter_alt_outlined),
+            tooltip: 'Filtreler',
+            onPressed: _isLoading ? null : _openFilters,
+            icon: Badge(
+              isLabelVisible:
+                  _selectedMaterials.isNotEmpty || _openNow || _radiusKm != 10,
+              child: const Icon(Icons.tune_rounded),
+            ),
           ),
           IconButton(
-            tooltip: 'Konumları yenile',
+            tooltip: 'Yenile',
             onPressed: _isLoading ? null : _loadMap,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
           ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  FlutterMap(
-                    mapController: _mapController,
-                    options: MapOptions(
-                      initialCenter: location,
-                      initialZoom: 14.6,
-                      minZoom: 3,
-                      onMapReady: () {
-                        _mapReady = true;
-                        _moveMapTo(location);
-                      },
-                      onLongPress: (_, point) => _addOfficialPin(point),
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.ecovision.app',
-                      ),
-                      MarkerLayer(markers: _buildMarkers(location)),
-                      const RichAttributionWidget(
-                        attributions: [
-                          TextSourceAttribution(
-                            'OpenStreetMap katkıda bulunanları',
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  if (_isLoading || _isAddingPin)
-                    const LinearProgressIndicator(minHeight: 3),
+      body: Stack(
+        children: [
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: location,
+              initialZoom: 13.5,
+              minZoom: 3,
+              onMapReady: () {
+                _mapReady = true;
+                _moveTo(location);
+              },
+              onLongPress: (_, point) => _addOfficialPin(point),
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.ecovision.app',
+              ),
+              MarkerLayer(markers: _markers(location)),
+              const RichAttributionWidget(
+                attributions: [
+                  TextSourceAttribution('OpenStreetMap katkıda bulunanları'),
                 ],
               ),
+            ],
+          ),
+          if (_isLoading || _isAddingPin)
+            const Align(
+              alignment: Alignment.topCenter,
+              child: LinearProgressIndicator(minHeight: 3),
             ),
-            _PinList(
-              pins: _officialPins,
+          Positioned(
+            left: 14,
+            right: 14,
+            bottom: 14,
+            child: _MachineSummary(
+              pins: _pins,
+              radiusKm: _radiusKm,
+              openNow: _openNow,
+              selectedMaterials: _selectedMaterials,
               currentLocation: location,
               distance: _distance,
-              canAddPins: _canAddPins,
-              radiusLabel: _radiusLabel,
-              limitLabel: _limitLabel,
-              onFilter: _openFilterSheet,
+              onTap: _showMachine,
+              onFilters: _openFilters,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  List<Marker> _buildMarkers(LatLng userLocation) {
-    return [
+  List<Marker> _markers(LatLng userLocation) => [
+    Marker(
+      point: userLocation,
+      width: 50,
+      height: 50,
+      child: const _MapMarker(
+        icon: Icons.person_pin_circle_rounded,
+        color: Color(0xFF1565C0),
+      ),
+    ),
+    for (final pin in _pins)
       Marker(
-        point: userLocation,
+        point: pin.point,
         width: 54,
         height: 54,
-        child: const _MapMarker(
-          icon: Icons.person_pin_circle,
-          color: Color(0xFF1565C0),
-        ),
-      ),
-      for (final pin in _officialPins)
-        Marker(
-          point: pin.point,
-          width: 54,
-          height: 54,
+        child: GestureDetector(
+          onTap: () => _showMachine(pin),
           child: _MapMarker(
-            icon: pin.type.contains('WASTE_BASKET')
-                ? Icons.delete_outline
-                : Icons.recycling_rounded,
-            color: Color(0xFF2E7D32),
+            icon: Icons.recycling_rounded,
+            color: pin.openNow
+                ? const Color(0xFF238636)
+                : const Color(0xFF616161),
           ),
         ),
-    ];
+      ),
+  ];
+
+  void _showError(Object error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(error.toString()),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
+
+class _MachineSummary extends StatelessWidget {
+  const _MachineSummary({
+    required this.pins,
+    required this.radiusKm,
+    required this.openNow,
+    required this.selectedMaterials,
+    required this.currentLocation,
+    required this.distance,
+    required this.onTap,
+    required this.onFilters,
+  });
+
+  final List<MapPin> pins;
+  final double radiusKm;
+  final bool openNow;
+  final Set<String> selectedMaterials;
+  final LatLng currentLocation;
+  final Distance distance;
+  final ValueChanged<MapPin> onTap;
+  final VoidCallback onFilters;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 8,
+      borderRadius: BorderRadius.circular(8),
+      clipBehavior: Clip.antiAlias,
+      color: Theme.of(context).colorScheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${pins.length} DOA makinesi bulundu',
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: onFilters,
+                  icon: const Icon(Icons.tune_rounded, size: 18),
+                  label: Text('${radiusKm.round()} km'),
+                ),
+              ],
+            ),
+            if (pins.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Text(
+                  'Bu filtrelerde makine bulunamadı. Yarıçapı genişletmeyi dene.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              )
+            else
+              SizedBox(
+                height: 88,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: pins.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 10),
+                  itemBuilder: (context, index) {
+                    final pin = pins[index];
+                    final meters = distance(currentLocation, pin.point).round();
+                    return InkWell(
+                      onTap: () => onTap(pin),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        width: 220,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.recycling_rounded,
+                              color: pin.openNow
+                                  ? const Color(0xFF238636)
+                                  : Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    pin.title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  Text(
+                                    meters >= 1000
+                                        ? '${(meters / 1000).toStringAsFixed(1)} km'
+                                        : '$meters m',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -355,13 +646,13 @@ class _MapMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         shape: BoxShape.circle,
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
+            color: Color(0x33000000),
             blurRadius: 12,
-            offset: const Offset(0, 5),
+            offset: Offset(0, 5),
           ),
         ],
       ),
@@ -370,140 +661,136 @@ class _MapMarker extends StatelessWidget {
   }
 }
 
-class _PinList extends StatelessWidget {
-  const _PinList({
-    required this.pins,
-    required this.currentLocation,
-    required this.distance,
-    required this.canAddPins,
-    required this.radiusLabel,
-    required this.limitLabel,
-    required this.onFilter,
-  });
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.open});
 
-  final List<MapPin> pins;
-  final LatLng currentLocation;
-  final Distance distance;
-  final bool canAddPins;
-  final String radiusLabel;
-  final String limitLabel;
-  final VoidCallback onFilter;
+  final bool open;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final color = open ? const Color(0xFF238636) : const Color(0xFFC62828);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.circle, size: 9, color: color),
+        const SizedBox(width: 6),
+        Text(
+          open ? 'Şu an açık' : 'Şu an kapalı',
+          style: TextStyle(color: color, fontWeight: FontWeight.w800),
+        ),
+      ],
+    );
+  }
+}
+
+class _MaterialAcceptance extends StatelessWidget {
+  const _MaterialAcceptance({
+    required this.material,
+    required this.icon,
+    required this.accepted,
+  });
+
+  final String material;
+  final IconData icon;
+  final bool accepted;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = accepted ? const Color(0xFF238636) : const Color(0xFFC62828);
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: color),
+      title: Text(
+        material,
+        style: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+      trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Icon(
+            accepted ? Icons.check_circle_rounded : Icons.cancel_rounded,
+            size: 18,
+            color: color,
+          ),
+          const SizedBox(width: 6),
           Text(
-            'En Yakın Geri Dönüşüm Kutuları',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            accepted ? 'Kabul ediyor' : 'Kabul etmiyor',
+            style: TextStyle(color: color, fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 4),
-          Text(
-            canAddPins
-                ? 'Doğrulanmış kutu eklemek için haritaya basılı tut.'
-                : 'EcoVision yöneticilerinin doğruladığı konumlar.',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Chip(
-                avatar: const Icon(Icons.near_me_outlined, size: 18),
-                label: Text(radiusLabel),
-              ),
-              Chip(
-                avatar: const Icon(Icons.format_list_numbered, size: 18),
-                label: Text(limitLabel),
-              ),
-              ActionChip(
-                avatar: const Icon(Icons.tune_outlined, size: 18),
-                label: const Text('Filtreler'),
-                onPressed: onFilter,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (pins.isEmpty)
-            const Text('Bu filtrelere uygun resmî kutu bulunamadı.')
-          else
-            for (final pin in pins)
-              _PinTile(
-                pin: pin,
-                distanceMeters: distance(currentLocation, pin.point).round(),
-              ),
         ],
       ),
     );
   }
 }
 
-class _PinTile extends StatelessWidget {
-  const _PinTile({required this.pin, required this.distanceMeters});
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
 
-  final MapPin pin;
-  final int distanceMeters;
+  final IconData icon;
+  final String title;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              Icons.recycling_rounded,
-              color: Theme.of(context).colorScheme.onPrimaryContainer,
-            ),
-          ),
+          Icon(icon, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  pin.title,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
-                Text(
-                  '${pin.createdByName} tarafından eklendi',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
+                const SizedBox(height: 3),
+                Text(value),
               ],
             ),
           ),
-          Text(_distanceLabel),
         ],
       ),
     );
   }
+}
 
-  String get _distanceLabel {
-    if (pin.distanceKm != null) {
-      return '${pin.distanceKm!.toStringAsFixed(1)}km';
-    }
-    return distanceMeters >= 1000
-        ? '${(distanceMeters / 1000).toStringAsFixed(1)}km'
-        : '${distanceMeters}m';
+class _MapFilters {
+  const _MapFilters({
+    required this.materials,
+    required this.radiusKm,
+    required this.openNow,
+  });
+
+  final Set<String> materials;
+  final double radiusKm;
+  final bool openNow;
+}
+
+IconData _materialIcon(String material) {
+  final normalized = material.toLowerCase();
+  if (normalized.contains('cam') || normalized.contains('glass')) {
+    return Icons.wine_bar_outlined;
   }
+  if (normalized.contains('alü') || normalized.contains('alum')) {
+    return Icons.soup_kitchen_outlined;
+  }
+  return Icons.local_drink_outlined;
+}
+
+String _materialLabel(String material) {
+  return switch (material.toLowerCase()) {
+    'pet' => 'PET',
+    'glass' => 'Cam',
+    'aluminum' => 'Alüminyum',
+    _ => material,
+  };
 }

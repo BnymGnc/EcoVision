@@ -50,6 +50,8 @@ public class AppUser implements UserDetails {
 
     private Integer age;
 
+    private LocalDate dateOfBirth;
+
     private String profilePictureUrl;
 
     private String city = DEFAULT_CITY;
@@ -74,6 +76,15 @@ public class AppUser implements UserDetails {
     private boolean banned = false;
 
     private Instant suspendedUntil;
+
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private Integer failedLoginAttempts = 0;
+
+    private Instant lockoutUntil;
+
+    private Instant termsAcceptedAt;
+
+    private Instant privacyAcceptedAt;
 
     @Column(nullable = false)
     private Integer totalPoints = 0;
@@ -161,11 +172,25 @@ public class AppUser implements UserDetails {
     }
 
     public Integer getAge() {
+        if (dateOfBirth != null) {
+            return java.time.Period.between(dateOfBirth, LocalDate.now()).getYears();
+        }
         return age;
     }
 
     public void setAge(Integer age) {
         this.age = age;
+    }
+
+    public LocalDate getDateOfBirth() {
+        return dateOfBirth;
+    }
+
+    public void setDateOfBirth(LocalDate dateOfBirth) {
+        this.dateOfBirth = dateOfBirth;
+        this.age = dateOfBirth == null
+                ? age
+                : java.time.Period.between(dateOfBirth, LocalDate.now()).getYears();
     }
 
     public String getProfilePictureUrl() {
@@ -230,6 +255,14 @@ public class AppUser implements UserDetails {
     public Instant getSuspendedUntil() { return suspendedUntil; }
     public void setSuspendedUntil(Instant suspendedUntil) { this.suspendedUntil = suspendedUntil; }
     public boolean isSuspended() { return suspendedUntil != null && suspendedUntil.isAfter(Instant.now()); }
+    public Integer getFailedLoginAttempts() { return failedLoginAttempts == null ? 0 : failedLoginAttempts; }
+    public void setFailedLoginAttempts(Integer failedLoginAttempts) { this.failedLoginAttempts = failedLoginAttempts; }
+    public Instant getLockoutUntil() { return lockoutUntil; }
+    public void setLockoutUntil(Instant lockoutUntil) { this.lockoutUntil = lockoutUntil; }
+    public Instant getTermsAcceptedAt() { return termsAcceptedAt; }
+    public void setTermsAcceptedAt(Instant termsAcceptedAt) { this.termsAcceptedAt = termsAcceptedAt; }
+    public Instant getPrivacyAcceptedAt() { return privacyAcceptedAt; }
+    public void setPrivacyAcceptedAt(Instant privacyAcceptedAt) { this.privacyAcceptedAt = privacyAcceptedAt; }
 
     public Integer getTotalPoints() {
         return totalPoints;
@@ -292,7 +325,9 @@ public class AppUser implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return !banned && !isSuspended();
+        return !banned
+                && !isSuspended()
+                && (lockoutUntil == null || !lockoutUntil.isAfter(Instant.now()));
     }
 
     @Override
