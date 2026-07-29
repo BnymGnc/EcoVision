@@ -7,10 +7,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +31,8 @@ public class GeminiWasteAnalysisService {
     private static final Logger LOGGER =
             LoggerFactory.getLogger(GeminiWasteAnalysisService.class);
     private static final long MAX_IMAGE_BYTES = 5L * 1024 * 1024;
+    static final String DEFAULT_MODEL = "gemini-3.6-flash";
+    private static final String STABLE_FALLBACK_MODEL = "gemini-3.5-flash";
     private static final String PROMPT = """
             Görseldeki bütün atık nesnelerini ayrı ayrı sınıflandır.
             Yalnızca şu JSON şemasına uyan bir nesne döndür:
@@ -41,12 +45,12 @@ public class GeminiWasteAnalysisService {
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final String apiKey;
-    private final String model;
+    private final List<String> modelCandidates;
 
     public GeminiWasteAnalysisService(
             ObjectMapper objectMapper,
-            @Value("${gemini.api.key:}") String apiKey,
-            @Value("${gemini.model:gemini-2.5-flash-lite}") String model,
+            @Value("${GEMINI_API_KEY:}") String apiKey,
+            @Value("${gemini.model:gemini-3.6-flash}") String model,
             @Value("${gemini.connect-timeout-ms:5000}") int connectTimeoutMs,
             @Value("${gemini.read-timeout-ms:30000}") int readTimeoutMs
     ) {
@@ -58,8 +62,8 @@ public class GeminiWasteAnalysisService {
                 .requestFactory(requestFactory)
                 .build();
         this.objectMapper = objectMapper;
-        this.apiKey = apiKey;
-        this.model = model;
+        this.apiKey = apiKey == null ? "" : apiKey.trim();
+        this.modelCandidates = resolveModelCandidates(model);
     }
 
     public List<DetectedWasteResponse> analyze(MultipartFile image) {
@@ -86,15 +90,9 @@ public class GeminiWasteAnalysisService {
                             "maxOutputTokens", 512
                     )
             );
-            String responseBody = restClient.post()
-                    .uri("https://generativelanguage.googleapis.com/v1beta/models/"
-                            + model + ":generateContent")
-                    .header("x-goog-api-key", apiKey)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(request)
-                    .retrieve()
-                    .body(String.class);
-            JsonNode root = objectMapper.readTree(responseBody);
+            ProviderResponse providerResponse =
+                    requestAnalysis(request, startedAt);
+            JsonNode root = objectMapper.readTree(providerResponse.body());
             JsonNode textNode = root.path("candidates").path(0)
                     .path("content").path("parts").path(0).path("text");
             if (!textNode.isTextual()) {
@@ -108,7 +106,7 @@ public class GeminiWasteAnalysisService {
                     parseDetections(textNode.asText());
             LOGGER.info(
                     "Gemini analysis completed: model={}, durationMs={}, detections={}",
-                    model,
+                    providerResponse.model(),
                     elapsedMillis(startedAt),
                     detections.size()
             );
@@ -118,7 +116,7 @@ public class GeminiWasteAnalysisService {
         } catch (ResourceAccessException exception) {
             LOGGER.warn(
                     "Gemini analysis timed out: model={}, durationMs={}, reason={}",
-                    model,
+                    modelCandidates.get(0),
                     elapsedMillis(startedAt),
                     exception.getMostSpecificCause().getClass().getSimpleName()
             );
@@ -127,13 +125,6 @@ public class GeminiWasteAnalysisService {
                     "Görüntü analizi zaman aşımına uğradı. Lütfen tekrar deneyin."
             );
         } catch (RestClientResponseException exception) {
-            LOGGER.error(
-                    "Gemini provider error: model={}, durationMs={}, status={}, response={}",
-                    model,
-                    elapsedMillis(startedAt),
-                    exception.getStatusCode().value(),
-                    safeProviderBody(exception.getResponseBodyAsString())
-            );
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY,
                     providerErrorMessage(exception)
@@ -141,7 +132,7 @@ public class GeminiWasteAnalysisService {
         } catch (Exception exception) {
             LOGGER.error(
                     "Gemini analysis failed: model={}, durationMs={}, contentType={}, size={}",
-                    model,
+                    modelCandidates.get(0),
                     elapsedMillis(startedAt),
                     image.getContentType(),
                     image.getSize(),
@@ -152,6 +143,67 @@ public class GeminiWasteAnalysisService {
                     "Atık görseli analiz edilemedi. Farklı bir fotoğrafla tekrar deneyin."
             );
         }
+    }
+
+    private ProviderResponse requestAnalysis(
+            Map<String, Object> request,
+            long startedAt
+    ) {
+        for (int index = 0; index < modelCandidates.size(); index++) {
+            String candidate = modelCandidates.get(index);
+            try {
+                String responseBody = restClient.post()
+                        .uri("https://generativelanguage.googleapis.com/v1beta/models/"
+                                + candidate + ":generateContent")
+                        .header("x-goog-api-key", apiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(request)
+                        .retrieve()
+                        .body(String.class);
+                return new ProviderResponse(candidate, responseBody);
+            } catch (RestClientResponseException exception) {
+                LOGGER.error(
+                        "Gemini provider error: model={}, durationMs={}, status={}, response={}",
+                        candidate,
+                        elapsedMillis(startedAt),
+                        exception.getStatusCode().value(),
+                        safeProviderBody(exception.getResponseBodyAsString())
+                );
+                boolean canFallback = exception.getStatusCode().value() == 404
+                        && index + 1 < modelCandidates.size();
+                if (!canFallback) {
+                    throw exception;
+                }
+                LOGGER.warn(
+                        "Gemini model {} is unavailable; retrying with {}",
+                        candidate,
+                        modelCandidates.get(index + 1)
+                );
+            }
+        }
+        throw new IllegalStateException("No Gemini model candidate is available");
+    }
+
+    static List<String> resolveModelCandidates(String configuredModel) {
+        Set<String> candidates = new LinkedHashSet<>();
+        String normalized = normalizeModelName(configuredModel);
+        if (!normalized.isBlank()) {
+            candidates.add(normalized);
+        }
+        candidates.add(DEFAULT_MODEL);
+        candidates.add(STABLE_FALLBACK_MODEL);
+        return List.copyOf(candidates);
+    }
+
+    private static String normalizeModelName(String model) {
+        if (model == null) {
+            return "";
+        }
+        String normalized = model.trim();
+        if (normalized.startsWith("models/")) {
+            normalized = normalized.substring("models/".length());
+        }
+        return normalized;
     }
 
     private Map<String, Object> responseSchema() {
@@ -290,5 +342,8 @@ public class GeminiWasteAnalysisService {
         }
         String singleLine = body.replaceAll("[\\r\\n]+", " ").trim();
         return singleLine.substring(0, Math.min(singleLine.length(), 1200));
+    }
+
+    private record ProviderResponse(String model, String body) {
     }
 }

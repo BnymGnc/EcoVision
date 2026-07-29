@@ -13,7 +13,7 @@ public class HealthController {
     private final boolean geminiConfigured;
 
     public HealthController(
-            @Value("${gemini.api.key:}") String geminiApiKey
+            @Value("${GEMINI_API_KEY:}") String geminiApiKey
     ) {
         this.geminiConfigured = geminiApiKey != null
                 && !geminiApiKey.isBlank();

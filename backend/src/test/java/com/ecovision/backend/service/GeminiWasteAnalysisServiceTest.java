@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
@@ -34,11 +35,36 @@ class GeminiWasteAnalysisServiceTest {
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, exception.getStatusCode());
     }
 
+    @Test
+    void usesCurrentVisionModelByDefault() {
+        assertEquals(
+                List.of(
+                        "gemini-3.6-flash",
+                        "gemini-3.5-flash"
+                ),
+                GeminiWasteAnalysisService.resolveModelCandidates("")
+        );
+    }
+
+    @Test
+    void normalizesConfiguredModelAndKeepsStableFallbacks() {
+        assertEquals(
+                List.of(
+                        "legacy-render-model",
+                        "gemini-3.6-flash",
+                        "gemini-3.5-flash"
+                ),
+                GeminiWasteAnalysisService.resolveModelCandidates(
+                        " models/legacy-render-model "
+                )
+        );
+    }
+
     private GeminiWasteAnalysisService service(String apiKey) {
         return new GeminiWasteAnalysisService(
                 new ObjectMapper(),
                 apiKey,
-                "gemini-2.5-flash-lite",
+                GeminiWasteAnalysisService.DEFAULT_MODEL,
                 5000,
                 30000
         );
