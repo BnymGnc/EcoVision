@@ -195,9 +195,25 @@ public class CommunityGroupService {
         member.setGroup(group);
         member.setUser(user);
         member.setRole(GroupRole.MEMBER);
-        members.save(member);
+        members.saveAndFlush(member);
+        joinRequests.findByGroupIdAndRequesterId(groupId, user.getId())
+                .ifPresent(joinRequests::delete);
         publishSystem(group, user, user.getName() + " gruba katıldı");
         return response(group, user);
+    }
+
+    @Transactional
+    public CommunityGroupResponse joinByInvite(
+            AppUser user,
+            String inviteCode
+    ) {
+        ageGate.requireAdult(user);
+        String normalizedCode = inviteCode == null ? "" : inviteCode.trim();
+        CommunityGroup group = groups.findByInviteCode(normalizedCode)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Davet kodu geçersiz veya süresi dolmuş"
+                ));
+        return join(user, group.getId(), new JoinEventRequest(normalizedCode));
     }
 
     @Transactional

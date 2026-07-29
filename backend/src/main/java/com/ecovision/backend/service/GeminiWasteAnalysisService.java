@@ -5,6 +5,7 @@ import com.ecovision.backend.model.WasteMaterial;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashSet;
@@ -13,6 +14,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,10 +35,20 @@ public class GeminiWasteAnalysisService {
     private static final Logger LOGGER =
             LoggerFactory.getLogger(GeminiWasteAnalysisService.class);
     private static final long MAX_IMAGE_BYTES = 5L * 1024 * 1024;
+    private static final int MAX_PROVIDER_ATTEMPTS = 2;
+    private static final int MAX_CACHE_ENTRIES = 64;
+    private static final Duration CACHE_TTL = Duration.ofMinutes(10);
     static final String DEFAULT_MODEL = "gemini-3.6-flash";
     private static final String STABLE_FALLBACK_MODEL = "gemini-3.5-flash";
+    private static final String COMPATIBILITY_MODEL = "gemini-2.5-flash";
+    private static final String LOW_QUOTA_FALLBACK_MODEL =
+            "gemini-2.5-flash-lite";
     private static final String PROMPT = """
-            Görseldeki bütün atık nesnelerini ayrı ayrı sınıflandır.
+            Bu fotoğraf bir atık sınıflandırma uygulamasından gönderildi.
+            Görünen bütün atık nesnelerini ayrı ayrı ve en iyi tahmininle
+            sınıflandır. Ambalaj, şişe, kutu, kapak, pil, kablo, kağıt,
+            karton ve organik kalıntıları dikkate al. Nesne görünüyorsa
+            waste_types dizisini boş bırakma; emin değilsen DIGER kullan.
             Yalnızca şu JSON şemasına uyan bir nesne döndür:
             {"waste_types":[{"type":"PET","confidence":0.95}]}
             type yalnızca PET, CAM, ALUMINUM, KAGIT, METAL, ELEKTRONIK,
@@ -46,6 +60,7 @@ public class GeminiWasteAnalysisService {
     private final ObjectMapper objectMapper;
     private final String apiKey;
     private final List<String> modelCandidates;
+    private final Map<String, CachedAnalysis> cache = new ConcurrentHashMap<>();
 
     public GeminiWasteAnalysisService(
             ObjectMapper objectMapper,
@@ -71,13 +86,27 @@ public class GeminiWasteAnalysisService {
         long startedAt = System.nanoTime();
         try {
             byte[] imageBytes = image.getBytes();
+            String cacheKey = imageDigest(imageBytes);
+            CachedAnalysis cached = cache.get(cacheKey);
+            if (cached != null && !cached.expired()) {
+                LOGGER.info(
+                        "Gemini analysis cache hit: contentType={}, size={}",
+                        image.getContentType(),
+                        image.getSize()
+                );
+                return cached.detections();
+            }
+            if (cached != null) {
+                cache.remove(cacheKey);
+            }
+            String mimeType = canonicalMimeType(image);
             Map<String, Object> request = Map.of(
                     "contents", List.of(Map.of(
                             "role", "user",
                             "parts", List.of(
                                     Map.of("text", PROMPT),
                                     Map.of("inlineData", Map.of(
-                                            "mimeType", image.getContentType(),
+                                            "mimeType", mimeType,
                                             "data", Base64.getEncoder()
                                                     .encodeToString(imageBytes)
                                     ))
@@ -92,9 +121,8 @@ public class GeminiWasteAnalysisService {
             ProviderResponse providerResponse =
                     requestAnalysis(request, startedAt);
             JsonNode root = objectMapper.readTree(providerResponse.body());
-            JsonNode textNode = root.path("candidates").path(0)
-                    .path("content").path("parts").path(0).path("text");
-            if (!textNode.isTextual()) {
+            String responseText = extractResponseText(root);
+            if (responseText == null) {
                 String finishReason = root.path("candidates").path(0)
                         .path("finishReason").asText("UNKNOWN");
                 throw new IllegalStateException(
@@ -102,7 +130,8 @@ public class GeminiWasteAnalysisService {
                 );
             }
             List<DetectedWasteResponse> detections =
-                    parseDetections(textNode.asText());
+                    parseDetections(responseText);
+            cacheResult(cacheKey, detections);
             LOGGER.info(
                     "Gemini analysis completed: model={}, durationMs={}, detections={}",
                     providerResponse.model(),
@@ -148,37 +177,54 @@ public class GeminiWasteAnalysisService {
             Map<String, Object> request,
             long startedAt
     ) {
+        RestClientResponseException lastFailure = null;
         for (int index = 0; index < modelCandidates.size(); index++) {
             String candidate = modelCandidates.get(index);
-            try {
-                String responseBody = restClient.post()
-                        .uri("https://generativelanguage.googleapis.com/v1beta/models/"
-                                + candidate + ":generateContent")
-                        .header("x-goog-api-key", apiKey)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body(request)
-                        .retrieve()
-                        .body(String.class);
-                return new ProviderResponse(candidate, responseBody);
-            } catch (RestClientResponseException exception) {
-                LOGGER.error(
-                        "Gemini provider error: model={}, durationMs={}, status={}, response={}",
-                        candidate,
-                        elapsedMillis(startedAt),
-                        exception.getStatusCode().value(),
-                        safeProviderBody(exception.getResponseBodyAsString())
-                );
-                boolean canFallback = exception.getStatusCode().value() == 404
-                        && index + 1 < modelCandidates.size();
-                if (!canFallback) {
-                    throw exception;
+            for (int attempt = 1; attempt <= MAX_PROVIDER_ATTEMPTS; attempt++) {
+                try {
+                    String responseBody = restClient.post()
+                            .uri("https://generativelanguage.googleapis.com/v1beta/models/"
+                                    + candidate + ":generateContent")
+                            .header("x-goog-api-key", apiKey)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .body(request)
+                            .retrieve()
+                            .body(String.class);
+                    return new ProviderResponse(candidate, responseBody);
+                } catch (RestClientResponseException exception) {
+                    lastFailure = exception;
+                    int status = exception.getStatusCode().value();
+                    boolean transientFailure = status == 408
+                            || status == 429
+                            || status >= 500;
+                    LOGGER.warn(
+                            "Gemini provider error: model={}, attempt={}, durationMs={}, status={}, response={}",
+                            candidate,
+                            attempt,
+                            elapsedMillis(startedAt),
+                            status,
+                            safeProviderBody(exception.getResponseBodyAsString())
+                    );
+                    if (transientFailure && attempt < MAX_PROVIDER_ATTEMPTS) {
+                        sleepBeforeRetry(attempt);
+                        continue;
+                    }
+                    boolean canFallback = (status == 404 || transientFailure)
+                            && index + 1 < modelCandidates.size();
+                    if (!canFallback) {
+                        throw exception;
+                    }
+                    LOGGER.warn(
+                            "Gemini model {} failed; retrying with {}",
+                            candidate,
+                            modelCandidates.get(index + 1)
+                    );
+                    break;
                 }
-                LOGGER.warn(
-                        "Gemini model {} is unavailable; retrying with {}",
-                        candidate,
-                        modelCandidates.get(index + 1)
-                );
             }
+        }
+        if (lastFailure != null) {
+            throw lastFailure;
         }
         throw new IllegalStateException("No Gemini model candidate is available");
     }
@@ -191,7 +237,24 @@ public class GeminiWasteAnalysisService {
         }
         candidates.add(DEFAULT_MODEL);
         candidates.add(STABLE_FALLBACK_MODEL);
+        candidates.add(COMPATIBILITY_MODEL);
+        candidates.add(LOW_QUOTA_FALLBACK_MODEL);
         return List.copyOf(candidates);
+    }
+
+    private String extractResponseText(JsonNode root) {
+        JsonNode parts = root.path("candidates").path(0)
+                .path("content").path("parts");
+        if (!parts.isArray()) {
+            return null;
+        }
+        for (JsonNode part : parts) {
+            JsonNode text = part.path("text");
+            if (text.isTextual() && !text.asText().isBlank()) {
+                return text.asText();
+            }
+        }
+        return null;
     }
 
     private static String normalizeModelName(String model) {
@@ -302,14 +365,16 @@ public class GeminiWasteAnalysisService {
                     "Fotoğraf boyutu 5 MB sınırını aşıyor"
             );
         }
-        String contentType = image.getContentType();
-        if (contentType == null || !List.of(
+        String contentType = canonicalMimeType(image);
+        if (!List.of(
                 "image/jpeg",
                 "image/png",
-                "image/webp"
-        ).contains(contentType.toLowerCase(Locale.ROOT))) {
+                "image/webp",
+                "image/heic",
+                "image/heif"
+        ).contains(contentType)) {
             throw new IllegalArgumentException(
-                    "Yalnızca JPEG, PNG veya WebP kabul edilir"
+                    "Yalnızca JPEG, PNG, WebP, HEIC veya HEIF kabul edilir"
             );
         }
         if (apiKey == null || apiKey.isBlank()) {
@@ -326,9 +391,66 @@ public class GeminiWasteAnalysisService {
             case 401, 403 ->
                     "Gemini API anahtarı geçersiz veya yetkisiz.";
             case 404 -> "Yapılandırılan Gemini modeli bulunamadı.";
-            case 429 -> "Gemini kullanım sınırına ulaşıldı. Biraz sonra deneyin.";
+            case 429 -> "Gemini kotası geçici olarak dolu. Otomatik yeniden "
+                    + "denemeler tamamlandı; lütfen kısa süre sonra tekrar deneyin.";
             default -> "Görüntü analiz servisine şu anda ulaşılamıyor.";
         };
+    }
+
+    private String canonicalMimeType(MultipartFile image) {
+        String contentType = image == null ? null : image.getContentType();
+        String normalized = contentType == null
+                ? ""
+                : contentType.toLowerCase(Locale.ROOT).trim();
+        if (!normalized.isBlank()
+                && !normalized.equals("application/octet-stream")) {
+            return normalized;
+        }
+        String filename = image == null || image.getOriginalFilename() == null
+                ? ""
+                : image.getOriginalFilename().toLowerCase(Locale.ROOT);
+        if (filename.endsWith(".png")) return "image/png";
+        if (filename.endsWith(".webp")) return "image/webp";
+        if (filename.endsWith(".heic")) return "image/heic";
+        if (filename.endsWith(".heif")) return "image/heif";
+        return "image/jpeg";
+    }
+
+    private void sleepBeforeRetry(int attempt) {
+        long delayMillis = 650L * (1L << Math.max(0, attempt - 1))
+                + (long) (Math.random() * 300L);
+        try {
+            Thread.sleep(delayMillis);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(
+                    "Gemini yeniden denemesi kesintiye uğradı",
+                    exception
+            );
+        }
+    }
+
+    private String imageDigest(byte[] bytes) {
+        try {
+            return Base64.getEncoder().encodeToString(
+                    MessageDigest.getInstance("SHA-256").digest(bytes)
+            );
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 kullanılamıyor", exception);
+        }
+    }
+
+    private void cacheResult(
+            String cacheKey,
+            List<DetectedWasteResponse> detections
+    ) {
+        if (cache.size() >= MAX_CACHE_ENTRIES) {
+            cache.keySet().stream().findFirst().ifPresent(cache::remove);
+        }
+        cache.put(
+                cacheKey,
+                new CachedAnalysis(List.copyOf(detections), Instant.now())
+        );
     }
 
     private long elapsedMillis(long startedAt) {
@@ -344,5 +466,14 @@ public class GeminiWasteAnalysisService {
     }
 
     private record ProviderResponse(String model, String body) {
+    }
+
+    private record CachedAnalysis(
+            List<DetectedWasteResponse> detections,
+            Instant createdAt
+    ) {
+        private boolean expired() {
+            return createdAt.plus(CACHE_TTL).isBefore(Instant.now());
+        }
     }
 }

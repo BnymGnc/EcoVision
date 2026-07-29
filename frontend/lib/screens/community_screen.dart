@@ -225,13 +225,7 @@ class _CommunityScreenState extends State<CommunityScreen>
     controller.dispose();
     if (code == null || code.isEmpty || !mounted) return;
     try {
-      var group = await widget.apiService.resolveGroupInvite(code);
-      if (!group.isJoined) {
-        group = await widget.apiService.joinCommunityGroup(
-          group.id,
-          joinCode: code,
-        );
-      }
+      final group = await widget.apiService.joinCommunityGroupByInvite(code);
       if (!mounted) return;
       await Navigator.push(
         context,
@@ -402,6 +396,21 @@ class _CommunityScreenState extends State<CommunityScreen>
             },
           ),
         ],
+        const SizedBox(height: 10),
+        Material(
+          color: Theme.of(context).colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(8),
+          child: ListTile(
+            leading: const Icon(Icons.key_rounded),
+            title: const Text(
+              'Davet kodun mu var?',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+            subtitle: const Text('Kodu girerek özel gruba doğrudan katıl.'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: _openInviteCode,
+          ),
+        ),
         const SizedBox(height: 14),
         FutureBuilder<List<CommunityGroup>>(
           future: _groups,

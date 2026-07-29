@@ -40,7 +40,9 @@ class GeminiWasteAnalysisServiceTest {
         assertEquals(
                 List.of(
                         "gemini-3.6-flash",
-                        "gemini-3.5-flash"
+                        "gemini-3.5-flash",
+                        "gemini-2.5-flash",
+                        "gemini-2.5-flash-lite"
                 ),
                 GeminiWasteAnalysisService.resolveModelCandidates("")
         );
@@ -52,7 +54,9 @@ class GeminiWasteAnalysisServiceTest {
                 List.of(
                         "legacy-render-model",
                         "gemini-3.6-flash",
-                        "gemini-3.5-flash"
+                        "gemini-3.5-flash",
+                        "gemini-2.5-flash",
+                        "gemini-2.5-flash-lite"
                 ),
                 GeminiWasteAnalysisService.resolveModelCandidates(
                         " models/legacy-render-model "

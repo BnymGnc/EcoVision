@@ -255,7 +255,7 @@ class ApiService {
           'image',
           bytes,
           filename: fileName,
-          contentType: _imageMediaType(bytes),
+          contentType: _imageMediaType(bytes, fileName),
         ),
       );
       return request;
@@ -274,7 +274,7 @@ class ApiService {
           'image',
           bytes,
           filename: fileName,
-          contentType: _imageMediaType(bytes),
+          contentType: _imageMediaType(bytes, fileName),
         ),
       );
       return request;
@@ -611,6 +611,15 @@ class ApiService {
   Future<CommunityGroup> resolveGroupInvite(String inviteCode) async {
     return CommunityGroup.fromJson(
       await _getJson('/api/groups/invite/${Uri.encodeComponent(inviteCode)}'),
+    );
+  }
+
+  Future<CommunityGroup> joinCommunityGroupByInvite(String inviteCode) async {
+    return CommunityGroup.fromJson(
+      await _postJson(
+        '/api/groups/invite/${Uri.encodeComponent(inviteCode.trim())}/join',
+        const {},
+      ),
     );
   }
 
@@ -1186,7 +1195,7 @@ class ApiService {
   Future<PublicProfile> fetchPublicProfile(int userId) async =>
       PublicProfile.fromJson(await _getJson('/api/social/users/$userId'));
 
-  MediaType _imageMediaType(Uint8List bytes) {
+  MediaType _imageMediaType(Uint8List bytes, [String? fileName]) {
     if (bytes.length >= 8 &&
         bytes[0] == 0x89 &&
         bytes[1] == 0x50 &&
@@ -1205,6 +1214,25 @@ class ApiService {
         bytes[11] == 0x50) {
       return MediaType('image', 'webp');
     }
+    if (bytes.length >= 12 &&
+        bytes[4] == 0x66 &&
+        bytes[5] == 0x74 &&
+        bytes[6] == 0x79 &&
+        bytes[7] == 0x70) {
+      final brand = String.fromCharCodes(bytes.sublist(8, 12)).toLowerCase();
+      if (brand == 'heic' ||
+          brand == 'heix' ||
+          brand == 'hevc' ||
+          brand == 'hevx') {
+        return MediaType('image', 'heic');
+      }
+      if (brand == 'heif' || brand == 'mif1' || brand == 'msf1') {
+        return MediaType('image', 'heif');
+      }
+    }
+    final extension = (fileName ?? '').toLowerCase();
+    if (extension.endsWith('.heic')) return MediaType('image', 'heic');
+    if (extension.endsWith('.heif')) return MediaType('image', 'heif');
     return MediaType('image', 'jpeg');
   }
 

@@ -11,6 +11,7 @@ import 'eco_market_screen.dart';
 import 'avatar_evolution_screen.dart';
 import 'education_guide_screen.dart';
 import 'leaderboard_screen.dart';
+import 'carbon_footprint_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -40,8 +41,8 @@ class _HomeScreenState extends State<HomeScreen> {
       await EcoHaptics.light();
       final image = await _imagePicker.pickImage(
         source: source,
-        maxWidth: 1280,
-        imageQuality: 78,
+        maxWidth: 1024,
+        imageQuality: 72,
       );
 
       if (image == null) {
@@ -94,11 +95,9 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Görüntü analiz edilemedi. ${error.toString()}'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
       if (mounted) {
         setState(() => _isScanning = false);
@@ -199,6 +198,11 @@ class _EcoCenter extends StatelessWidget {
         'Liderlik',
         Icons.leaderboard_outlined,
         () => LeaderboardScreen(apiService: apiService),
+      ),
+      (
+        'Karbon Ayak İzi',
+        Icons.co2_rounded,
+        () => CarbonFootprintScreen(apiService: apiService),
       ),
     ];
     return Column(
@@ -461,7 +465,7 @@ class _ScanningOverlayState extends State<_ScanningOverlay>
           child: Column(
             children: [
               const Text(
-                'EcoVision Yerel AI',
+                'EcoVision AI Tarayıcı',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 19,
@@ -470,7 +474,7 @@ class _ScanningOverlayState extends State<_ScanningOverlay>
               ),
               const SizedBox(height: 8),
               const Text(
-                'Görüntü cihazından ayrılmadan analiz ediliyor',
+                'Fotoğraf güvenli biçimde analiz ediliyor',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white70),
               ),
@@ -544,9 +548,7 @@ class _ScanningOverlayState extends State<_ScanningOverlay>
                     const SizedBox(width: 10),
                     Flexible(
                       child: Text(
-                        widget.message == 'Cihazda analiz ediliyor...'
-                            ? 'AI Analiz Ediyor...'
-                            : widget.message,
+                        widget.message,
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w800,

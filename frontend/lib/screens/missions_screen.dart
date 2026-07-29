@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import '../models/quest_progress.dart';
 import '../services/api_service.dart';
 import '../widgets/premium_ui.dart';
-import 'carbon_footprint_screen.dart';
 
 class MissionsScreen extends StatefulWidget {
   const MissionsScreen({
@@ -230,20 +229,6 @@ class _MissionsScreenState extends State<MissionsScreen> {
                           },
                         );
                       },
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
-                    child: _CarbonFootprintMission(
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<bool>(
-                          builder: (_) => CarbonFootprintScreen(
-                            apiService: widget.apiService,
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                 ),
@@ -510,46 +495,6 @@ class _StatusLabel extends StatelessWidget {
           style: TextStyle(color: color, fontWeight: FontWeight.w700),
         ),
       ],
-    );
-  }
-}
-
-class _CarbonFootprintMission extends StatelessWidget {
-  const _CarbonFootprintMission({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Material(
-      color: colors.secondaryContainer,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(Icons.co2_rounded, color: colors.onSecondaryContainer),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Karbon Ayak İzini Hesapla',
-                  style: TextStyle(
-                    color: colors.onSecondaryContainer,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: colors.onSecondaryContainer,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

@@ -63,6 +63,11 @@ public class CommunityGroupController {
         return groups.resolveInvite(current.currentUser(), inviteCode);
     }
 
+    @PostMapping("/invite/{inviteCode}/join")
+    public CommunityGroupResponse joinByInvite(@PathVariable String inviteCode) {
+        return groups.joinByInvite(current.currentUser(), inviteCode);
+    }
+
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public CommunityGroupResponse create(
             @Valid @RequestBody CommunityGroupRequest request
