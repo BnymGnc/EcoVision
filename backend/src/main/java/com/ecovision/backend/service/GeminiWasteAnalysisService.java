@@ -84,7 +84,6 @@ public class GeminiWasteAnalysisService {
                             )
                     )),
                     "generationConfig", Map.of(
-                            "temperature", 0.1,
                             "responseMimeType", "application/json",
                             "responseJsonSchema", responseSchema(),
                             "maxOutputTokens", 512

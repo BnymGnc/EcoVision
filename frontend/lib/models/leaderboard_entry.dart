@@ -1,3 +1,5 @@
+import '../core/media_url.dart';
+
 class LeaderboardEntry {
   const LeaderboardEntry({
     required this.rank,
@@ -27,7 +29,7 @@ class LeaderboardEntry {
       fullName: (json['fullName'] ?? 'EcoVision User').toString(),
       city: (json['city'] ?? 'Şanlıurfa').toString(),
       totalPoints: (json['totalPoints'] as num? ?? 0).toInt(),
-      profilePictureUrl: json['profilePictureUrl']?.toString(),
+      profilePictureUrl: MediaUrl.resolve(json['profilePictureUrl']),
       currentUser: json['currentUser'] as bool? ?? false,
     );
   }

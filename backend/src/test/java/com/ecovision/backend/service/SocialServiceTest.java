@@ -1,6 +1,10 @@
 package com.ecovision.backend.service;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.ecovision.backend.model.AppUser;
@@ -18,6 +22,7 @@ import com.ecovision.backend.repository.SocialReportRepository;
 import com.ecovision.backend.repository.UserBadgeRepository;
 import com.ecovision.backend.repository.UserBlockRepository;
 import java.util.Optional;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -76,6 +81,30 @@ class SocialServiceTest {
         when(friendships.findBetween(1L, 2L)).thenReturn(Optional.empty());
 
         assertFalse(service.profile(current, 2L).detailsVisible());
+    }
+
+    @Test
+    void partialSearchReturnsAdultMatches() {
+        AppUser current = adult(1L, "ada", ProfileVisibility.PUBLIC);
+        AppUser target = adult(2L, "deniz", ProfileVisibility.PUBLIC);
+        when(users.searchAdultUsers(eq("den"), any(), any()))
+                .thenReturn(List.of(target));
+        when(friendships.findBetween(1L, 2L)).thenReturn(Optional.empty());
+
+        var results = service.searchUsers(current, " Den ");
+
+        assertEquals(1, results.size());
+        assertEquals("deniz", results.get(0).username());
+    }
+
+    @Test
+    void partialSearchRequiresThreeCharacters() {
+        AppUser current = adult(1L, "ada", ProfileVisibility.PUBLIC);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.searchUsers(current, "de")
+        );
     }
 
     private AppUser adult(Long id, String username, ProfileVisibility visibility) {

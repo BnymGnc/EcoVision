@@ -12,12 +12,14 @@ import '../widgets/notification_bell.dart';
 class MapScreen extends StatefulWidget {
   const MapScreen({
     required this.apiService,
+    this.requestedMaterial,
     this.notificationCount = 0,
     this.onNotifications,
     super.key,
   });
 
   final ApiService apiService;
+  final String? requestedMaterial;
   final int notificationCount;
   final VoidCallback? onNotifications;
 
@@ -30,13 +32,10 @@ class _MapScreenState extends State<MapScreen> {
 
   final LocationService _locationService = LocationService();
   final MapController _mapController = MapController();
-  final Distance _distance = const Distance();
-
   LatLng? _currentLocation;
   List<MapPin> _pins = [];
   Set<String> _selectedMaterials = {};
   double? _radiusKm = 10;
-  bool _openNow = false;
   bool _isLoading = true;
   bool _mapReady = false;
   bool _isAddingPin = false;
@@ -46,7 +45,20 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.requestedMaterial != null) {
+      _selectedMaterials = {widget.requestedMaterial!};
+    }
     _loadMap();
+  }
+
+  @override
+  void didUpdateWidget(covariant MapScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.requestedMaterial != null &&
+        widget.requestedMaterial != oldWidget.requestedMaterial) {
+      _selectedMaterials = {widget.requestedMaterial!};
+      _loadMap();
+    }
   }
 
   Future<void> _loadMap() async {
@@ -58,7 +70,6 @@ class _MapScreenState extends State<MapScreen> {
         longitude: location.longitude,
         radiusKm: _radiusKm,
         materials: _selectedMaterials,
-        openNow: _openNow,
       );
       if (!mounted) return;
       setState(() {
@@ -87,7 +98,6 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _openFilters() async {
     var draftMaterials = Set<String>.from(_selectedMaterials);
     var draftRadius = _radiusKm;
-    var draftOpenNow = _openNow;
 
     final result = await showModalBottomSheet<_MapFilters>(
       context: context,
@@ -133,15 +143,6 @@ class _MapScreenState extends State<MapScreen> {
                       }
                     }),
                   ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: draftOpenNow,
-                  title: const Text('Şu an açık'),
-                  subtitle: const Text('Çalışma saatine göre filtrele'),
-                  secondary: const Icon(Icons.schedule_rounded),
-                  onChanged: (value) =>
-                      setSheetState(() => draftOpenNow = value),
-                ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -189,7 +190,6 @@ class _MapScreenState extends State<MapScreen> {
                       onPressed: () => setSheetState(() {
                         draftMaterials = {};
                         draftRadius = 10;
-                        draftOpenNow = false;
                       }),
                       child: const Text('Sıfırla'),
                     ),
@@ -201,7 +201,6 @@ class _MapScreenState extends State<MapScreen> {
                           _MapFilters(
                             materials: draftMaterials,
                             radiusKm: draftRadius,
-                            openNow: draftOpenNow,
                           ),
                         ),
                         icon: const Icon(Icons.tune_rounded),
@@ -220,7 +219,6 @@ class _MapScreenState extends State<MapScreen> {
     setState(() {
       _selectedMaterials = result.materials;
       _radiusKm = result.radiusKm;
-      _openNow = result.openNow;
     });
     await _loadMap();
   }
@@ -262,8 +260,6 @@ class _MapScreenState extends State<MapScreen> {
                           style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(fontWeight: FontWeight.w900),
                         ),
-                        const SizedBox(height: 5),
-                        _StatusPill(open: pin.openNow),
                       ],
                     ),
                   ),
@@ -276,13 +272,6 @@ class _MapScreenState extends State<MapScreen> {
                 value: pin.address.isEmpty
                     ? 'Adres bilgisi bulunmuyor'
                     : pin.address,
-              ),
-              _DetailRow(
-                icon: Icons.schedule_outlined,
-                title: 'Çalışma saatleri',
-                value: pin.workingHours.isEmpty
-                    ? 'Belirtilmemiş'
-                    : pin.workingHours,
               ),
               const SizedBox(height: 12),
               const Text(
@@ -421,8 +410,7 @@ class _MapScreenState extends State<MapScreen> {
             tooltip: 'Filtreler',
             onPressed: _isLoading ? null : _openFilters,
             icon: Badge(
-              isLabelVisible:
-                  _selectedMaterials.isNotEmpty || _openNow || _radiusKm != 10,
+              isLabelVisible: _selectedMaterials.isNotEmpty || _radiusKm != 10,
               child: const Icon(Icons.tune_rounded),
             ),
           ),
@@ -472,10 +460,7 @@ class _MapScreenState extends State<MapScreen> {
             child: _MachineSummary(
               pins: _pins,
               radiusKm: _radiusKm,
-              openNow: _openNow,
               selectedMaterials: _selectedMaterials,
-              currentLocation: location,
-              distance: _distance,
               onTap: _showMachine,
               onFilters: _openFilters,
             ),
@@ -504,9 +489,7 @@ class _MapScreenState extends State<MapScreen> {
           onTap: () => _showMachine(pin),
           child: _MapMarker(
             icon: Icons.recycling_rounded,
-            color: pin.openNow
-                ? const Color(0xFF238636)
-                : const Color(0xFF616161),
+            color: Theme.of(context).colorScheme.primary,
           ),
         ),
       ),
@@ -526,20 +509,14 @@ class _MachineSummary extends StatelessWidget {
   const _MachineSummary({
     required this.pins,
     required this.radiusKm,
-    required this.openNow,
     required this.selectedMaterials,
-    required this.currentLocation,
-    required this.distance,
     required this.onTap,
     required this.onFilters,
   });
 
   final List<MapPin> pins;
   final double? radiusKm;
-  final bool openNow;
   final Set<String> selectedMaterials;
-  final LatLng currentLocation;
-  final Distance distance;
   final ValueChanged<MapPin> onTap;
   final VoidCallback onFilters;
 
@@ -592,7 +569,7 @@ class _MachineSummary extends StatelessWidget {
                   separatorBuilder: (_, _) => const SizedBox(width: 10),
                   itemBuilder: (context, index) {
                     final pin = pins[index];
-                    final meters = distance(currentLocation, pin.point).round();
+                    final distanceKm = pin.distanceKm;
                     return InkWell(
                       onTap: () => onTap(pin),
                       borderRadius: BorderRadius.circular(8),
@@ -609,11 +586,7 @@ class _MachineSummary extends StatelessWidget {
                           children: [
                             Icon(
                               Icons.recycling_rounded,
-                              color: pin.openNow
-                                  ? const Color(0xFF238636)
-                                  : Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
                             const SizedBox(width: 10),
                             Expanded(
@@ -631,9 +604,11 @@ class _MachineSummary extends StatelessWidget {
                                     ),
                                   ),
                                   Text(
-                                    meters >= 1000
-                                        ? '${(meters / 1000).toStringAsFixed(1)} km'
-                                        : '$meters m',
+                                    distanceKm == null
+                                        ? 'Mesafe bilinmiyor'
+                                        : distanceKm < 1
+                                        ? '${(distanceKm * 1000).round()} m'
+                                        : '${distanceKm.toStringAsFixed(1)} km',
                                   ),
                                 ],
                               ),
@@ -673,28 +648,6 @@ class _MapMarker extends StatelessWidget {
         ],
       ),
       child: Icon(icon, color: color, size: 34),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.open});
-
-  final bool open;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = open ? const Color(0xFF238636) : const Color(0xFFC62828);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.circle, size: 9, color: color),
-        const SizedBox(width: 6),
-        Text(
-          open ? 'Şu an açık' : 'Şu an kapalı',
-          style: TextStyle(color: color, fontWeight: FontWeight.w800),
-        ),
-      ],
     );
   }
 }
@@ -780,15 +733,10 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _MapFilters {
-  const _MapFilters({
-    required this.materials,
-    required this.radiusKm,
-    required this.openNow,
-  });
+  const _MapFilters({required this.materials, required this.radiusKm});
 
   final Set<String> materials;
   final double? radiusKm;
-  final bool openNow;
 }
 
 IconData _materialIcon(String material) {

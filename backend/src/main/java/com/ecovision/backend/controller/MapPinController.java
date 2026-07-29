@@ -29,8 +29,7 @@ public class MapPinController {
             @RequestParam double lng,
             @RequestParam(required = false) Double radiusKm,
             @RequestParam(required = false) Integer limit,
-            @RequestParam(required = false, defaultValue = "") Set<String> materials,
-            @RequestParam(required = false, defaultValue = "false") boolean openNow
+            @RequestParam(required = false, defaultValue = "") Set<String> materials
     ) {
         if (radiusKm != null && (radiusKm < 1 || radiusKm > 50)) {
             throw new IllegalArgumentException("Arama yarıçapı 1-50 km olmalıdır");
@@ -40,8 +39,7 @@ public class MapPinController {
                 lng,
                 radiusKm,
                 limit,
-                materials,
-                openNow
+                materials
         );
     }
 }

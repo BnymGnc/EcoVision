@@ -45,9 +45,6 @@ public class MapPin {
     @Column(length = 500)
     private String address;
 
-    @Column(length = 30)
-    private String workingHours;
-
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(
             name = "map_pin_materials",
@@ -134,14 +131,6 @@ public class MapPin {
         this.address = address;
     }
 
-    public String getWorkingHours() {
-        return workingHours;
-    }
-
-    public void setWorkingHours(String workingHours) {
-        this.workingHours = workingHours;
-    }
-
     public Set<String> getAcceptedMaterials() {
         return acceptedMaterials;
     }
@@ -171,19 +160,24 @@ public class MapPin {
     }
 
     public boolean acceptsMaterial(String material) {
-        if (material == null || binStates == null || binStates.isEmpty()) {
+        if (material == null || binList == null || binList.isEmpty()) {
             return false;
         }
-        return Boolean.TRUE.equals(binStates.get(normalizeMaterial(material)));
+        String expected = normalizeMaterial(material);
+        return binList.stream().anyMatch(bin ->
+                bin.isState()
+                        && expected.equals(normalizeMaterial(bin.getContentType()))
+        );
     }
 
     public Set<String> currentlyAcceptedMaterials() {
-        if (binStates == null || binStates.isEmpty()) {
+        if (binList == null || binList.isEmpty()) {
             return Set.of();
         }
-        return binStates.entrySet().stream()
-                .filter(entry -> Boolean.TRUE.equals(entry.getValue()))
-                .map(Map.Entry::getKey)
+        return binList.stream()
+                .filter(MapPinBin::isState)
+                .map(MapPinBin::getContentType)
+                .map(this::normalizeMaterial)
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 

@@ -1,3 +1,5 @@
+import '../core/media_url.dart';
+
 class EventMember {
   const EventMember({
     required this.userId,
@@ -24,6 +26,6 @@ class EventMember {
     fullName: (json['fullName'] ?? '').toString(),
     role: (json['role'] ?? 'MEMBER').toString(),
     avatarLevel: (json['avatarLevel'] as num? ?? 1).toInt(),
-    profilePictureUrl: json['profilePictureUrl']?.toString(),
+    profilePictureUrl: MediaUrl.resolve(json['profilePictureUrl']),
   );
 }

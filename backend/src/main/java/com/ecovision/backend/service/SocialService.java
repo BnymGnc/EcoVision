@@ -4,8 +4,10 @@ import com.ecovision.backend.dto.*;
 import com.ecovision.backend.model.*;
 import com.ecovision.backend.repository.*;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Locale;
 import java.util.List;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,23 +64,32 @@ public class SocialService {
     }
 
     @Transactional(readOnly = true)
-    public UserDiscoveryResponse searchByExactUsername(AppUser current, String username) {
+    public List<UserDiscoveryResponse> searchUsers(AppUser current, String query) {
         ageGate.requireAdult(current);
-        String normalized = username == null ? "" : username.trim().toLowerCase(Locale.ROOT);
-        if (normalized.isBlank()) {
-            throw new IllegalArgumentException("Kullanıcı adı gereklidir");
+        String normalized = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        if (normalized.length() < 3) {
+            throw new IllegalArgumentException(
+                    "Kullanıcı araması en az 3 karakter olmalıdır"
+            );
         }
-        AppUser target = users.findByPublicUsername(normalized)
-                .filter(AppUser::isAdult)
-                .orElseThrow(() -> new IllegalArgumentException("Kullanıcı bulunamadı"));
-        if (!current.getId().equals(target.getId())
-                && blockedEitherWay(current.getId(), target.getId())) {
-            throw new IllegalArgumentException("Kullanıcı bulunamadı");
-        }
-        Friendship friendship = current.getId().equals(target.getId())
-                ? null
-                : friendships.findBetween(current.getId(), target.getId()).orElse(null);
-        return UserDiscoveryResponse.from(target, friendship);
+        return users.searchAdultUsers(
+                        normalized,
+                        LocalDate.now().minusYears(18),
+                        PageRequest.of(0, 20)
+                ).stream()
+                .filter(target -> !current.getId().equals(target.getId()))
+                .filter(target -> !blockedEitherWay(
+                        current.getId(),
+                        target.getId()
+                ))
+                .map(target -> UserDiscoveryResponse.from(
+                        target,
+                        friendships.findBetween(
+                                current.getId(),
+                                target.getId()
+                        ).orElse(null)
+                ))
+                .toList();
     }
 
     @Transactional

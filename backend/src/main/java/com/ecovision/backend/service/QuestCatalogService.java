@@ -18,11 +18,16 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class QuestCatalogService {
+    private static final Logger log =
+            LoggerFactory.getLogger(QuestCatalogService.class);
+
     private final QuestRepository questRepository;
     private final UserQuestProgressRepository progressRepository;
     private final AppUserRepository userRepository;
@@ -56,14 +61,34 @@ public class QuestCatalogService {
             latestProgress.putIfAbsent(progress.getQuest().getId(), progress);
         }
 
-        return questRepository.findByActiveTrueOrderByIdAsc()
-                .stream()
-                .map(quest -> toResponse(
+        List<QuestProgressResponse> result = new ArrayList<>();
+        for (Quest quest : questRepository.findByActiveTrueOrderByIdAsc()) {
+            if (!isUsable(quest)) {
+                log.warn(
+                        "Skipping invalid quest record id={} code={}",
+                        quest.getId(),
+                        quest.getCode()
+                );
+                continue;
+            }
+            try {
+                result.add(toResponse(
                         quest,
                         latestProgress.get(quest.getId()),
                         now
-                ))
-                .toList();
+                ));
+            } catch (RuntimeException exception) {
+                // One stale or malformed legacy row must never take the entire
+                // mission catalog down for a newly registered account.
+                log.error(
+                        "Skipping unreadable quest id={} code={}: {}",
+                        quest.getId(),
+                        quest.getCode(),
+                        exception.getMessage()
+                );
+            }
+        }
+        return List.copyOf(result);
     }
 
     @Transactional
@@ -234,6 +259,22 @@ public class QuestCatalogService {
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Görev verisi okunamadı", exception);
         }
+    }
+
+    private boolean isUsable(Quest quest) {
+        return quest.getId() != null
+                && quest.getCode() != null
+                && !quest.getCode().isBlank()
+                && quest.getTitle() != null
+                && !quest.getTitle().isBlank()
+                && quest.getDescription() != null
+                && !quest.getDescription().isBlank()
+                && quest.getRewardPoints() != null
+                && quest.getRewardPoints() > 0
+                && quest.getTargetAmount() != null
+                && quest.getTargetAmount() > 0
+                && quest.getQuestCategory() != null
+                && quest.getTriggerType() != null;
     }
 
     private String writeJson(Map<String, Object> value) {

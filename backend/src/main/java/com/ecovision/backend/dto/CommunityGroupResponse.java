@@ -17,6 +17,8 @@ public record CommunityGroupResponse(
         long memberCount,
         boolean privateGroup,
         String currentUserRole,
+        String joinRequestStatus,
+        String inviteCode,
         Long pinnedMessageId,
         String pinnedMessageText,
         Long pinnedEventId,
@@ -26,6 +28,7 @@ public record CommunityGroupResponse(
             CommunityGroup group,
             long memberCount,
             String currentUserRole,
+            String joinRequestStatus,
             String pinnedMessageText
     ) {
         return new CommunityGroupResponse(
@@ -42,6 +45,8 @@ public record CommunityGroupResponse(
                 memberCount,
                 group.isPrivateGroup(),
                 currentUserRole,
+                joinRequestStatus,
+                currentUserRole == null ? null : group.getInviteCode(),
                 group.getPinnedMessageId(),
                 pinnedMessageText,
                 group.getPinnedEventId(),

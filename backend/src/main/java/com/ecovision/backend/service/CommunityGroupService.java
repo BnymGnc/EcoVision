@@ -3,13 +3,16 @@ package com.ecovision.backend.service;
 import com.ecovision.backend.dto.AddGroupMemberRequest;
 import com.ecovision.backend.dto.CommunityGroupRequest;
 import com.ecovision.backend.dto.CommunityGroupResponse;
+import com.ecovision.backend.dto.ChatMessageResponse;
 import com.ecovision.backend.dto.EventRsvpRequest;
 import com.ecovision.backend.dto.GroupEventAttendeeResponse;
 import com.ecovision.backend.dto.GroupEventRequest;
 import com.ecovision.backend.dto.GroupEventResponse;
 import com.ecovision.backend.dto.GroupMemberResponse;
+import com.ecovision.backend.dto.GroupJoinRequestResponse;
 import com.ecovision.backend.dto.JoinEventRequest;
 import com.ecovision.backend.dto.PinGroupContentRequest;
+import com.ecovision.backend.dto.UpdateCommunityGroupRequest;
 import com.ecovision.backend.model.AppUser;
 import com.ecovision.backend.model.AttendanceStatus;
 import com.ecovision.backend.model.ChatMessage;
@@ -18,6 +21,8 @@ import com.ecovision.backend.model.CommunityGroup;
 import com.ecovision.backend.model.GroupEvent;
 import com.ecovision.backend.model.GroupEventAttendance;
 import com.ecovision.backend.model.GroupMember;
+import com.ecovision.backend.model.GroupJoinRequest;
+import com.ecovision.backend.model.GroupJoinRequestStatus;
 import com.ecovision.backend.model.GroupRole;
 import com.ecovision.backend.repository.AppUserRepository;
 import com.ecovision.backend.repository.ChatMessageRepository;
@@ -25,6 +30,7 @@ import com.ecovision.backend.repository.CommunityGroupRepository;
 import com.ecovision.backend.repository.GroupEventAttendanceRepository;
 import com.ecovision.backend.repository.GroupEventRepository;
 import com.ecovision.backend.repository.GroupMemberRepository;
+import com.ecovision.backend.repository.GroupJoinRequestRepository;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -49,6 +55,8 @@ public class CommunityGroupService {
     private final InputSanitizer sanitizer;
     private final FileStorageService storage;
     private final PasswordEncoder passwordEncoder;
+    private final RealtimeChatPublisher realtimePublisher;
+    private final GroupJoinRequestRepository joinRequests;
 
     public CommunityGroupService(
             CommunityGroupRepository groups,
@@ -60,7 +68,9 @@ public class CommunityGroupService {
             AgeGateService ageGate,
             InputSanitizer sanitizer,
             FileStorageService storage,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            RealtimeChatPublisher realtimePublisher,
+            GroupJoinRequestRepository joinRequests
     ) {
         this.groups = groups;
         this.users = users;
@@ -72,6 +82,8 @@ public class CommunityGroupService {
         this.sanitizer = sanitizer;
         this.storage = storage;
         this.passwordEncoder = passwordEncoder;
+        this.realtimePublisher = realtimePublisher;
+        this.joinRequests = joinRequests;
     }
 
     @Transactional(readOnly = true)
@@ -96,12 +108,12 @@ public class CommunityGroupService {
 
         return groups.findAll().stream()
                 .filter(group -> normalizedQuery.isBlank()
-                        || group.getName().toLowerCase(Locale.ROOT).contains(normalizedQuery)
-                        || group.getDescription().toLowerCase(Locale.ROOT).contains(normalizedQuery))
+                        || normalized(group.getName()).contains(normalizedQuery)
+                        || normalized(group.getDescription()).contains(normalizedQuery))
                 .filter(group -> selectedCities.isEmpty()
-                        || selectedCities.contains(group.getCity().toLowerCase(Locale.ROOT)))
+                        || selectedCities.contains(normalized(group.getCity())))
                 .filter(group -> selectedDistrict.isBlank()
-                        || group.getDistrict().equalsIgnoreCase(selectedDistrict))
+                        || normalized(group.getDistrict()).equals(selectedDistrict))
                 .map(group -> response(group, user))
                 .toList();
     }
@@ -131,8 +143,10 @@ public class CommunityGroupService {
                 120
         ));
         group.setMemberLimit(request.memberLimit() == null ? 20 : request.memberLimit());
+        group.setPrivateGroup(Boolean.TRUE.equals(request.privateGroup()));
         if (request.joinCode() != null && !request.joinCode().isBlank()) {
             group.setJoinCodeHash(passwordEncoder.encode(request.joinCode().trim()));
+            group.setPrivateGroup(true);
         }
         if (cover != null && !cover.isEmpty()) {
             group.setCoverImageUrl(storage.storeImage(cover, "groups"));
@@ -158,13 +172,23 @@ public class CommunityGroupService {
         if (members.existsByGroupIdAndUserId(groupId, user.getId())) {
             return response(group, user);
         }
-        if (members.countByGroupId(groupId) >= group.getMemberLimit()) {
+        int memberLimit = group.getMemberLimit() == null
+                ? 20
+                : group.getMemberLimit();
+        if (members.countByGroupId(groupId) >= memberLimit) {
             throw new IllegalArgumentException("Grup üye sınırına ulaştı");
         }
         if (group.isPrivateGroup()) {
             String code = request == null ? null : request.joinCode();
-            if (code == null || !passwordEncoder.matches(code, group.getJoinCodeHash())) {
-                throw new IllegalArgumentException("Grup parolası hatalı");
+            boolean legacyPasswordValid = group.getJoinCodeHash() != null
+                    && code != null
+                    && passwordEncoder.matches(code, group.getJoinCodeHash());
+            boolean inviteCodeValid = code != null
+                    && code.equalsIgnoreCase(group.getInviteCode());
+            if (!legacyPasswordValid && !inviteCodeValid) {
+                throw new IllegalArgumentException(
+                        "Bu özel grup için katılım isteği göndermelisiniz"
+                );
             }
         }
         GroupMember member = new GroupMember();
@@ -172,7 +196,122 @@ public class CommunityGroupService {
         member.setUser(user);
         member.setRole(GroupRole.MEMBER);
         members.save(member);
+        publishSystem(group, user, user.getName() + " gruba katıldı");
         return response(group, user);
+    }
+
+    @Transactional
+    public GroupJoinRequestResponse requestToJoin(AppUser user, Long groupId) {
+        ageGate.requireAdult(user);
+        CommunityGroup group = findGroup(groupId);
+        if (!group.isPrivateGroup()) {
+            throw new IllegalArgumentException(
+                    "Grup herkese açık; doğrudan katılabilirsiniz"
+            );
+        }
+        if (members.existsByGroupIdAndUserId(groupId, user.getId())) {
+            throw new IllegalArgumentException("Zaten bu grubun üyesisiniz");
+        }
+        GroupJoinRequest request = joinRequests
+                .findByGroupIdAndRequesterId(groupId, user.getId())
+                .orElseGet(GroupJoinRequest::new);
+        request.setGroup(group);
+        request.setRequester(user);
+        request.setStatus(GroupJoinRequestStatus.PENDING);
+        request.setRespondedAt(null);
+        return GroupJoinRequestResponse.from(joinRequests.save(request));
+    }
+
+    @Transactional(readOnly = true)
+    public List<GroupJoinRequestResponse> pendingRequests(
+            AppUser user,
+            Long groupId
+    ) {
+        requireAdmin(user, groupId);
+        return joinRequests.findByGroupIdAndStatusOrderByRequestedAtAsc(
+                        groupId,
+                        GroupJoinRequestStatus.PENDING
+                ).stream()
+                .map(GroupJoinRequestResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    public GroupJoinRequestResponse reviewJoinRequest(
+            AppUser user,
+            Long groupId,
+            Long requestId,
+            boolean approve
+    ) {
+        requireAdmin(user, groupId);
+        GroupJoinRequest request = joinRequests.findById(requestId)
+                .filter(item -> item.getGroup().getId().equals(groupId))
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Katılım isteği bulunamadı"
+                ));
+        if (request.getStatus() != GroupJoinRequestStatus.PENDING) {
+            throw new IllegalArgumentException("Katılım isteği daha önce sonuçlandırılmış");
+        }
+        if (approve) {
+            CommunityGroup group = request.getGroup();
+            if (members.countByGroupId(groupId) >= group.getMemberLimit()) {
+                throw new IllegalArgumentException("Grup üye sınırına ulaştı");
+            }
+            if (!members.existsByGroupIdAndUserId(
+                    groupId,
+                    request.getRequester().getId()
+            )) {
+                GroupMember member = new GroupMember();
+                member.setGroup(group);
+                member.setUser(request.getRequester());
+                member.setRole(GroupRole.MEMBER);
+                members.save(member);
+                publishSystem(
+                        group,
+                        user,
+                        request.getRequester().getName() + " gruba katıldı"
+                );
+            }
+        }
+        request.setStatus(
+                approve
+                        ? GroupJoinRequestStatus.APPROVED
+                        : GroupJoinRequestStatus.REJECTED
+        );
+        request.setRespondedAt(Instant.now());
+        return GroupJoinRequestResponse.from(joinRequests.save(request));
+    }
+
+    @Transactional
+    public CommunityGroupResponse update(
+            AppUser user,
+            Long groupId,
+            UpdateCommunityGroupRequest request,
+            MultipartFile cover
+    ) {
+        requireAdmin(user, groupId);
+        CommunityGroup group = findGroup(groupId);
+        group.setName(required(request.name(), "Grup adı", 120));
+        group.setDescription(required(request.description(), "Açıklama", 2000));
+        group.setCity(required(request.city(), "İl", 80));
+        group.setDistrict(required(request.district(), "İlçe", 80));
+        group.setNeighborhood(sanitizer.plainText(
+                request.neighborhood(),
+                "Mahalle",
+                120
+        ));
+        group.setMemberLimit(
+                request.memberLimit() == null
+                        ? group.getMemberLimit()
+                        : request.memberLimit()
+        );
+        if (request.privateGroup() != null) {
+            group.setPrivateGroup(request.privateGroup());
+        }
+        if (cover != null && !cover.isEmpty()) {
+            group.setCoverImageUrl(storage.storeImage(cover, "groups"));
+        }
+        return response(groups.save(group), user);
     }
 
     @Transactional(readOnly = true)
@@ -199,14 +338,19 @@ public class CommunityGroupService {
         if (members.existsByGroupIdAndUserId(groupId, target.getId())) {
             throw new IllegalArgumentException("Kullanıcı zaten bu grubun üyesi");
         }
-        if (members.countByGroupId(groupId) >= group.getMemberLimit()) {
+        int memberLimit = group.getMemberLimit() == null
+                ? 20
+                : group.getMemberLimit();
+        if (members.countByGroupId(groupId) >= memberLimit) {
             throw new IllegalArgumentException("Grup üye sınırına ulaştı");
         }
         GroupMember member = new GroupMember();
         member.setGroup(group);
         member.setUser(target);
         member.setRole(GroupRole.MEMBER);
-        return GroupMemberResponse.from(members.save(member));
+        GroupMember saved = members.save(member);
+        publishSystem(group, user, target.getName() + " gruba eklendi");
+        return GroupMemberResponse.from(saved);
     }
 
     @Transactional
@@ -218,7 +362,13 @@ public class CommunityGroupService {
             throw new IllegalArgumentException("Grup kurucusunun rolü değiştirilemez");
         }
         member.setRole(GroupRole.ADMIN);
-        return GroupMemberResponse.from(members.save(member));
+        GroupMember saved = members.save(member);
+        publishSystem(
+                group,
+                user,
+                member.getUser().getName() + " yönetici yapıldı"
+        );
+        return GroupMemberResponse.from(saved);
     }
 
     @Transactional
@@ -233,7 +383,13 @@ public class CommunityGroupService {
             throw new IllegalArgumentException("Bu kullanıcı yönetici değil");
         }
         member.setRole(GroupRole.MEMBER);
-        return GroupMemberResponse.from(members.save(member));
+        GroupMember saved = members.save(member);
+        publishSystem(
+                group,
+                user,
+                member.getUser().getName() + " üyeliğe geçirildi"
+        );
+        return GroupMemberResponse.from(saved);
     }
 
     @Transactional
@@ -246,6 +402,11 @@ public class CommunityGroupService {
         }
         if (isFounder(actor, group)) {
             members.delete(target);
+            publishSystem(
+                    group,
+                    user,
+                    target.getUser().getName() + " gruptan çıkarıldı"
+            );
             return;
         }
         if (!isAdmin(actor.getRole()) || target.getRole() != GroupRole.MEMBER) {
@@ -254,6 +415,24 @@ public class CommunityGroupService {
             );
         }
         members.delete(target);
+        publishSystem(
+                group,
+                user,
+                target.getUser().getName() + " gruptan çıkarıldı"
+        );
+    }
+
+    @Transactional
+    public void leaveGroup(AppUser user, Long groupId) {
+        CommunityGroup group = findGroup(groupId);
+        GroupMember member = requireMemberRecord(user, groupId);
+        if (isFounder(member, group)) {
+            throw new AccessDeniedException(
+                    "Kurucu gruptan ayrılamaz; önce grubu silmelisiniz"
+            );
+        }
+        members.delete(member);
+        publishSystem(group, user, user.getName() + " gruptan ayrıldı");
     }
 
     @Transactional(readOnly = true)
@@ -297,7 +476,9 @@ public class CommunityGroupService {
         announcement.setSender(user);
         announcement.setMessage("Yeni etkinlik: " + event.getTitle());
         announcement.setMessageType(ChatMessageType.SYSTEM_EVENT);
-        chatMessages.save(announcement);
+        ChatMessageResponse announcementResponse =
+                ChatMessageResponse.from(chatMessages.save(announcement));
+        realtimePublisher.publishAfterCommit(announcementResponse);
         return eventResponse(event, user);
     }
 
@@ -383,7 +564,11 @@ public class CommunityGroupService {
             }
             default -> throw new IllegalArgumentException("Geçersiz sabitleme türü");
         }
-        return response(groups.save(group), user);
+        CommunityGroup saved = groups.save(group);
+        if (!"NONE".equals(request.type())) {
+            publishSystem(group, user, user.getName() + " bir içeriği sabitledi");
+        }
+        return response(saved, user);
     }
 
     @Transactional
@@ -413,13 +598,28 @@ public class CommunityGroupService {
         }
         chatMessages.deleteByGroupId(groupId);
         events.deleteByGroupId(groupId);
+        joinRequests.deleteByGroupId(groupId);
         members.deleteByGroupId(groupId);
         groups.delete(group);
+    }
+
+    @Transactional(readOnly = true)
+    public CommunityGroupResponse resolveInvite(AppUser user, String inviteCode) {
+        ageGate.requireAdult(user);
+        CommunityGroup group = groups.findByInviteCode(inviteCode)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Davet bağlantısı geçersiz"
+                ));
+        return response(group, user);
     }
 
     private CommunityGroupResponse response(CommunityGroup group, AppUser user) {
         String role = members.findByGroupIdAndUserId(group.getId(), user.getId())
                 .map(member -> effectiveRole(member, group).name())
+                .orElse(null);
+        String requestStatus = joinRequests
+                .findByGroupIdAndRequesterId(group.getId(), user.getId())
+                .map(request -> request.getStatus().name())
                 .orElse(null);
         String pinnedMessageText = group.getPinnedMessageId() == null
                 ? null
@@ -431,8 +631,26 @@ public class CommunityGroupService {
                 group,
                 members.countByGroupId(group.getId()),
                 role,
+                requestStatus,
                 pinnedMessageText
         );
+    }
+
+    private void publishSystem(
+            CommunityGroup group,
+            AppUser actor,
+            String text
+    ) {
+        ChatMessage message = new ChatMessage();
+        message.setGroup(group);
+        message.setSender(actor);
+        message.setMessage(text);
+        message.setMessageType(ChatMessageType.SYSTEM_ACTIVITY);
+        ChatMessageResponse response =
+                ChatMessageResponse.from(chatMessages.save(message));
+        if (realtimePublisher != null) {
+            realtimePublisher.publishAfterCommit(response);
+        }
     }
 
     private GroupEventResponse eventResponse(GroupEvent event, AppUser user) {
@@ -523,6 +741,10 @@ public class CommunityGroupService {
 
     private boolean isAdmin(GroupRole role) {
         return role == GroupRole.ADMIN || role == GroupRole.GROUP_ADMIN;
+    }
+
+    private String normalized(String value) {
+        return value == null ? "" : value.toLowerCase(Locale.ROOT);
     }
 
     private String required(String value, String field, int maxLength) {

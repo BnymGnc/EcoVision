@@ -1,3 +1,5 @@
+import '../core/media_url.dart';
+
 class UserProfile {
   const UserProfile({
     required this.id,
@@ -10,6 +12,7 @@ class UserProfile {
     required this.ownedMarketItems,
     this.username = '',
     this.profileVisibility = 'PUBLIC',
+    this.themePreference = 'forest',
     this.district = '',
     this.neighborhood = '',
     this.equippedAvatarLevel = 1,
@@ -32,6 +35,7 @@ class UserProfile {
   final int totalPoints;
   final String role;
   final String profileVisibility;
+  final String themePreference;
   final String city;
   final String district;
   final String neighborhood;
@@ -59,10 +63,11 @@ class UserProfile {
       surname: (json['surname'] ?? '').toString(),
       email: (json['email'] ?? '').toString(),
       age: json['age'] == null ? null : (json['age'] as num).toInt(),
-      profilePictureUrl: json['profilePictureUrl']?.toString(),
+      profilePictureUrl: MediaUrl.resolve(json['profilePictureUrl']),
       totalPoints: (json['totalPoints'] as num? ?? 0).toInt(),
       role: (json['role'] ?? 'USER').toString(),
       profileVisibility: (json['profileVisibility'] ?? 'PUBLIC').toString(),
+      themePreference: (json['themePreference'] ?? 'forest').toString(),
       city: (json['city'] ?? 'Şanlıurfa').toString(),
       district: (json['district'] ?? '').toString(),
       neighborhood: (json['neighborhood'] ?? '').toString(),

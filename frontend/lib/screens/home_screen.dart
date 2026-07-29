@@ -22,7 +22,7 @@ class HomeScreen extends StatefulWidget {
   });
 
   final ApiService apiService;
-  final VoidCallback onOpenMap;
+  final ValueChanged<String?> onOpenMap;
   final int notificationCount;
   final VoidCallback? onNotifications;
 
@@ -84,6 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
         MaterialPageRoute<void>(
           builder: (_) => ResultScreen(
             result: result,
+            apiService: widget.apiService,
             onFindBins: widget.onOpenMap,
             earnedBadge: earnedBadge,
           ),
@@ -122,7 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 tooltip: 'Geri dönüşüm kutularını aç',
                 onPressed: () {
                   EcoHaptics.light();
-                  widget.onOpenMap();
+                  widget.onOpenMap(null);
                 },
                 icon: const Icon(Icons.map_outlined),
               ),
@@ -192,7 +193,7 @@ class _EcoCenter extends StatelessWidget {
       (
         'Atık Rehberi',
         Icons.menu_book_outlined,
-        () => const EducationGuideScreen(),
+        () => EducationGuideScreen(apiService: apiService),
       ),
       (
         'Liderlik',

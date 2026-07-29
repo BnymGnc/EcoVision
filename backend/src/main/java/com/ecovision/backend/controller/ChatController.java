@@ -2,12 +2,16 @@ package com.ecovision.backend.controller;
 
 import com.ecovision.backend.dto.ChatMessageRequest;
 import com.ecovision.backend.dto.ChatMessageResponse;
+import com.ecovision.backend.dto.ChatReactionRequest;
+import com.ecovision.backend.dto.CreatePollRequest;
+import com.ecovision.backend.dto.PollVoteRequest;
 import com.ecovision.backend.service.ChatService;
 import com.ecovision.backend.service.CurrentUserService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -110,12 +114,80 @@ public class ChatController {
     )
     public ChatMessageResponse sendGroupAttachment(
             @PathVariable Long groupId,
-            @RequestPart("file") MultipartFile file
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(required = false) Long replyToMessageId
     ) {
         return chatService.sendGroupAttachment(
                 currentUserService.currentUser(),
                 groupId,
-                file
+                file,
+                replyToMessageId
+        );
+    }
+
+    @GetMapping("/groups/{groupId}/media")
+    public List<ChatMessageResponse> groupMedia(
+            @PathVariable Long groupId,
+            @RequestParam(defaultValue = "60") int limit,
+            @RequestParam(defaultValue = "0") int offset
+    ) {
+        return chatService.getGroupMedia(
+                currentUserService.currentUser(),
+                groupId,
+                limit,
+                offset
+        );
+    }
+
+    @PostMapping("/groups/{groupId}/messages/{messageId}/reactions")
+    public ChatMessageResponse react(
+            @PathVariable Long groupId,
+            @PathVariable Long messageId,
+            @Valid @RequestBody ChatReactionRequest request
+    ) {
+        return chatService.react(
+                currentUserService.currentUser(),
+                groupId,
+                messageId,
+                request.emoji()
+        );
+    }
+
+    @DeleteMapping("/groups/{groupId}/messages/{messageId}")
+    public ChatMessageResponse deleteGroupMessage(
+            @PathVariable Long groupId,
+            @PathVariable Long messageId
+    ) {
+        return chatService.deleteGroupMessage(
+                currentUserService.currentUser(),
+                groupId,
+                messageId
+        );
+    }
+
+    @PostMapping("/groups/{groupId}/polls")
+    public ChatMessageResponse createPoll(
+            @PathVariable Long groupId,
+            @Valid @RequestBody CreatePollRequest request
+    ) {
+        return chatService.createPoll(
+                currentUserService.currentUser(),
+                groupId,
+                request
+        );
+    }
+
+    @PostMapping("/groups/{groupId}/messages/{messageId}/vote")
+    public ChatMessageResponse vote(
+            @PathVariable Long groupId,
+            @PathVariable Long messageId,
+            @Valid @RequestBody PollVoteRequest request
+    ) {
+        return chatService.vote(
+                currentUserService.currentUser(),
+                groupId,
+                messageId,
+                request.optionIndex()
         );
     }
 }

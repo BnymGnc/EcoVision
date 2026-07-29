@@ -12,7 +12,14 @@ void main() {
   testWidgets('uygulama her zaman giriş ekranında açılır', (tester) async {
     SharedPreferences.setMockInitialValues({});
 
-    await tester.pumpWidget(const EcoVisionApp());
+    await tester.pumpWidget(
+      EcoVisionApp(
+        apiService: _NoSessionApiService(),
+        themeController: ThemeController(),
+      ),
+    );
+    expect(find.text('EcoVision'), findsOneWidget);
+    await tester.pump();
     await tester.pumpAndSettle();
 
     expect(find.text("EcoVision'a Hoş Geldin"), findsOneWidget);
@@ -124,4 +131,12 @@ class _LoginApiService extends ApiService {
   Future<bool> login({required String email, required String password}) async {
     return true;
   }
+}
+
+class _NoSessionApiService extends ApiService {
+  @override
+  UserProfile? get currentUser => null;
+
+  @override
+  Future<void> loadStoredSession() async {}
 }

@@ -60,6 +60,9 @@ public class AppUser implements UserDetails {
 
     private String neighborhood;
 
+    @Column(nullable = false, length = 20, columnDefinition = "varchar(20) default 'forest'")
+    private String themePreference = "forest";
+
     private Integer equippedAvatarLevel = 1;
 
     private Instant communityReadAt;
@@ -121,6 +124,9 @@ public class AppUser implements UserDetails {
         createdAt = Instant.now();
         if (profileVisibility == null) {
             profileVisibility = ProfileVisibility.PUBLIC;
+        }
+        if (themePreference == null || themePreference.isBlank()) {
+            themePreference = "forest";
         }
     }
 
@@ -225,6 +231,16 @@ public class AppUser implements UserDetails {
 
     public void setNeighborhood(String neighborhood) {
         this.neighborhood = neighborhood;
+    }
+
+    public String getThemePreference() {
+        return themePreference == null || themePreference.isBlank()
+                ? "forest"
+                : themePreference;
+    }
+
+    public void setThemePreference(String themePreference) {
+        this.themePreference = themePreference;
     }
 
     public Integer getEquippedAvatarLevel() {

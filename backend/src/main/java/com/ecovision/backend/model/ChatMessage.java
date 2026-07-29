@@ -49,6 +49,15 @@ public class ChatMessage {
 
     private String contentType;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reply_to_message_id")
+    private ChatMessage replyTo;
+
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean deleted;
+
+    private Instant deletedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(
             name = "message_type",
@@ -127,6 +136,12 @@ public class ChatMessage {
     public void setFileName(String fileName) { this.fileName = fileName; }
     public String getContentType() { return contentType; }
     public void setContentType(String contentType) { this.contentType = contentType; }
+    public ChatMessage getReplyTo() { return replyTo; }
+    public void setReplyTo(ChatMessage replyTo) { this.replyTo = replyTo; }
+    public boolean isDeleted() { return deleted; }
+    public void setDeleted(boolean deleted) { this.deleted = deleted; }
+    public Instant getDeletedAt() { return deletedAt; }
+    public void setDeletedAt(Instant deletedAt) { this.deletedAt = deletedAt; }
 
     public ChatMessageType getMessageType() {
         return messageType == null ? ChatMessageType.USER : messageType;

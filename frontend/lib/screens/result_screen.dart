@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../core/constants.dart';
 import '../models/scan_result.dart';
+import '../services/api_service.dart';
+import '../services/location_service.dart';
 import '../services/share_service.dart';
 import '../widgets/eco_lottie.dart';
 import '../widgets/mascot_celebration.dart';
@@ -9,13 +11,15 @@ import '../widgets/mascot_celebration.dart';
 class ResultScreen extends StatefulWidget {
   const ResultScreen({
     required this.result,
+    required this.apiService,
     required this.onFindBins,
     this.earnedBadge = false,
     super.key,
   });
 
   final ScanResult result;
-  final VoidCallback onFindBins;
+  final ApiService apiService;
+  final ValueChanged<String?> onFindBins;
   final bool earnedBadge;
 
   @override
@@ -23,10 +27,63 @@ class ResultScreen extends StatefulWidget {
 }
 
 class _ResultScreenState extends State<ResultScreen> {
+  final LocationService _locationService = LocationService();
+  bool _checkingBins = true;
+  bool _hasCompatibleBins = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _showCelebration());
+    _checkCompatibleBins();
+  }
+
+  String? get _machineMaterial {
+    for (final detection in widget.result.detections) {
+      if (!detection.machineEligible) continue;
+      return switch (detection.type.toUpperCase()) {
+        'PET' => 'pet',
+        'CAM' => 'glass',
+        'ALUMINUM' => 'aluminum',
+        _ => null,
+      };
+    }
+    return null;
+  }
+
+  Future<void> _checkCompatibleBins() async {
+    final material = _machineMaterial;
+    if (material == null) {
+      if (mounted) setState(() => _checkingBins = false);
+      return;
+    }
+    try {
+      final location = await _locationService.getCurrentOrFallbackLocation();
+      final pins = await widget.apiService.fetchNearestMapPins(
+        latitude: location.latitude,
+        longitude: location.longitude,
+        radiusKm: 10,
+        limit: 1,
+        materials: {material},
+      );
+      if (!mounted) return;
+      setState(() {
+        _checkingBins = false;
+        _hasCompatibleBins = pins.any((pin) => pin.accepts(material));
+      });
+      if (!_hasCompatibleBins) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              '10 km içinde bu malzemeyi aktif kabul eden DOA makinesi bulunamadı.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) setState(() => _checkingBins = false);
+    }
   }
 
   Future<void> _showCelebration() async {
@@ -84,7 +141,7 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   void _openBins() {
-    widget.onFindBins();
+    widget.onFindBins(_machineMaterial);
     Navigator.of(context).pop();
   }
 
@@ -156,9 +213,8 @@ class _ResultScreenState extends State<ResultScreen> {
                     if (result.detections.isNotEmpty) ...[
                       Text(
                         'Fotoğrafta bulunan atıklar',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 10),
                       for (final detection in result.detections)
@@ -208,12 +264,15 @@ class _ResultScreenState extends State<ResultScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: _openBins,
-              icon: const Icon(Icons.location_on_outlined),
-              label: const Text('Geri Dönüşüm Kutusu Bul'),
-            ),
-            const SizedBox(height: 12),
+            if (_checkingBins)
+              const LinearProgressIndicator(minHeight: 3)
+            else if (_hasCompatibleBins)
+              FilledButton.icon(
+                onPressed: _openBins,
+                icon: const Icon(Icons.location_on_outlined),
+                label: const Text('Uygun DOA Makinesini Haritada Göster'),
+              ),
+            if (_checkingBins || _hasCompatibleBins) const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: EcoShareService.shareEcoUpgrade,
               icon: const Icon(Icons.share_outlined),

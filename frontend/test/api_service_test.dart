@@ -1,10 +1,30 @@
+import 'dart:convert';
+
 import 'package:ecovision/core/constants.dart';
 import 'package:ecovision/services/api_service.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  final binding = TestWidgetsFlutterBinding.ensureInitialized();
+  const secureStorageChannel = MethodChannel(
+    'plugins.it_nomads.com/flutter_secure_storage',
+  );
+  setUp(() {
+    binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      secureStorageChannel,
+      (_) async => null,
+    );
+  });
+  tearDown(() {
+    binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      secureStorageChannel,
+      null,
+    );
+  });
+
   test('üretim API adresi canlı Render servisini kullanır', () {
     const expected = 'https://ecovision-backend-wdr0.onrender.com';
     expect(ApiService.productionBaseUrl, expected);
@@ -36,4 +56,41 @@ void main() {
       );
     },
   );
+
+  test('akademi ilerlemesindeki metin listesini doğru ayrıştırır', () async {
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/auth/login') {
+        return http.Response(
+          jsonEncode({
+            'accessToken': 'access',
+            'refreshToken': 'refresh',
+            'user': {
+              'id': 1,
+              'name': 'Ada',
+              'surname': 'Eco',
+              'email': 'ada@ecovision.test',
+              'age': 24,
+              'adult': true,
+              'totalPoints': 0,
+            },
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      if (request.url.path == '/api/education/progress') {
+        expect(request.headers['Authorization'], 'Bearer access');
+        return http.Response(
+          jsonEncode(['modul-1', 'modul-3']),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      return http.Response('{}', 404);
+    });
+    final service = ApiService(client: client);
+    await service.login(email: 'ada@ecovision.test', password: 'Test123!');
+
+    expect(await service.fetchEducationProgress(), {'modul-1', 'modul-3'});
+  });
 }

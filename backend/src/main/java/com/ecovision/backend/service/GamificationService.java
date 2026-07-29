@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GamificationService {
     private static final String CARBON_MISSION_KEY = "mission_carbon_footprint";
     private static final int CARBON_MISSION_POINTS = 75;
+    private static final int EDUCATION_MODULE_POINTS = 30;
     private static final Map<String, RewardDefinition> REWARD_CATALOG = rewardCatalog();
 
     private final AppUserRepository userRepository;
@@ -96,6 +97,57 @@ public class GamificationService {
                 "Karbon Bilinci",
                 "Karbon ayak izi görevi yıllık " + annualKg
                         + " kg CO2e sonucuyla tamamlandı"
+        );
+    }
+
+    @Transactional
+    GamificationResponse awardEducationModule(
+            AppUser lockedUser,
+            String categoryId
+    ) {
+        String actionKey = "education_" + categoryId;
+        if (actionRepository.existsByUserIdAndActionKey(
+                lockedUser.getId(),
+                actionKey
+        )) {
+            return response(
+                    lockedUser,
+                    actions(lockedUser),
+                    0,
+                    null,
+                    "Bu akademi modülünün ödülü daha önce alındı"
+            );
+        }
+
+        AvatarTier previousTier = AvatarTier.highestUnlocked(
+                lockedUser.getLifetimePoints()
+        );
+        lockedUser.setTotalPoints(
+                lockedUser.getTotalPoints() + EDUCATION_MODULE_POINTS
+        );
+        lockedUser.setLifetimePoints(
+                lockedUser.getLifetimePoints() + EDUCATION_MODULE_POINTS
+        );
+        userRepository.save(lockedUser);
+        saveAction(
+                lockedUser,
+                actionKey,
+                "EDUCATION",
+                EDUCATION_MODULE_POINTS
+        );
+
+        AvatarTier currentTier = AvatarTier.highestUnlocked(
+                lockedUser.getLifetimePoints()
+        );
+        if (currentTier.level() > previousTier.level()) {
+            groupActivityMessages.publishLevel(lockedUser, currentTier);
+        }
+        return response(
+                lockedUser,
+                actions(lockedUser),
+                EDUCATION_MODULE_POINTS,
+                null,
+                "Akademi modülü tamamlandı, 30 Eko Puan kazandın"
         );
     }
 

@@ -78,8 +78,7 @@ public class AdminService {
                 longitude,
                 radiusKm,
                 limit,
-                Set.of(),
-                false
+                Set.of()
         );
     }
 
@@ -89,8 +88,7 @@ public class AdminService {
             double longitude,
             Double radiusKm,
             Integer limit,
-            Set<String> materials,
-            boolean openNow
+            Set<String> materials
     ) {
         Set<String> normalizedMaterials = materials.stream()
                 .map(this::normalizeMaterial)
@@ -98,7 +96,6 @@ public class AdminService {
         List<MapPinResponse> localPins = mapPinRepository.findAll()
                 .stream()
                 .filter(MapPin::isActive)
-                .filter(pin -> !openNow || MapPinHours.isOpenNow(pin.getWorkingHours()))
                 .filter(pin -> normalizedMaterials.isEmpty()
                         || normalizedMaterials.stream().allMatch(pin::acceptsMaterial))
                 .map(pin -> new PinDistance(pin, haversineKm(
@@ -113,7 +110,7 @@ public class AdminService {
                 .map(item -> MapPinResponse.from(item.pin(), item.distanceKm()))
                 .toList();
 
-        if (!localPins.isEmpty() || !normalizedMaterials.isEmpty() || openNow) {
+        if (!localPins.isEmpty() || !normalizedMaterials.isEmpty()) {
             return localPins;
         }
 

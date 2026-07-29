@@ -1,3 +1,5 @@
+import '../core/media_url.dart';
+
 class CleanupEvent {
   const CleanupEvent({
     required this.id,
@@ -76,7 +78,7 @@ class CleanupEvent {
       city: (json['city'] ?? '').toString(),
       district: (json['district'] ?? '').toString(),
       neighborhood: (json['neighborhood'] ?? '').toString(),
-      imageUrl: json['imageUrl']?.toString(),
+      imageUrl: MediaUrl.resolve(json['imageUrl']),
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       memberLimit: (json['memberLimit'] as num? ?? 20).toInt(),
@@ -85,8 +87,9 @@ class CleanupEvent {
       currentUserRole: json['currentUserRole']?.toString(),
       eventTime: (json['eventTime'] ?? '').toString(),
       exactAddress: (json['exactAddress'] ?? '').toString(),
-      coverImageUrl:
-          (json['coverImageUrl'] ?? json['imageUrl'])?.toString(),
+      coverImageUrl: MediaUrl.resolve(
+        json['coverImageUrl'] ?? json['imageUrl'],
+      ),
       attendeeCount: (json['attendeeCount'] as num? ?? 0).toInt(),
       currentUserAttendance: json['currentUserAttendance']?.toString(),
     );

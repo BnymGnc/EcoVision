@@ -1,10 +1,7 @@
 package com.ecovision.backend.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ecovision.backend.dto.ScanAnalysisRequest;
@@ -18,7 +15,6 @@ import com.ecovision.backend.repository.UserBadgeRepository;
 import com.ecovision.backend.repository.AppNotificationRepository;
 import com.ecovision.backend.repository.ChatMessageRepository;
 import com.ecovision.backend.repository.EventMemberRepository;
-import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -73,8 +69,6 @@ class ScanServiceTest {
 
     @Test
     void awardsPointsFromServerCatalog() {
-        when(scanHistoryRepository.countByUserIdAndScannedAtAfter(any(), any()))
-                .thenReturn(0L);
         when(scanHistoryRepository.save(any(ScanHistory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -87,24 +81,6 @@ class ScanServiceTest {
         assertEquals(10, response.updatedUserPoints());
         assertEquals(10, user.getLifetimePoints());
         assertEquals(1, user.getStreakCount());
-    }
-
-    @Test
-    void blocksFourthScanInsideCooldownWindow() {
-        ScanHistory oldest = new ScanHistory();
-        oldest.setScannedAt(Instant.now().minusSeconds(60));
-        when(scanHistoryRepository.countByUserIdAndScannedAtAfter(any(), any()))
-                .thenReturn(3L);
-        when(scanHistoryRepository.findFirstByUserIdAndScannedAtAfterOrderByScannedAtAsc(
-                any(),
-                any()
-        )).thenReturn(Optional.of(oldest));
-
-        assertThrows(
-                ScanCooldownException.class,
-                () -> scanService.analyzeAndSave(user, new ScanAnalysisRequest("glass"))
-        );
-        verify(scanHistoryRepository, never()).save(any());
     }
 
     private void setUserId(AppUser target, Long id) {

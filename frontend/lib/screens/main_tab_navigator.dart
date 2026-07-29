@@ -22,6 +22,7 @@ class _MainTabNavigatorState extends State<MainTabNavigator> {
   int _selectedIndex = 0;
   int _unreadCommunityCount = 0;
   int _unreadNotificationCount = 0;
+  String? _requestedMapMaterial;
   Timer? _unreadTimer;
 
   @override
@@ -78,8 +79,13 @@ class _MainTabNavigatorState extends State<MainTabNavigator> {
     }
   }
 
-  void _selectTab(int index) {
-    setState(() => _selectedIndex = index);
+  void _selectTab(int index, {String? mapMaterial}) {
+    setState(() {
+      _selectedIndex = index;
+      if (index == 1 && mapMaterial != null) {
+        _requestedMapMaterial = mapMaterial;
+      }
+    });
     if (index == 2 && (widget.apiService.currentUser?.adult ?? false)) {
       setState(() => _unreadCommunityCount = 0);
       unawaited(widget.apiService.markCommunityRead());
@@ -101,12 +107,13 @@ class _MainTabNavigatorState extends State<MainTabNavigator> {
     final screens = <Widget>[
       HomeScreen(
         apiService: widget.apiService,
-        onOpenMap: () => _selectTab(1),
+        onOpenMap: (material) => _selectTab(1, mapMaterial: material),
         notificationCount: _unreadNotificationCount,
         onNotifications: _openNotifications,
       ),
       MapScreen(
         apiService: widget.apiService,
+        requestedMaterial: _requestedMapMaterial,
         notificationCount: _unreadNotificationCount,
         onNotifications: _openNotifications,
       ),

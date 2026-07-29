@@ -36,21 +36,69 @@ class QuestProgress {
 
   factory QuestProgress.fromJson(Map<String, dynamic> json) {
     final expiresAt = json['expiresAt']?.toString();
+    final questId = _asInt(json['questId'] ?? json['id']);
+    final targetAmount = _asInt(json['targetAmount'], fallback: 1);
+    final title = (json['title'] ?? '').toString().trim();
+    if (questId == null || questId <= 0) {
+      throw const FormatException('Görev kimliği eksik veya geçersiz.');
+    }
+    if (title.isEmpty || targetAmount == null || targetAmount <= 0) {
+      throw const FormatException('Görev içeriği eksik veya geçersiz.');
+    }
     return QuestProgress(
-      questId: (json['questId'] as num).toInt(),
-      progressId: (json['progressId'] as num?)?.toInt(),
+      questId: questId,
+      progressId: _asInt(json['progressId']),
       code: (json['code'] ?? '').toString(),
-      title: (json['title'] ?? '').toString(),
+      title: title,
       description: (json['description'] ?? '').toString(),
-      rewardPoints: (json['rewardPoints'] as num? ?? 0).toInt(),
-      targetAmount: (json['targetAmount'] as num? ?? 1).toInt(),
+      rewardPoints: _asInt(json['rewardPoints']) ?? 0,
+      targetAmount: targetAmount,
       schedule: (json['schedule'] ?? 'MILESTONE').toString(),
       domain: (json['domain'] ?? 'ECO_IMPACT').toString(),
-      currentAmount: (json['currentAmount'] as num? ?? 0).toInt(),
-      completed: json['completed'] as bool? ?? false,
-      claimed: json['claimed'] as bool? ?? false,
-      checkInAvailable: json['checkInAvailable'] as bool? ?? false,
+      currentAmount: _asInt(json['currentAmount']) ?? 0,
+      completed: _asBool(json['completed']),
+      claimed: _asBool(json['claimed']),
+      checkInAvailable: _asBool(json['checkInAvailable']),
       expiresAt: expiresAt == null ? null : DateTime.tryParse(expiresAt),
     );
   }
+}
+
+class QuestClaimResult {
+  const QuestClaimResult({
+    required this.quest,
+    required this.pointsAwarded,
+    required this.totalPoints,
+    required this.message,
+  });
+
+  final QuestProgress quest;
+  final int pointsAwarded;
+  final int totalPoints;
+  final String message;
+
+  factory QuestClaimResult.fromJson(Map<String, dynamic> json) {
+    final questJson = json['quest'];
+    if (questJson is! Map) {
+      throw const FormatException('Görev ödülü yanıtı geçersiz.');
+    }
+    return QuestClaimResult(
+      quest: QuestProgress.fromJson(Map<String, dynamic>.from(questJson)),
+      pointsAwarded: _asInt(json['pointsAwarded']) ?? 0,
+      totalPoints: _asInt(json['totalPoints']) ?? 0,
+      message: (json['message'] ?? '').toString(),
+    );
+  }
+}
+
+int? _asInt(Object? value, {int? fallback}) {
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value.trim()) ?? fallback;
+  return fallback;
+}
+
+bool _asBool(Object? value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  return value?.toString().toLowerCase() == 'true';
 }

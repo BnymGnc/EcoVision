@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/auth_validators.dart';
@@ -24,17 +26,14 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _rememberMe = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _restoreSession();
-  }
+  String _loadingMessage = 'Güvenli giriş yapılıyor...';
+  Timer? _coldStartTimer;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _coldStartTimer?.cancel();
     super.dispose();
   }
 
@@ -43,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     widget.apiService.setRememberMe(_rememberMe);
-    setState(() => _isLoading = true);
+    _beginLoading();
     try {
       await widget.apiService.login(
         email: _emailController.text,
@@ -52,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) await _openApp();
     } catch (error) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        _endLoading();
         _showError(error);
       }
     }
@@ -60,28 +59,27 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _loginWithGoogle() async {
     widget.apiService.setRememberMe(_rememberMe);
-    setState(() => _isLoading = true);
+    _beginLoading();
     try {
       await widget.apiService.loginWithGoogle();
       if (mounted) await _openApp();
     } catch (error) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        _endLoading();
         _showError(error);
       }
     }
   }
 
-  Future<void> _restoreSession() async {
-    await widget.apiService.loadStoredSession();
-    if (mounted && widget.apiService.isAuthenticated) {
-      await _openApp();
-    }
-  }
-
   Future<void> _openApp() async {
     final user = widget.apiService.currentUser!;
-    await ThemeScope.of(context).bindToUser(user.id);
+    await ThemeScope.of(context).bindToUser(
+      userId: user.id,
+      remotePreference: user.themePreference,
+      remoteSaver: (preference) async {
+        await widget.apiService.updateThemePreference(preference);
+      },
+    );
     final hasSeenOnboarding = await OnboardingScreen.hasSeenForUser(user.id);
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
@@ -92,6 +90,26 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       (_) => false,
     );
+  }
+
+  void _beginLoading() {
+    _coldStartTimer?.cancel();
+    setState(() {
+      _isLoading = true;
+      _loadingMessage = 'Güvenli giriş yapılıyor...';
+    });
+    _coldStartTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && _isLoading) {
+        setState(
+          () => _loadingMessage = 'Sunucular uyandırılıyor, lütfen bekleyin...',
+        );
+      }
+    });
+  }
+
+  void _endLoading() {
+    _coldStartTimer?.cancel();
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _forgotPassword() async {
@@ -170,6 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: AuthLoadingOverlay(
         visible: _isLoading,
+        message: _loadingMessage,
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(

@@ -12,4 +12,5 @@ public interface CommunityGroupRepository extends JpaRepository<CommunityGroup, 
     List<CommunityGroup> findAll();
 
     Optional<CommunityGroup> findByLegacyEventId(Long legacyEventId);
+    Optional<CommunityGroup> findByInviteCode(String inviteCode);
 }

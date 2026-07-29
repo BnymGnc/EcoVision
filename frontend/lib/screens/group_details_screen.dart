@@ -6,7 +6,9 @@ import 'package:image_picker/image_picker.dart';
 import '../core/turkey_locations.dart';
 import '../models/community_group.dart';
 import '../models/event_member.dart';
+import '../models/group_join_request.dart';
 import '../services/api_service.dart';
+import '../services/location_service.dart';
 import '../widgets/premium_ui.dart';
 import 'group_chat_screen.dart';
 import 'public_profile_screen.dart';
@@ -53,6 +55,17 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
         onCreated: _reload,
       ),
     );
+  }
+
+  Future<void> _editGroup() async {
+    final updated = await showEcoGlassSheet<CommunityGroup>(
+      context: context,
+      builder: (_) =>
+          _EditGroupSheet(apiService: widget.apiService, group: _group),
+    );
+    if (updated == null || !mounted) return;
+    setState(() => _group = updated);
+    _reload();
   }
 
   Future<void> _deleteGroup() async {
@@ -115,10 +128,19 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
           if (_group.isAdmin)
             PopupMenuButton<String>(
               onSelected: (value) {
+                if (value == 'edit') _editGroup();
                 if (value == 'members') _manageMembers();
                 if (value == 'delete') _deleteGroup();
               },
               itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: ListTile(
+                    leading: Icon(Icons.edit_outlined),
+                    title: Text('Grubu Düzenle'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
                 const PopupMenuItem(
                   value: 'members',
                   child: ListTile(
@@ -322,6 +344,256 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   }
 }
 
+class _EditGroupSheet extends StatefulWidget {
+  const _EditGroupSheet({required this.apiService, required this.group});
+
+  final ApiService apiService;
+  final CommunityGroup group;
+
+  @override
+  State<_EditGroupSheet> createState() => _EditGroupSheetState();
+}
+
+class _EditGroupSheetState extends State<_EditGroupSheet> {
+  final _form = GlobalKey<FormState>();
+  late final TextEditingController _name;
+  late final TextEditingController _description;
+  late final TextEditingController _neighborhood;
+  late final TextEditingController _memberLimit;
+  late String _city;
+  late String _district;
+  Uint8List? _cover;
+  String? _coverName;
+  bool _saving = false;
+  late bool _privateGroup;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: widget.group.name);
+    _description = TextEditingController(text: widget.group.description);
+    _neighborhood = TextEditingController(text: widget.group.neighborhood);
+    _memberLimit = TextEditingController(
+      text: widget.group.memberLimit.toString(),
+    );
+    _city = TurkishLocations.provinces.containsKey(widget.group.city)
+        ? widget.group.city
+        : TurkishLocations.provinceNames.first;
+    final districts = TurkishLocations.districtsFor(_city);
+    _district = districts.contains(widget.group.district)
+        ? widget.group.district
+        : districts.first;
+    _privateGroup = widget.group.privateGroup;
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _description.dispose();
+    _neighborhood.dispose();
+    _memberLimit.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickCover() async {
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      imageQuality: 82,
+    );
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+    if (bytes.length > 5 * 1024 * 1024) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Kapak görseli 5 MB altında olmalı.')),
+        );
+      }
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        _cover = bytes;
+        _coverName = file.name;
+      });
+    }
+  }
+
+  Future<void> _save() async {
+    if (!_form.currentState!.validate() || _saving) return;
+    setState(() => _saving = true);
+    try {
+      final updated = await widget.apiService.updateCommunityGroup(
+        groupId: widget.group.id,
+        name: _name.text,
+        description: _description.text,
+        city: _city,
+        district: _district,
+        neighborhood: _neighborhood.text,
+        memberLimit: int.parse(_memberLimit.text),
+        privateGroup: _privateGroup,
+        coverBytes: _cover,
+        coverFileName: _coverName,
+      );
+      if (mounted) Navigator.pop(context, updated);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        0,
+        20,
+        MediaQuery.viewInsetsOf(context).bottom + 24,
+      ),
+      child: SingleChildScrollView(
+        child: Form(
+          key: _form,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const EcoSheetHandle(),
+              Text(
+                'Grubu Düzenle',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 16),
+              InkWell(
+                onTap: _pickCover,
+                child: Container(
+                  height: 130,
+                  width: double.infinity,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: _cover != null
+                      ? Image.memory(_cover!, fit: BoxFit.cover)
+                      : widget.group.coverImageUrl != null
+                      ? Image.network(
+                          widget.group.coverImageUrl!,
+                          fit: BoxFit.cover,
+                        )
+                      : const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_photo_alternate_outlined, size: 36),
+                            Text('Grup görselini değiştir'),
+                          ],
+                        ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _name,
+                decoration: const InputDecoration(labelText: 'Grup adı'),
+                validator: (value) =>
+                    (value ?? '').trim().length < 3 ? 'En az 3 karakter' : null,
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _privateGroup,
+                onChanged: (value) => setState(() => _privateGroup = value),
+                secondary: const Icon(Icons.shield_outlined),
+                title: const Text('Özel grup'),
+                subtitle: const Text(
+                  'Katılım istekleri yönetici onayı gerektirir.',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _description,
+                minLines: 3,
+                maxLines: 5,
+                decoration: const InputDecoration(labelText: 'Açıklama'),
+                validator: (value) => (value ?? '').trim().length < 10
+                    ? 'En az 10 karakter'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _city,
+                decoration: const InputDecoration(labelText: 'İl'),
+                items: TurkishLocations.provinceNames
+                    .map(
+                      (city) =>
+                          DropdownMenuItem(value: city, child: Text(city)),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() {
+                  _city = value!;
+                  _district = TurkishLocations.districtsFor(_city).first;
+                }),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                key: ValueKey(_city),
+                initialValue: _district,
+                decoration: const InputDecoration(labelText: 'İlçe'),
+                items: TurkishLocations.districtsFor(_city)
+                    .map(
+                      (district) => DropdownMenuItem(
+                        value: district,
+                        child: Text(district),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => _district = value!),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _neighborhood,
+                decoration: const InputDecoration(labelText: 'Mahalle'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _memberLimit,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Üye limiti'),
+                validator: (value) {
+                  final limit = int.tryParse(value ?? '');
+                  return limit == null || limit < 2 || limit > 200
+                      ? '2-200 arasında olmalı'
+                      : null;
+                },
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _saving ? null : _save,
+                  icon: _saving
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save_outlined),
+                  label: const Text('Değişiklikleri Kaydet'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _GroupEventCard extends StatelessWidget {
   const _GroupEventCard({
     required this.apiService,
@@ -418,7 +690,14 @@ class _GroupEventCard extends StatelessWidget {
           if (event.coverImageUrl != null)
             AspectRatio(
               aspectRatio: 16 / 7,
-              child: Image.network(event.coverImageUrl!, fit: BoxFit.cover),
+              child: Image.network(
+                event.coverImageUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => ColoredBox(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  child: const Icon(Icons.event_available_rounded, size: 48),
+                ),
+              ),
             ),
           Padding(
             padding: const EdgeInsets.all(16),
@@ -529,7 +808,9 @@ class _RoleAwareMembersSheet extends StatefulWidget {
 class _RoleAwareMembersSheetState extends State<_RoleAwareMembersSheet> {
   final _username = TextEditingController();
   late Future<List<EventMember>> _members;
+  late Future<List<GroupJoinRequest>> _requests;
   bool _adding = false;
+  int _tabIndex = 0;
 
   @override
   void initState() {
@@ -546,8 +827,27 @@ class _RoleAwareMembersSheetState extends State<_RoleAwareMembersSheet> {
   void _reload() {
     setState(() {
       _members = widget.apiService.fetchCommunityGroupMembers(widget.group.id);
+      _requests = widget.group.isAdmin
+          ? widget.apiService.fetchGroupJoinRequests(widget.group.id)
+          : Future.value(const []);
     });
     widget.onChanged();
+  }
+
+  Future<void> _reviewRequest(GroupJoinRequest request, bool approve) async {
+    try {
+      await widget.apiService.reviewGroupJoinRequest(
+        groupId: widget.group.id,
+        requestId: request.id,
+        approve: approve,
+      );
+      _reload();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
   }
 
   Future<void> _addMember() async {
@@ -607,125 +907,206 @@ class _RoleAwareMembersSheetState extends State<_RoleAwareMembersSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
-    child: Column(
-      children: [
-        const EcoSheetHandle(),
-        const ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(
-            'Grup Üyeleri',
-            style: TextStyle(fontWeight: FontWeight.w900),
+  Widget build(BuildContext context) => DefaultTabController(
+    length: widget.group.isAdmin ? 2 : 1,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
+      child: Column(
+        children: [
+          const EcoSheetHandle(),
+          const ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'Grup Üyeleri',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+            subtitle: Text('Kurucu, yöneticiler ve üyeler'),
           ),
-          subtitle: Text('Kurucu, yöneticiler ve üyeler'),
-        ),
-        if (widget.group.isAdmin) ...[
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _username,
-                  autocorrect: false,
-                  decoration: const InputDecoration(
-                    hintText: 'Kullanıcı adıyla üye ekle',
-                    prefixIcon: Icon(Icons.alternate_email),
-                  ),
-                  onSubmitted: (_) => _addMember(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filled(
-                tooltip: 'Üye ekle',
-                onPressed: _adding ? null : _addMember,
-                icon: const Icon(Icons.person_add_alt_1),
-              ),
+          TabBar(
+            onTap: (index) => setState(() => _tabIndex = index),
+            tabs: [
+              const Tab(text: 'Üyeler'),
+              if (widget.group.isAdmin) const Tab(text: 'Katılım İstekleri'),
             ],
           ),
           const SizedBox(height: 10),
-        ],
-        Expanded(
-          child: FutureBuilder<List<EventMember>>(
-            future: _members,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const EcoShimmerList(itemCount: 5);
-              }
-              if (snapshot.hasError) {
-                return Center(child: Text(snapshot.error.toString()));
-              }
-              final members = snapshot.data ?? const [];
-              return ListView.separated(
-                itemCount: members.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final member = members[index];
-                  return ListTile(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => PublicProfileScreen(
-                          apiService: widget.apiService,
-                          userId: member.userId,
-                        ),
-                      ),
+          if (_tabIndex == 0 && widget.group.isAdmin) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _username,
+                    autocorrect: false,
+                    decoration: const InputDecoration(
+                      hintText: 'Kullanıcı adıyla üye ekle',
+                      prefixIcon: Icon(Icons.alternate_email),
                     ),
-                    leading: CircleAvatar(
-                      backgroundImage: member.profilePictureUrl == null
-                          ? null
-                          : NetworkImage(member.profilePictureUrl!),
-                      child: member.profilePictureUrl == null
-                          ? Text(
-                              member.fullName.isEmpty
-                                  ? 'E'
-                                  : member.fullName[0],
-                            )
-                          : null,
-                    ),
-                    title: Text(member.fullName),
-                    subtitle: Text(
-                      member.isFounder
-                          ? 'Kurucu'
-                          : member.isAdmin
-                          ? 'Yönetici'
-                          : 'Üye',
-                    ),
-                    trailing: member.isFounder
-                        ? const Icon(Icons.workspace_premium_outlined)
-                        : PopupMenuButton<String>(
-                            enabled:
-                                widget.group.isFounder || _canRemove(member),
-                            onSelected: (value) => _action(member, value),
-                            itemBuilder: (_) => [
-                              if (widget.group.isFounder && !member.isAdmin)
-                                const PopupMenuItem(
-                                  value: 'promote',
-                                  child: Text('Yönetici Yap'),
-                                ),
-                              if (widget.group.isFounder &&
-                                  member.isAdmin &&
-                                  !member.isFounder)
-                                const PopupMenuItem(
-                                  value: 'demote',
-                                  child: Text('Yöneticiliği Al'),
-                                ),
-                              if (_canRemove(member))
-                                const PopupMenuItem(
-                                  value: 'remove',
-                                  child: Text(
-                                    'Gruptan Çıkar',
-                                    style: TextStyle(color: Colors.red),
-                                  ),
-                                ),
-                            ],
+                    onSubmitted: (_) => _addMember(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  tooltip: 'Üye ekle',
+                  onPressed: _adding ? null : _addMember,
+                  icon: const Icon(Icons.person_add_alt_1),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
+          if (_tabIndex == 0)
+            Expanded(
+              child: FutureBuilder<List<EventMember>>(
+                future: _members,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const EcoShimmerList(itemCount: 5);
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text(snapshot.error.toString()));
+                  }
+                  final members = snapshot.data ?? const [];
+                  return ListView.separated(
+                    itemCount: members.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final member = members[index];
+                      return ListTile(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => PublicProfileScreen(
+                              apiService: widget.apiService,
+                              userId: member.userId,
+                            ),
                           ),
+                        ),
+                        leading: CircleAvatar(
+                          backgroundImage: member.profilePictureUrl == null
+                              ? null
+                              : NetworkImage(member.profilePictureUrl!),
+                          child: member.profilePictureUrl == null
+                              ? Text(
+                                  member.fullName.isEmpty
+                                      ? 'E'
+                                      : member.fullName[0],
+                                )
+                              : null,
+                        ),
+                        title: Text(member.fullName),
+                        subtitle: Text(
+                          member.isFounder
+                              ? 'Kurucu'
+                              : member.isAdmin
+                              ? 'Yönetici'
+                              : 'Üye',
+                        ),
+                        trailing: member.isFounder
+                            ? const Icon(Icons.workspace_premium_outlined)
+                            : PopupMenuButton<String>(
+                                enabled:
+                                    widget.group.isFounder ||
+                                    _canRemove(member),
+                                onSelected: (value) => _action(member, value),
+                                itemBuilder: (_) => [
+                                  if (widget.group.isFounder && !member.isAdmin)
+                                    const PopupMenuItem(
+                                      value: 'promote',
+                                      child: Text('Yönetici Yap'),
+                                    ),
+                                  if (widget.group.isFounder &&
+                                      member.isAdmin &&
+                                      !member.isFounder)
+                                    const PopupMenuItem(
+                                      value: 'demote',
+                                      child: Text('Yöneticiliği Al'),
+                                    ),
+                                  if (_canRemove(member))
+                                    const PopupMenuItem(
+                                      value: 'remove',
+                                      child: Text(
+                                        'Gruptan Çıkar',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                      );
+                    },
                   );
                 },
-              );
-            },
-          ),
-        ),
-      ],
+              ),
+            ),
+          if (_tabIndex == 1 && widget.group.isAdmin)
+            Expanded(
+              child: FutureBuilder<List<GroupJoinRequest>>(
+                future: _requests,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const EcoShimmerList(itemCount: 4);
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text(snapshot.error.toString()));
+                  }
+                  final requests = snapshot.data ?? const [];
+                  if (requests.isEmpty) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.mark_email_read_outlined, size: 48),
+                            SizedBox(height: 10),
+                            Text('Bekleyen katılım isteği yok.'),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  return ListView.separated(
+                    itemCount: requests.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final request = requests[index];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundImage: request.profilePictureUrl == null
+                              ? null
+                              : NetworkImage(request.profilePictureUrl!),
+                          child: request.profilePictureUrl == null
+                              ? Text(
+                                  request.fullName.isEmpty
+                                      ? 'E'
+                                      : request.fullName[0],
+                                )
+                              : null,
+                        ),
+                        title: Text(request.fullName),
+                        subtitle: Text('@${request.username}'),
+                        trailing: Wrap(
+                          spacing: 4,
+                          children: [
+                            IconButton(
+                              tooltip: 'Reddet',
+                              onPressed: () => _reviewRequest(request, false),
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                            IconButton.filled(
+                              tooltip: 'Onayla',
+                              onPressed: () => _reviewRequest(request, true),
+                              icon: const Icon(Icons.check_rounded),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
     ),
   );
 }
@@ -871,6 +1252,7 @@ class _CreateGroupEventSheetState extends State<CreateGroupEventSheet> {
   Uint8List? _cover;
   String? _coverName;
   bool _saving = false;
+  bool _locating = false;
 
   @override
   void initState() {
@@ -928,8 +1310,55 @@ class _CreateGroupEventSheetState extends State<CreateGroupEventSheet> {
     });
   }
 
+  Future<void> _useCurrentLocation() async {
+    if (_locating) return;
+    setState(() => _locating = true);
+    try {
+      final location = await LocationService().getCurrentEventLocation();
+      if (!mounted) return;
+      String? city;
+      for (final item in TurkishLocations.provinceNames) {
+        if (item.toLowerCase() == location.city.toLowerCase()) {
+          city = item;
+          break;
+        }
+      }
+      if (city != null) {
+        _city = city;
+        final districts = TurkishLocations.districtsFor(city);
+        String? district;
+        for (final item in districts) {
+          if (item.toLowerCase() == location.district.toLowerCase()) {
+            district = item;
+            break;
+          }
+        }
+        _district = district ?? districts.first;
+      }
+      _address.text = location.address;
+      setState(() {});
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
+    if (!_date.isAfter(DateTime.now().add(const Duration(minutes: 1)))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Etkinlik tarihi gelecekte olmalıdır.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     setState(() => _saving = true);
     try {
       await widget.apiService.createGroupEvent(
@@ -948,9 +1377,12 @@ class _CreateGroupEventSheetState extends State<CreateGroupEventSheet> {
       if (mounted) Navigator.pop(context);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString().replaceFirst('ApiException: ', '')),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -1069,9 +1501,19 @@ class _CreateGroupEventSheetState extends State<CreateGroupEventSheet> {
               controller: _address,
               minLines: 2,
               maxLines: 3,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Buluşma adresi',
-                prefixIcon: Icon(Icons.pin_drop_outlined),
+                prefixIcon: const Icon(Icons.pin_drop_outlined),
+                suffixIcon: IconButton(
+                  tooltip: 'Mevcut konumumu kullan',
+                  onPressed: _locating ? null : _useCurrentLocation,
+                  icon: _locating
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.my_location_rounded),
+                ),
               ),
               validator: (value) => (value ?? '').trim().length < 8
                   ? 'Açık adres en az 8 karakter olmalı'

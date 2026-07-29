@@ -17,12 +17,10 @@ public record MapPinResponse(
         Instant createdAt,
         Double distanceKm,
         String address,
-        String workingHours,
         Set<String> acceptedMaterials,
         Map<String, Boolean> binStates,
         List<MapPinBinResponse> binList,
-        boolean active,
-        boolean openNow
+        boolean active
 ) {
     public static MapPinResponse from(MapPin pin) {
         return from(pin, null);
@@ -40,16 +38,12 @@ public record MapPinResponse(
                 pin.getCreatedAt(),
                 distanceKm,
                 pin.getAddress(),
-                pin.getWorkingHours(),
                 pin.currentlyAcceptedMaterials(),
-                Map.copyOf(pin.getBinStates()),
+                currentBinStates(pin),
                 pin.getBinList().stream()
                         .map(MapPinBinResponse::from)
                         .toList(),
-                pin.isActive(),
-                pin.isActive() && com.ecovision.backend.service.MapPinHours.isOpenNow(
-                        pin.getWorkingHours()
-                )
+                pin.isActive()
         );
     }
 
@@ -74,12 +68,18 @@ public record MapPinResponse(
                 createdAt,
                 distanceKm,
                 null,
-                null,
                 Set.of(),
                 Map.of(),
                 List.of(),
-                true,
                 true
+        );
+    }
+
+    private static Map<String, Boolean> currentBinStates(MapPin pin) {
+        return Map.of(
+                "pet", pin.acceptsMaterial("pet"),
+                "glass", pin.acceptsMaterial("glass"),
+                "aluminum", pin.acceptsMaterial("aluminum")
         );
     }
 }

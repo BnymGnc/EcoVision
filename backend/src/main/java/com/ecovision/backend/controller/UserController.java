@@ -3,6 +3,7 @@ package com.ecovision.backend.controller;
 import com.ecovision.backend.dto.ChangePasswordRequest;
 import com.ecovision.backend.dto.UpdateProfileRequest;
 import com.ecovision.backend.dto.ProfileVisibilityRequest;
+import com.ecovision.backend.dto.ThemePreferenceRequest;
 import com.ecovision.backend.dto.UserResponse;
 import com.ecovision.backend.service.CurrentUserService;
 import com.ecovision.backend.service.ProfileService;
@@ -45,5 +46,15 @@ public class UserController {
             @Valid @RequestBody ProfileVisibilityRequest request
     ) {
         return profileService.updateVisibility(currentUserService.currentUser(), request);
+    }
+
+    @PutMapping("/theme")
+    public UserResponse updateTheme(
+            @Valid @RequestBody ThemePreferenceRequest request
+    ) {
+        return profileService.updateTheme(
+                currentUserService.currentUser(),
+                request
+        );
     }
 }

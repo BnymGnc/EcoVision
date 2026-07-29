@@ -35,10 +35,10 @@ public class SocialController {
     }
 
     @GetMapping("/users/search")
-    public UserDiscoveryResponse search(@RequestParam String username) {
-        return socialService.searchByExactUsername(
+    public List<UserDiscoveryResponse> search(@RequestParam String query) {
+        return socialService.searchUsers(
                 currentUserService.currentUser(),
-                username
+                query
         );
     }
 

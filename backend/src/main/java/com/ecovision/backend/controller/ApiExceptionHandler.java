@@ -1,10 +1,8 @@
 package com.ecovision.backend.controller;
 
 import com.ecovision.backend.dto.ApiError;
-import com.ecovision.backend.service.ScanCooldownException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
-import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -78,19 +76,6 @@ public class ApiExceptionHandler {
                 ? "İstek tamamlanamadı"
                 : exception.getReason();
         return error(status, message, request);
-    }
-
-    @ExceptionHandler(ScanCooldownException.class)
-    ResponseEntity<Map<String, Object>> scanCooldown(ScanCooldownException exception) {
-        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .header("Retry-After", String.valueOf(exception.getRetryAfterSeconds()))
-                .body(Map.of(
-                        "timestamp", Instant.now(),
-                        "status", HttpStatus.TOO_MANY_REQUESTS.value(),
-                        "error", HttpStatus.TOO_MANY_REQUESTS.getReasonPhrase(),
-                        "message", exception.getMessage(),
-                        "retryAfterSeconds", exception.getRetryAfterSeconds()
-                ));
     }
 
     @ExceptionHandler(Exception.class)

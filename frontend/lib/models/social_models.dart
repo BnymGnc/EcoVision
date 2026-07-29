@@ -1,3 +1,5 @@
+import '../core/media_url.dart';
+
 class EcoBadge {
   const EcoBadge({
     required this.type,
@@ -37,7 +39,7 @@ class SocialUser {
     fullName: (json['fullName'] ?? '').toString(),
     city: (json['city'] ?? '').toString(),
     avatarLevel: (json['avatarLevel'] as num? ?? 1).toInt(),
-    profilePictureUrl: json['profilePictureUrl']?.toString(),
+    profilePictureUrl: MediaUrl.resolve(json['profilePictureUrl']),
     friendshipId: (json['friendshipId'] as num?)?.toInt(),
   );
 }
@@ -90,7 +92,7 @@ class PublicProfile {
     blocked: json['blockedByCurrentUser'] as bool? ?? false,
     profileVisibility: (json['profileVisibility'] ?? 'PUBLIC').toString(),
     detailsVisible: json['detailsVisible'] as bool? ?? true,
-    profilePictureUrl: json['profilePictureUrl']?.toString(),
+    profilePictureUrl: MediaUrl.resolve(json['profilePictureUrl']),
     friendshipStatus: json['friendshipStatus']?.toString(),
     friendshipId: (json['friendshipId'] as num?)?.toInt(),
     badges: (json['badges'] as List? ?? const [])
@@ -129,7 +131,7 @@ class UserDiscovery {
     city: (json['city'] ?? '').toString(),
     avatarLevel: (json['avatarLevel'] as num? ?? 1).toInt(),
     profileVisibility: (json['profileVisibility'] ?? 'PUBLIC').toString(),
-    profilePictureUrl: json['profilePictureUrl']?.toString(),
+    profilePictureUrl: MediaUrl.resolve(json['profilePictureUrl']),
     friendshipId: (json['friendshipId'] as num?)?.toInt(),
     friendshipStatus: json['friendshipStatus']?.toString(),
   );

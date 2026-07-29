@@ -95,10 +95,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         privacyAccepted: _privacyAccepted,
       );
       if (!mounted) return;
-      await ThemeScope.of(
-        context,
-      ).bindToUser(widget.apiService.currentUser!.id);
-      final userId = widget.apiService.currentUser!.id;
+      final user = widget.apiService.currentUser!;
+      await ThemeScope.of(context).bindToUser(
+        userId: user.id,
+        remotePreference: user.themePreference,
+        remoteSaver: (preference) async {
+          await widget.apiService.updateThemePreference(preference);
+        },
+      );
+      final userId = user.id;
       final hasSeenOnboarding = await OnboardingScreen.hasSeenForUser(userId);
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(

@@ -38,7 +38,7 @@ class _CommunityScreenState extends State<CommunityScreen>
   late Future<List<SocialUser>> _friends;
   late Future<List<FriendRequest>> _requests;
   late Future<List<GroupInviteModel>> _invites;
-  UserDiscovery? _discoveredUser;
+  List<UserDiscovery> _discoveredUsers = const [];
   bool _searchingUser = false;
   final Set<String> _selectedCities = {};
   String _selectedDistrict = '';
@@ -77,6 +77,15 @@ class _CommunityScreenState extends State<CommunityScreen>
   void _onSearch(String _) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 350), _reload);
+  }
+
+  void _onUserSearch(String value) {
+    _debounce?.cancel();
+    if (value.trim().length < 3) {
+      setState(() => _discoveredUsers = const []);
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 350), _searchUser);
   }
 
   Future<void> _selectCities() async {
@@ -152,43 +161,27 @@ class _CommunityScreenState extends State<CommunityScreen>
 
   Future<void> _join(CommunityGroup group) async {
     await EcoHaptics.light();
-    String? code;
     if (group.privateGroup && !group.isJoined) {
-      final controller = TextEditingController();
-      code = await showDialog<String>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Özel gruba katıl'),
-          content: TextField(
-            controller: controller,
-            obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'Grup parolası',
-              prefixIcon: Icon(Icons.lock_outline),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Vazgeç'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, controller.text.trim()),
-              child: const Text('Katıl'),
-            ),
-          ],
-        ),
-      );
-      controller.dispose();
-      if (code == null) return;
+      if (group.hasPendingJoinRequest) {
+        _showError('Katılım isteğin yönetici onayı bekliyor.');
+        return;
+      }
+      try {
+        await widget.apiService.requestToJoinCommunityGroup(group.id);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Katılım isteğin gönderildi.')),
+        );
+        _reload();
+      } catch (error) {
+        _showError(error);
+      }
+      return;
     }
     try {
       final joined = group.isJoined
           ? group
-          : await widget.apiService.joinCommunityGroup(
-              group.id,
-              joinCode: code,
-            );
+          : await widget.apiService.joinCommunityGroup(group.id);
       if (!mounted) return;
       await Navigator.push(
         context,
@@ -203,21 +196,94 @@ class _CommunityScreenState extends State<CommunityScreen>
     }
   }
 
+  Future<void> _openInviteCode() async {
+    final controller = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Grup Davet Kodu'),
+        content: TextField(
+          controller: controller,
+          autocorrect: false,
+          decoration: const InputDecoration(
+            hintText: 'Davet kodunu yapıştır',
+            prefixIcon: Icon(Icons.link_rounded),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Gruba Git'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (code == null || code.isEmpty || !mounted) return;
+    try {
+      var group = await widget.apiService.resolveGroupInvite(code);
+      if (!group.isJoined) {
+        group = await widget.apiService.joinCommunityGroup(
+          group.id,
+          joinCode: code,
+        );
+      }
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              GroupChatScreen(apiService: widget.apiService, group: group),
+        ),
+      );
+      _reload();
+    } catch (error) {
+      _showError(error);
+    }
+  }
+
   Future<void> _searchUser() async {
-    final username = _userSearch.text.trim();
-    if (username.isEmpty) return;
+    final query = _userSearch.text.trim();
+    if (query.length < 3) {
+      _showError('Arama için en az 3 karakter yazmalısın.');
+      return;
+    }
     await EcoHaptics.light();
     setState(() {
       _searchingUser = true;
-      _discoveredUser = null;
     });
     try {
-      final user = await widget.apiService.searchUserByUsername(username);
-      if (mounted) setState(() => _discoveredUser = user);
+      final users = await widget.apiService.searchUsers(query);
+      if (mounted) setState(() => _discoveredUsers = users);
     } catch (error) {
       if (mounted) _showError(error);
     } finally {
       if (mounted) setState(() => _searchingUser = false);
+    }
+  }
+
+  Future<void> _sendFriendRequest(UserDiscovery user) async {
+    if (user.friendshipStatus == 'PENDING' ||
+        user.friendshipStatus == 'ACCEPTED') {
+      return;
+    }
+    await EcoHaptics.light();
+    try {
+      await widget.apiService.sendFriendRequest(user.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('@${user.username} için arkadaşlık isteği gönderildi.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      await _searchUser();
+    } catch (error) {
+      if (mounted) _showError(error);
     }
   }
 
@@ -251,6 +317,11 @@ class _CommunityScreenState extends State<CommunityScreen>
       appBar: AppBar(
         title: const Text('Topluluk'),
         actions: [
+          IconButton(
+            tooltip: 'Davet koduyla katıl',
+            onPressed: _openInviteCode,
+            icon: const Icon(Icons.link_rounded),
+          ),
           if (widget.onNotifications != null)
             NotificationBell(
               count: widget.notificationCount,
@@ -259,10 +330,11 @@ class _CommunityScreenState extends State<CommunityScreen>
         ],
         bottom: TabBar(
           controller: _tabs,
+          labelPadding: EdgeInsets.zero,
           tabs: const [
-            Tab(text: 'Gruplar'),
-            Tab(text: 'Arkadaşlar'),
-            Tab(text: 'Davetler'),
+            Tab(icon: Icon(Icons.groups_outlined), text: 'Gruplar'),
+            Tab(icon: Icon(Icons.people_outline), text: 'Arkadaşlar'),
+            Tab(icon: Icon(Icons.mail_outline), text: 'Davetler'),
           ],
         ),
       ),
@@ -380,10 +452,12 @@ class _CommunityScreenState extends State<CommunityScreen>
           controller: _userSearch,
           textInputAction: TextInputAction.search,
           autocorrect: false,
+          onChanged: _onUserSearch,
           onSubmitted: (_) => _searchUser(),
           decoration: InputDecoration(
-            hintText: 'Tam kullanıcı adıyla arkadaş ara',
-            prefixIcon: const Icon(Icons.alternate_email_rounded),
+            hintText: 'Ad veya kullanıcı adı ara',
+            helperText: 'En az 3 karakter yaz',
+            prefixIcon: const Icon(Icons.person_search_outlined),
             suffixIcon: IconButton(
               tooltip: 'Kullanıcıyı ara',
               onPressed: _searchingUser ? null : _searchUser,
@@ -395,11 +469,23 @@ class _CommunityScreenState extends State<CommunityScreen>
           const SizedBox(height: 12),
           const EcoShimmerList(itemCount: 1, padding: EdgeInsets.zero),
         ],
-        if (_discoveredUser != null) ...[
+        if (!_searchingUser &&
+            _discoveredUsers.isEmpty &&
+            _userSearch.text.trim().length >= 3) ...[
           const SizedBox(height: 12),
-          _DiscoveryCard(
-            user: _discoveredUser!,
-            onTap: () => _openProfile(_discoveredUser!.id),
+          const Text('Aramana uygun kullanıcı bulunamadı.'),
+        ],
+        if (_discoveredUsers.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          ..._discoveredUsers.map(
+            (user) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _DiscoveryCard(
+                user: user,
+                onTap: () => _openProfile(user.id),
+                onFriendRequest: () => _sendFriendRequest(user),
+              ),
+            ),
           ),
         ],
         const SizedBox(height: 24),
@@ -507,22 +593,38 @@ class _CommunityScreenState extends State<CommunityScreen>
     child: FutureBuilder<List<GroupInviteModel>>(
       future: _invites,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
-          return const _Loading();
-        if (snapshot.hasError)
-          return _Empty(
-            icon: Icons.error_outline,
-            title: 'Davetler yüklenemedi',
-            message: snapshot.error.toString(),
-            action: _reload,
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+            children: const [_Loading()],
           );
+        }
+        if (snapshot.hasError) {
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+            children: [
+              _Empty(
+                icon: Icons.error_outline,
+                title: 'Davetler yüklenemedi',
+                message: snapshot.error.toString(),
+                action: _reload,
+              ),
+            ],
+          );
+        }
         final invites = snapshot.data ?? const [];
-        if (invites.isEmpty)
-          return const _Empty(
-            icon: Icons.mark_email_read_outlined,
-            title: 'Yeni davet yok',
-            message: 'Özel grup davetlerin burada görünecek.',
+        if (invites.isEmpty) {
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+            children: const [
+              _Empty(
+                icon: Icons.mark_email_read_outlined,
+                title: 'Yeni davet yok',
+                message: 'Özel grup davetlerin burada görünecek.',
+              ),
+            ],
           );
+        }
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
           children: invites
@@ -946,11 +1048,16 @@ class _GroupCard extends StatelessWidget {
             Row(
               children: [
                 CircleAvatar(
-                  child: Icon(
-                    group.privateGroup
-                        ? Icons.lock_outline
-                        : Icons.eco_outlined,
-                  ),
+                  backgroundImage: group.coverImageUrl == null
+                      ? null
+                      : NetworkImage(group.coverImageUrl!),
+                  child: group.coverImageUrl == null
+                      ? Icon(
+                          group.privateGroup
+                              ? Icons.lock_outline
+                              : Icons.eco_outlined,
+                        )
+                      : null,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -989,6 +1096,16 @@ class _GroupCard extends StatelessWidget {
                     avatar: Icon(Icons.check_circle, size: 17),
                     label: Text('Üyesin'),
                   ),
+                if (!group.isJoined && group.hasPendingJoinRequest)
+                  const Chip(
+                    avatar: Icon(Icons.hourglass_top_rounded, size: 17),
+                    label: Text('Onay bekliyor'),
+                  )
+                else if (!group.isJoined && group.privateGroup)
+                  const Chip(
+                    avatar: Icon(Icons.lock_outline_rounded, size: 17),
+                    label: Text('Katılım isteği'),
+                  ),
               ],
             ),
           ],
@@ -1013,9 +1130,14 @@ class _Avatar extends StatelessWidget {
 }
 
 class _DiscoveryCard extends StatelessWidget {
-  const _DiscoveryCard({required this.user, required this.onTap});
+  const _DiscoveryCard({
+    required this.user,
+    required this.onTap,
+    required this.onFriendRequest,
+  });
   final UserDiscovery user;
   final VoidCallback onTap;
+  final VoidCallback onFriendRequest;
 
   @override
   Widget build(BuildContext context) => GlassPanel(
@@ -1036,10 +1158,24 @@ class _DiscoveryCard extends StatelessWidget {
         style: const TextStyle(fontWeight: FontWeight.w900),
       ),
       subtitle: Text('@${user.username} • ${user.city}'),
-      trailing: Icon(
-        user.profileVisibility == 'FRIENDS_ONLY'
-            ? Icons.lock_outline_rounded
-            : Icons.chevron_right_rounded,
+      trailing: IconButton(
+        tooltip: user.friendshipStatus == 'ACCEPTED'
+            ? 'Arkadaşsınız'
+            : user.friendshipStatus == 'PENDING'
+            ? 'İstek bekliyor'
+            : 'Arkadaş ekle',
+        onPressed:
+            user.friendshipStatus == 'ACCEPTED' ||
+                user.friendshipStatus == 'PENDING'
+            ? null
+            : onFriendRequest,
+        icon: Icon(
+          user.friendshipStatus == 'ACCEPTED'
+              ? Icons.people_alt_rounded
+              : user.friendshipStatus == 'PENDING'
+              ? Icons.hourglass_top_rounded
+              : Icons.person_add_alt_1_rounded,
+        ),
       ),
     ),
   );

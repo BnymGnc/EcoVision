@@ -23,6 +23,12 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     @EntityGraph(attributePaths = {"group", "sender", "groupEvent"})
     java.util.Optional<ChatMessage> findByIdAndGroupId(Long id, Long groupId);
 
+    @EntityGraph(attributePaths = {"group", "sender", "replyTo", "replyTo.sender"})
+    Page<ChatMessage> findByGroupIdAndImageUrlIsNotNullOrderByTimestampDesc(
+            Long groupId,
+            Pageable pageable
+    );
+
     @EntityGraph(attributePaths = {"event", "sender"})
     Page<ChatMessage> findBySenderIdOrderByTimestampDesc(Long senderId, Pageable pageable);
 

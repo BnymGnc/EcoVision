@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "community_groups")
@@ -46,6 +47,12 @@ public class CommunityGroup {
 
     private String joinCodeHash;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean privateGroup;
+
+    @Column(unique = true, length = 24)
+    private String inviteCode;
+
     @Column(unique = true)
     private Long legacyEventId;
 
@@ -60,6 +67,9 @@ public class CommunityGroup {
     void prePersist() {
         if (createdAt == null) {
             createdAt = Instant.now();
+        }
+        if (inviteCode == null || inviteCode.isBlank()) {
+            inviteCode = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
         }
     }
 
@@ -84,6 +94,9 @@ public class CommunityGroup {
     @JsonIgnore
     public String getJoinCodeHash() { return joinCodeHash; }
     public void setJoinCodeHash(String joinCodeHash) { this.joinCodeHash = joinCodeHash; }
+    public void setPrivateGroup(boolean privateGroup) { this.privateGroup = privateGroup; }
+    public String getInviteCode() { return inviteCode; }
+    public void setInviteCode(String inviteCode) { this.inviteCode = inviteCode; }
     public Instant getCreatedAt() { return createdAt; }
     public Long getLegacyEventId() { return legacyEventId; }
     public void setLegacyEventId(Long legacyEventId) { this.legacyEventId = legacyEventId; }
@@ -96,6 +109,6 @@ public class CommunityGroup {
         this.pinnedEventId = pinnedEventId;
     }
     public boolean isPrivateGroup() {
-        return joinCodeHash != null && !joinCodeHash.isBlank();
+        return privateGroup || (joinCodeHash != null && !joinCodeHash.isBlank());
     }
 }

@@ -1,3 +1,5 @@
+import '../core/media_url.dart';
+
 class CommunityGroup {
   const CommunityGroup({
     required this.id,
@@ -17,6 +19,8 @@ class CommunityGroup {
     this.pinnedMessageId,
     this.pinnedMessageText,
     this.pinnedEventId,
+    this.joinRequestStatus,
+    this.inviteCode,
   });
 
   final int id;
@@ -35,9 +39,12 @@ class CommunityGroup {
   final int? pinnedMessageId;
   final String? pinnedMessageText;
   final int? pinnedEventId;
+  final String? joinRequestStatus;
+  final String? inviteCode;
   final DateTime createdAt;
 
   bool get isJoined => currentUserRole != null;
+  bool get hasPendingJoinRequest => joinRequestStatus == 'PENDING';
   bool get isFounder => currentUserRole == 'FOUNDER';
   bool get isAdmin =>
       isFounder ||
@@ -57,7 +64,7 @@ class CommunityGroup {
       city: (json['city'] ?? '').toString(),
       district: (json['district'] ?? '').toString(),
       neighborhood: (json['neighborhood'] ?? '').toString(),
-      coverImageUrl: json['coverImageUrl']?.toString(),
+      coverImageUrl: MediaUrl.resolve(json['coverImageUrl']),
       memberLimit: (json['memberLimit'] as num? ?? 20).toInt(),
       memberCount: (json['memberCount'] as num? ?? 0).toInt(),
       privateGroup: json['privateGroup'] as bool? ?? false,
@@ -65,6 +72,8 @@ class CommunityGroup {
       pinnedMessageId: (json['pinnedMessageId'] as num?)?.toInt(),
       pinnedMessageText: json['pinnedMessageText']?.toString(),
       pinnedEventId: (json['pinnedEventId'] as num?)?.toInt(),
+      joinRequestStatus: json['joinRequestStatus']?.toString(),
+      inviteCode: json['inviteCode']?.toString(),
       createdAt:
           DateTime.tryParse((json['createdAt'] ?? '').toString()) ??
           DateTime.now(),
@@ -133,7 +142,7 @@ class GroupEvent {
       city: (json['city'] ?? '').toString(),
       district: (json['district'] ?? '').toString(),
       exactAddress: (json['exactAddress'] ?? '').toString(),
-      coverImageUrl: json['coverImageUrl']?.toString(),
+      coverImageUrl: MediaUrl.resolve(json['coverImageUrl']),
       attendeeCount: (json['attendeeCount'] as num? ?? 0).toInt(),
       capacity: (json['capacity'] as num? ?? 20).toInt(),
       attendees: (json['attendees'] as List<dynamic>? ?? const [])
@@ -161,7 +170,7 @@ class GroupEventAttendee {
     return GroupEventAttendee(
       userId: (json['userId'] as num? ?? 0).toInt(),
       fullName: (json['fullName'] ?? 'EcoVision kullanıcısı').toString(),
-      profilePictureUrl: json['profilePictureUrl']?.toString(),
+      profilePictureUrl: MediaUrl.resolve(json['profilePictureUrl']),
     );
   }
 }

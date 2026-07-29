@@ -1,0 +1,222 @@
+[
+  {
+    "categoryId": "modul-1",
+    "title": "Plastik Atıkların Polimerik Yapısı ve Ekosistem Serüveni",
+    "contentBody": "1. Giriş: Mucizeden Küresel Tehdide\nPlastik, 20. yüzyılın başlarında laboratuvar ortamında sentetik olarak üretildiğinde insanlık için bir mucize olarak görülüyordu. Hafif, dayanıklı, esnek ve maliyeti son derece düşük olan bu malzeme, tıp alanından uzay sanayisine kadar her sektörü dönüştürdü. Ancak plastiği bu kadar mükemmel kılan 'dayanıklılık' özelliği, onu aynı zamanda gezegenin en büyük sorunlarından biri haline getirdi. Doğadaki mikroorganizmalar, sentetik plastiklerin sahip olduğu güçlü karbon-karbon kovalent bağlarını tanıyıp parçalayacak biyolojik enzimlere sahip değildir. Bu nedenle doğaya bırakılan bir plastik şişe çürümez; sadece ufalanır.\n\n2. Parçalanma Süreci: Mikro ve Nanoplastikler\nGüneşten gelen ultraviyole (UV) ışınlar ve mekanik aşındırma ile plastikler 5 milimetreden küçük mikroplastiklere ayrışır. Günümüzde okyanus yüzeylerinden Mariana Çukuru'nun en derin noktalarına, anne sütüne ve insan kanına kadar her yerde mikroplastik partikülleri tespit edilmiştir. Biyoakümülasyon yoluyla bu partiküller besin zincirinde yukarı doğru tırmanarak insan vücuduna geri döner.\n\n3. Geri Dönüşümün Bilimsel Süreci\nBir PET şişe geri dönüşüm tesisine girdiğinde; 'Yakın Kızılötesi (NIR)' spektrometreler ile türüne göre ayrıştırılır. Yıkama ve kırma işleminden sonra 'flake' (çapak) haline gelir. Bu çapaklar 260°C'de eritilerek ince spagetti şeritleri şeklinde dondurulur ve kesilerek 'granüllere' (pellet) dönüştürülür.\n\n4. İleri Dönüşüm (Upcycling)\nPlastik sonsuz kez dönüştürülemez (Downcycling). Bir PET şişe tekrar şişe olmak yerine genellikle polar montlara, otomobil yalıtım malzemelerine veya plastik paletlere dönüştürülür.\n\n5. Yapay Zeka Tarama İpuçları\nŞeffaf plastikleri taratırken güçlü arkadan vuran ışıklardan kaçının. Koyu ve zıt renkli bir arka planda kapağı veya kağıt etiketi belirgin olacak şekilde kadraja almak yapay zekanın güven skorunu anında %95'in üzerine çıkarır.",
+    "questions": [
+      {
+        "questionText": "Doğadaki mikroorganizmaların plastikleri çürütememesinin temel kimyasal nedeni nedir?",
+        "options": ["Plastiklerin aşırı derecede ağır olması", "Sentetik karbon-karbon kovalent bağlarını kıracak enzimlere sahip olmamaları", "Plastiklerin güneş ışığını doğrudan yansıtması"],
+        "correctOptionIndex": 1
+      },
+      {
+        "questionText": "Geri dönüşüm tesislerinde farklı plastik türleri (PET, HDPE vb.) hangi teknoloji kullanılarak birbirlerinden ayrıştırılır?",
+        "options": ["Mıknatıslı bant sistemleri", "Yüksek basınçlı su tankları", "Yakın Kızılötesi (NIR) spektrometreler"],
+        "correctOptionIndex": 2
+      },
+      {
+        "questionText": "Geri dönüştürülmüş bir PET şişe polimer zincirleri kısaldığı için genellikle hangi ürüne dönüşür?",
+        "options": ["Polar tekstil ürünlerine veya yalıtım malzemelerine", "Yüksek ısıya dayanıklı fırın kaplarına", "Biyolojik olarak parçalanabilir çöp poşetine"],
+        "correctOptionIndex": 0
+      }
+    ]
+  },
+  {
+    "categoryId": "modul-2",
+    "title": "Cam Atıklar – Sonsuz Döngünün Kristal Hali",
+    "contentBody": "1. Doğanın Kusursuz Elementi\nCam; silis kumu, soda ve kireçtaşından oluşur. Kimyasal olarak inanılmaz derecede kararlıdır (inert). Bu sayede içine konulan gıdanın tadını değiştirmez. Ancak aynı kararlılık, doğaya atılan bir cam şişenin 4.000 yıldan fazla süre bütünlüğünü korumasına neden olur.\n\n2. Geri Dönüşümün Altın Standardı\nCamı diğer tüm geri dönüştürülebilir atıklardan ayıran eşsiz bir özelliği vardır: Kalitesinden ve saflığından hiçbir şey kaybetmeden sonsuz kez geri dönüştürülebilir. Plastik polimerleri her eritildiğinde zayıflar, ancak cam sadece şekil değiştirir.\n\n3. Enerji ve Emisyon Tasarrufu\nSıfırdan kum kullanarak cam üretmek için fırınların 1.600°C'ye ulaşması gerekir. Oysa kırık cam parçaları (cullet), 1.000°C civarında erir. Geri dönüştürülmüş cam oranındaki her %10'luk artış, CO2 emisyonlarını %5 oranında azaltır. Bir tek cam şişeyi dönüştürmek, bir ampulü 4 saat yakacak enerjiyi kurtarır.\n\n4. Renklerin Bilimi\nCam geri dönüşümündeki en büyük teknik engel renk ayrımıdır. Kahverengi bir şişe kırığı, şeffaf cam fırınına karışırsa tüm üretim serisinin şeffaflığını bozar. Optik lazerlerle renk ayrımı şarttır.\n\n5. Yapay Zeka Tarama İpuçları\nYapay zeka camları analiz ederken parlama (glare) sorunu yaşar. Cam şişeyi ana ışık kaynağına (pencere/lamba) doğru tutarak, ışığın içinden geçip silüetini belirginleştirmesini sağlamak tanınma oranını maksimize eder.",
+    "questions": [
+      {
+        "questionText": "Camın plastik veya kağıda kıyasla geri dönüşüm alanındaki en büyük bilimsel üstünlüğü nedir?",
+        "options": ["Doğada en hızlı çözünen malzeme olması", "Geri dönüştürülürken yapısal kalitesinden hiçbir şey kaybetmemesi", "Sadece organik atıklarla dönüştürülebilmesi"],
+        "correctOptionIndex": 1
+      },
+      {
+        "questionText": "Sıfırdan kum yerine, kırık cam (cullet) kullanarak cam üretmek temel olarak ne sağlar?",
+        "options": ["Camın esnek olmasını", "Camın daha renkli olmasını", "Fırınların daha düşük sıcaklıklarda çalışarak devasa enerji ve emisyon tasarrufu yapmasını"],
+        "correctOptionIndex": 2
+      },
+      {
+        "questionText": "Aşağıdaki malzemelerden hangisi, erime noktası farklı olduğu için standart cam şişe geri dönüşümüne KESİNLİKLE atılmamalıdır?",
+        "options": ["Isıya dayanıklı fırın kapları (Pyrex) ve seramik kupalar", "Şeffaf maden suyu şişeleri", "Yeşil zeytinyağı şişeleri"],
+        "correctOptionIndex": 0
+      }
+    ]
+  },
+  {
+    "categoryId": "modul-3",
+    "title": "Kağıt ve Karton: Liflerin Yaşam Döngüsü",
+    "contentBody": "1. Kağıdın Yapısı ve Çevresel Etkisi\nKağıt, ağaçlardan elde edilen selüloz liflerinden üretilir. Kurtarılan her 1 ton kağıt, yaklaşık 17 ağacın kesilmesini ve 26.000 litre suyun tüketilmesini önler. Aksi takdirde çöplüklere giden kağıt, havasız ortamda çürüyerek metan gazı salgılar.\n\n2. Lif Kısalması: Sınırlandırılmış Dönüşüm\nCam veya metalin aksine kağıt sonsuz bir döngüye sahip değildir. Geri dönüşüm sürecinde kağıt hamur haline getirilirken lifleri kırılır ve kısalır. Bir selüloz lifi ortalama 5 ila 7 kez geri dönüştürülebilir. Lifler çok kısaldığında tuvalet kağıdı veya yumurta viyolü gibi düşük kaliteli ürünlere dönüşür ve döngüsünü tamamlar.\n\n3. Geri Dönüşüm Süreci\nToplanan atık kağıtlar dev mikserlerde (pulper) su ve kimyasallarla karıştırılarak 'hamur' (pulp) haline getirilir. Santrifüj ve eleklerden geçerek içindeki zımba teli, plastik bant ve mürekkeplerden (de-inking) arındırılır. Sonrasında preslenip dev bobinlere sarılarak yeni kağıt fabrikalarına gönderilir.\n\n4. Kirletici (Kontamine) Atıklar\nYağlı bir pizza kutusu, kullanılmış peçeteler veya ıslak mendiller geri dönüştürülemez. Yağ, kağıt liflerine işler ve hamurlaştırma sürecinde su ile karışmayı engelleyerek tüm partiyi bozar. Bunlar organik atık veya normal çöp statüsündedir.\n\n5. Yapay Zeka Tarama İpuçları\nBuruşturulmuş bir A4 kağıt formunu kaybettiği için AI tarafından 'organik atık' sanılabilir. Taratmadan önce kağıdı veya kartonu düzeltmek ve yüzeyini net bir şekilde kadraja almak doğruluğu artırır.",
+    "questions": [
+      {
+        "questionText": "Kağıt neden sonsuza kadar geri dönüştürülemez?",
+        "options": ["Rengini kaybettiği için", "Mürekkebi tamamen silinemediği için", "Selüloz lifleri her dönüşümde kısalıp zayıfladığı için"],
+        "correctOptionIndex": 2
+      },
+      {
+        "questionText": "1 ton kağıdın geri dönüştürülmesi yaklaşık kaç ağacın kesilmesini önler?",
+        "options": ["5", "10", "17"],
+        "correctOptionIndex": 2
+      },
+      {
+        "questionText": "Hangi tür kağıt/karton atık geri dönüşüm sistemine DAHİL EDİLEMEZ?",
+        "options": ["Yağlı pizza kutuları", "Zımbalı ofis kağıtları", "Renkli dergiler"],
+        "correctOptionIndex": 0
+      }
+    ]
+  },
+  {
+    "categoryId": "modul-4",
+    "title": "Metal Atıklar: Çelik ve Alüminyumun Endüstriyel Gücü",
+    "contentBody": "1. Alüminyumun Enerji Mucizesi\nAlüminyum yeryüzünde en çok bulunan elementlerden biri olsa da, doğadaki cevherden (boksit) çıkartılarak işlenmesi devasa bir enerji gerektirir. Ancak bir alüminyum kutuyu sıfırdan üretmek yerine geri dönüştürmek %95 oranında enerji tasarrufu sağlar. Bu, endüstriyel dünyadaki en büyük tasarruf oranlarından biridir.\n\n2. Çelik mi, Alüminyum mu?\nGeri dönüşüm endüstrisinde metal atıklar iki ana koldan işlenir: Manyetik (çelik gibi) ve Manyetik Olmayan (alüminyum gibi). Evinizdeki bir konservenin veya içecek kutusunun ne olduğunu anlamanın en basit yolu ona bir buzdolabı mıknatısı yaklaştırmaktır. Mıknatıs yapışıyorsa çelik, yapışmıyorsa alüminyumdur.\n\n3. Kalitesini Asla Kaybetmeyen Döngü\nTıpkı cam gibi, metaller de kalitelerinden ödün vermeden sonsuz kez eritilip yeniden şekillendirilebilir. Devasa fırınlarda eritilen atıklar, ingot adı verilen büyük metal bloklarına dönüştürülür. Altı hafta önce içtiğiniz bir meşrubatın kutusu, bugün bir uçağın gövdesinde veya bir bisiklet jantında uçuyor olabilir.\n\n4. Boya ve Etiketlerin Akıbeti\nMetal kutuların üzerindeki markalama boyaları ve etiketler, geri dönüşüm sürecinde ergitme fırınlarında 500°C ile 1500°C arasındaki ısılarda buharlaşarak veya kül olarak tamamen sistemden uzaklaşır. Temiz metal eriyik dibe çöker.\n\n5. Yapay Zeka Tarama İpuçları\nAI, konserve kutularının silindirik yapısını kolayca tanır. Ancak metal tamamen ezilmişse formunu kaybeder. Üzerinde marka ve barkod olsa bile, malzemenin metalik parlamasını ve katlanma yerlerini gösterecek şekilde hafif çapraz bir açıdan tarama yapılması doğru sonuç verir.",
+    "questions": [
+      {
+        "questionText": "Alüminyum bir kutuyu sıfırdan üretmek yerine geri dönüştürmek yaklaşık yüzde kaç oranında enerji tasarrufu sağlar?",
+        "options": ["%20", "%50", "%95"],
+        "correctOptionIndex": 2
+      },
+      {
+        "questionText": "Evdeki atığın Çelik mi yoksa Alüminyum mu olduğunu en basit hangi yöntemle anlarsınız?",
+        "options": ["Suya atıp batmasına bakarak", "Mıknatıs yapıştırarak (Yapışıyorsa çelik)", "Bükerek esnekliğini ölçerek"],
+        "correctOptionIndex": 1
+      },
+      {
+        "questionText": "Metallerin (çelik ve alüminyum) geri dönüşümü hakkında aşağıdakilerden hangisi doğrudur?",
+        "options": ["Sadece 5 kez dönüştürülebilirler", "Kalitelerinden ödün vermeden sonsuz kez dönüştürülebilirler", "Geri dönüştürüldüklerinde sadece inşaat çivisi olabilirler"],
+        "correctOptionIndex": 1
+      }
+    ]
+  },
+  {
+    "categoryId": "modul-5",
+    "title": "Elektronik Atıklar (E-Atık): Gizli Zehir ve Kentsel Madencilik",
+    "contentBody": "1. Teknolojinin Karanlık Yüzü\nBozulan telefonlar, kablolar, piller ve devre kartları dünyada en hızlı büyüyen atık türüdür. E-atıklar kurşun, cıva, kadmiyum ve berilyum gibi son derece toksik (zehirli) ağır metaller içerir. Çöpe atılıp doğaya bırakıldıklarında, bu ağır metaller yağmur sularıyla yeraltı sularına ve toprağa sızarak tüm ekosistemi ve insan sağlığını tehdit eder.\n\n2. Kentsel Madencilik (Urban Mining)\n1 ton atık cep telefonundan elde edilen altın miktarı, doğadaki 1 ton altın cevherinden elde edilenden daha fazladır. E-atıkların içindeki altın, gümüş, platin, bakır ve lityum gibi değerli madenlerin elektronik anakartlardan kimyasal yollarla geri kazanılması işlemine 'kentsel madencilik' denir.\n\n3. Pillerin Tehlikesi\nÖzellikle lityum-iyon piller yanlışlıkla normal çöp kırma makinelerine girerse patlayarak devasa yangınlara sebep olurlar. Bu nedenle e-atıklar standart geri dönüşüm tesislerine değil, özel izolasyonlu e-atık bertaraf merkezlerine gönderilmelidir.\n\n4. Veri Güvenliği ve Döngü\nBir bilgisayarı veya telefonu geri dönüşüme yollarken fiziksel imha işlemlerinden önce veri güvenliği (harddisklerin profesyonelce silinmesi) büyük önem taşır. Cihazlar demonte edilir; plastiği, camı ve değerli metalleri ayrılarak tekrar teknoloji endüstrisine kazandırılır.\n\n5. Yapay Zeka Tarama İpuçları\nElektronik kabloları veya küçük donanımları (fare, adaptör) tararken arka planın desensiz ve sade (örneğin düz bir masa) olması çok önemlidir. Karmaşık zeminler, kabloların ince hatlarını yutarak yapay zekanın nesneyi tanımasını engeller.",
+    "questions": [
+      {
+        "questionText": "E-Atıkların çöpe atılıp doğaya bırakılması neden sıradan atıklardan çok daha tehlikelidir?",
+        "options": ["Kötü koku yaydıkları için", "İçerdikleri ağır metaller ve zehirli asitler yeraltı sularına sızdığı için", "Çok yer kapladıkları için"],
+        "correctOptionIndex": 1
+      },
+      {
+        "questionText": "1 ton atık cep telefonunda, doğadaki 1 ton cevhere kıyasla daha fazla bulunan değerli maden hangisidir?",
+        "options": ["Gümüş", "Platin", "Altın"],
+        "correctOptionIndex": 2
+      },
+      {
+        "questionText": "Elektronik devrelerdeki altın, bakır gibi madenlerin çöplerden geri kazanılması işlemine ne ad verilir?",
+        "options": ["Derin Madencilik", "Kentsel Madencilik (Urban Mining)", "Biyolojik Çözünme"],
+        "correctOptionIndex": 1
+      }
+    ]
+  },
+  {
+    "categoryId": "modul-6",
+    "title": "Kompozit Atıklar (Tetra Pak): Ayrıştırılması Zor Katmanlar",
+    "contentBody": "1. Kompozit Nedir?\nSüt, meyve suyu ve hazır çorba kutuları dışarıdan sadece kağıt gibi görünse de aslında 'kompozit' adı verilen çok katmanlı yapıya sahiptirler. Tipik bir uzun ömürlü karton kutunun (Tetra Pak) %75'i kağıt, %20'si polietilen (plastik) ve %5'i sıvı ile havayı tamamen kesen alüminyum folyodan oluşur.\n\n2. Geri Dönüşüm Neden Zordur?\nBirbirine sımsıkı preslenmiş olan bu kağıt, plastik ve alüminyum katmanlarını birbirinden ayırmak teknolojik olarak zordur. Bu nedenle kompozit atıklar standart kağıt geri dönüşüm hatlarına atılamaz. Sadece 'hidrapulper' (dev karıştırıcı kazanlar) teknolojisine sahip özel tesislerde su eşliğinde saatlerce şiddetli şekilde döndürülerek katmanlarına ayrıştırılırlar.\n\n3. Yeni Hayat\nAyrışan %75'lik kaliteli uzun selüloz lifleri (kağıt kısmı) genellikle tuvalet kağıdı, peçete ve karton üretiminde kullanılır. Geriye kalan %25'lik plastik ve alüminyum karışımı ise (PolyAl olarak bilinir) eritilip preslenerek park bankları, bahçe mobilyaları, saksılar ve çatı kaplama malzemesi gibi suya dayanıklı sert ürünlere dönüştürülür.\n\n4. Tüketici Sorumluluğu\nKutunun içinde kalan az miktarda süt veya meyve suyu zamanla koku ve mantar yaparak geri dönüşüm kalitesini düşürür. İdeal olan, kutuyu atmadan önce çalkalayıp düzleştirmektir (hacim tasarrufu).\n\n5. Yapay Zeka Tarama İpuçları\nYapay zeka kompozit kutuları genellikle üzerindeki marka tasarımlarından tanır. Taratırken pipet girişini veya vidalı kapağını (kutunun üst kısmını) da kameraya göstermek algoritmanın bu yapıyı sıradan bir karton değil, sıvı saklama kabı olarak sınıflandırmasını kolaylaştırır.",
+    "questions": [
+      {
+        "questionText": "Süt ve meyve suyu kutularının (Tetra Pak) geri dönüştürülmesini çok zorlaştıran temel özellik nedir?",
+        "options": ["Sadece kağıttan üretilmeleri", "Boyalarının zehirli olması", "Kağıt, plastik ve alüminyumun iç içe katmanlar halinde preslenmiş olması"],
+        "correctOptionIndex": 2
+      },
+      {
+        "questionText": "Kompozit kutuların geri dönüşümünden geriye kalan plastik/alüminyum (PolyAl) karışımı genellikle ne üretiminde kullanılır?",
+        "options": ["Park bankları ve dış mekan malzemeleri", "Yeni süt kutuları", "Otomobil lastikleri"],
+        "correctOptionIndex": 0
+      },
+      {
+        "questionText": "Yapay zekanın kompozit kutuları sıradan kağıttan ayırabilmesi için tarama esnasında hangi detayın görünmesi önemlidir?",
+        "options": ["Kutunun altı", "Pipet deliği veya plastik kapağı", "Sadece son kullanma tarihi"],
+        "correctOptionIndex": 1
+      }
+    ]
+  },
+  {
+    "categoryId": "modul-7",
+    "title": "Bitkisel Atık Yağlar: Suyu Boğan Sarı Tehlike",
+    "contentBody": "1. Ekolojik Yıkım Etkisi\nKızartma sonrasında lavaboya dökülen kullanılmış bitkisel atık yağlar, çevresel yıkımın sinsi failleridir. Yağ sudan hafif olduğu için nehir, göl ve deniz yüzeyini ince bir film tabakası gibi kaplar. Bu tabaka su altı ekosistemine güneş ışığının ve oksijenin geçişini engelleyerek deniz canlılarının boğulmasına neden olur. Sadece 1 litre atık yağ, 1 milyon litre temiz içme suyunu kullanılmaz hale getirir.\n\n2. Kanalizasyon Canavarları (Fatberg)\nLavaboya dökülen sıvı yağlar, soğuk kanalizasyon borularında ıslak mendil ve diğer atıklarla birleşerek beton gibi sertleşen devasa tıkanıklıklara ('fatberg') neden olur. Bu durum altyapı çöküşlerine ve taşkınlara yol açar.\n\n3. Esterleşme ve Biyodizel\nBilinçli tüketiciler tarafından ayrı şişelerde biriktirilip belediyelerin yağ kumbaralarına atılan bu atıklar, tesislerde 'transesterifikasyon' (esterleşme) adı verilen kimyasal bir reaksiyondan geçirilir. Yağın içindeki gliserin ayrıştırılır ve geriye temiz ve çevreci bir yakıt olan 'Biyodizel' kalır. Ayrıca ayrışan gliserin sabun ve kozmetik sanayisinde kullanılır.\n\n4. İklim Değişikliğine Etkisi\nFosil yakıtlar (petrol dizeli) yerine atık yağdan üretilen biyodizelin kullanılması, karbon emisyonlarını %70 ila %90 oranında azaltarak sera gazı salınımını doğrudan durdurur.\n\n5. Yapay Zeka Tarama İpuçları\nKameranın atık yağı algılayabilmesi için formunu görmesi gerekir. Atık yağı şeffaf bir pet şişede biriktirin. Yapay zekaya taratırken, sıvının sarı/kahverengi rengini görebilmesi için şişenin etrafında iyi bir ışıklandırma olmasına özen gösterin.",
+    "questions": [
+      {
+        "questionText": "Sadece 1 litre atık kızartma yağının lavaboya dökülmesi ne kadar temiz içme suyunu kirletir?",
+        "options": ["1.000 Litre", "10.000 Litre", "1.000.000 Litre"],
+        "correctOptionIndex": 2
+      },
+      {
+        "questionText": "Toplanan atık yağlar kimyasal işlemlerden geçirildikten sonra hangi temiz ürüne dönüştürülür?",
+        "options": ["Biyodizel yakıta", "Sentetik motor yağına", "Tarım ilacına"],
+        "correctOptionIndex": 0
+      },
+      {
+        "questionText": "Atık yağlar su altı ekosistemine (denizler, göller) temelde nasıl zarar verir?",
+        "options": ["Suyu dondurarak", "Su yüzeyini kaplayarak oksijen ve güneş ışığının geçişini engelleyerek", "Balıkların midesinde genleşerek"],
+        "correctOptionIndex": 1
+      }
+    ]
+  },
+  {
+    "categoryId": "modul-8",
+    "title": "Tekstil ve Kumaş Atıkları: Hızlı Modanın Ağır Bedeli",
+    "contentBody": "1. Hızlı Moda (Fast Fashion) Endüstrisi\nGünümüzde tekstil endüstrisi, petrol sektöründen sonra dünyayı en çok kirleten ikinci endüstridir. Pamuk tarlalarında aşırı su ve kimyasal ilaç kullanımı, polyester üretiminde fosil yakıtların harcanması büyük bir ekolojik iz bırakır. Örneğin, sadece bir adet pamuklu tişört üretmek için yaklaşık 2.700 litre su harcanır. Bu miktar, bir insanın 2.5 yıllık içme suyu ihtiyacına eşdeğerdir.\n\n2. Tekstil Çöplükleri\nKullanılmayan kıyafetlerin çöpe atılması, onların doğada biyolojik olarak parçalanıp yok olacağı anlamına gelmez. Özellikle polyester ve naylon gibi sentetik kumaşlar aslında birer plastiktir ve doğada çözünmeleri 200 yıldan fazla sürer. Çöplüklere yığılan bu giysiler toprağa ve yeraltı sularına kimyasal boyalar sızdırır.\n\n3. Geri Dönüşüm Mekanizması\nBelediyelerin tekstil kumbaralarına atılan kıyafetler önce manuel olarak ayrıştırılır. Giyilebilir durumda olanlar ikinci el mağazalarına veya ihtiyaç sahiplerine gönderilir. Yıpranmış ve yırtık olanlar ise dev makinelerde ('shoddy' işlemi) doğranarak küçük elyaf parçalarına dönüştürülür.\n\n4. Yeni Kullanım Alanları\nKumaşlardan elde edilen bu geri dönüştürülmüş elyaflar, tekrar iplik yapılarak yeni kazaklara dönüşebileceği gibi; çoğu zaman otomobil kaporta yalıtımında, inşaat izolasyon malzemelerinde veya endüstriyel temizlik bezlerinde dolgu maddesi olarak kullanılır.\n\n5. Yapay Zeka Tarama İpuçları\nKamera, düzgün katlanmış eski bir kıyafeti bazen renkli bir kağıt veya plastik örtü zannedebilir. Kumaşı taratırken tekstilin dokusunu (örgülerini), yaka, düğme veya kol gibi giysi detaylarını kadraja dahil etmek sınıflandırma başarısını garantiler.",
+    "questions": [
+      {
+        "questionText": "Pamuklu tek bir tişört üretmek için tarım aşamasından itibaren harcanan su miktarı yaklaşık ne kadardır?",
+        "options": ["50 Litre", "500 Litre", "2.700 Litre"],
+        "correctOptionIndex": 2
+      },
+      {
+        "questionText": "Polyester ve naylon gibi sentetik kumaş atıklarının doğadaki gerçek statüsü nedir?",
+        "options": ["Organik gübredirler", "Onlar aslında birer plastiktir ve yüzyıllarca çözünmezler", "Metal sınıfına girerler"],
+        "correctOptionIndex": 1
+      },
+      {
+        "questionText": "Kullanılamaz durumdaki eski kıyafetler geri dönüşüm makinelerinde parçalanarak öncelikle hangi forma dönüştürülür?",
+        "options": ["Elyaf ve dolgu malzemesine", "Plastik polimere", "Sıvı hammaddeye"],
+        "correctOptionIndex": 0
+      }
+    ]
+  },
+  {
+    "categoryId": "modul-9",
+    "title": "Organik Evsel Atıklar: Çöpten Kara Altına",
+    "contentBody": "1. Organik Atık Nedir?\nMeyve-sebze kabukları, çay posası, yumurta kabukları, kahve telveleri ve bahçe budama atıkları organik (biyobozunur) atıklar sınıfına girer. Normal şartlarda bu atıklar doğanın en faydalı gübreleridir.\n\n2. Çöplüklerdeki Gizli Tehlike: Metan\nOrganik atıklar plastik torbaların içinde havasız (oksijensiz - anaerobik) çöp dağlarının altına gömüldüğünde doğal yollarla çürüyemezler. Oksijensiz ortamda çürüdükleri için karbondioksitten 21 kat daha güçlü bir sera gazı olan 'Metan' gazı salgılarlar. Küresel ısınmanın gizli tetikleyicilerinden biri de çöplüklere giden muz kabuklarıdır.\n\n3. Biyogaz Teknolojisi\nModern atık yönetim tesislerinde organik atıklar dev kapalı tanklara (biyoreaktör) alınır. Burada özel bakterilerle fermente edilerek 'Biyogaz' (metan ve karbondioksit karışımı) elde edilir. Bu gaz yakılarak binlerce hanenin elektrik ihtiyacını karşılayan yeşil enerjiye dönüştürülür.\n\n4. Kompost (Kara Altın)\nEvde bile yapılabilecek en basit geri dönüşüm yöntemidir. Organik atıkların hava, nem ve mikroorganizmalar yardımıyla kontrollü çürütülmesi işlemidir. Sonuçta ortaya çıkan toprak benzeri yapıya 'Kompost' denir. Tarımda toprak verimliliğini inanılmaz derecede artırdığı için buna kentsel çiftçilikte 'kara altın' denir.\n\n5. Yapay Zeka Tarama İpuçları\nYapay zeka meyve sebze kabuklarını formlarından (bir elma veya muz kabuğu formundayken) kolayca tanır. Ancak atıklar tamamen sıvılaşıp çamur kıvamına gelmişse tanımlamak zorlaşır. Organik atıkları taratırken parçaların ne olduğu henüz seçilebilir durumdayken okutmak gerekir.",
+    "questions": [
+      {
+        "questionText": "Çöplüklerde oksijensiz kalan organik atıklar, küresel ısınmayı tetikleyen hangi güçlü sera gazını üretir?",
+        "options": ["Karbon monoksit", "Metan", "Ozon"],
+        "correctOptionIndex": 1
+      },
+      {
+        "questionText": "Organik atıkların kontrollü çürütülmesiyle elde edilen, tarımda 'kara altın' olarak bilinen ürün nedir?",
+        "options": ["Biyo-kömür", "Torf", "Organik gübre (Kompost)"],
+        "correctOptionIndex": 2
+      },
+      {
+        "questionText": "Organik atıklardan kapalı tanklarda (biyoreaktör) fermentasyon yoluyla elde edilen ve elektrik üretiminde kullanılan enerjiye ne ad verilir?",
+        "options": ["Biyogaz", "Hidrojen yakıtı", "Jeotermal enerji"],
+        "correctOptionIndex": 0
+      }
+    ]
+  },
+  {
+    "categoryId": "modul-10",
+    "title": "Tehlikeli ve Tıbbi Atıklar: İzole Edilmiş Sistemler",
+    "contentBody": "1. Tehlikeli Atık Kategorisi\nTarihi geçmiş veya kullanılmayan ilaçlar, bataryalar (piller), şırıngalar (enjektörler), kullanılmış iğne uçları, cıvalı termometreler, boya kutuları ve motor yağları standart atık sınıfına girmez. Bu atıklar patlayıcı, yanıcı, toksik (zehirleyici) ve bulaşıcı (enfeksiyöz) özelliklere sahip olabilir.\n\n2. Geri Dönüşüm Sürecine Etkisi\nBir tek şırınganın veya bir paket zehirli ilacın standart plastik/kağıt geri dönüşüm bandına karışması tüm hattı durdurabilir ve tesis çalışanları için ölümcül enfeksiyon veya zehirlenme riski yaratır. Bu yüzden hiçbir tehlikeli atık evsel veya normal geri dönüşüm kutularına KESİNLİKLE atılmamalıdır.\n\n3. Bertaraf ve İmha (Yakma Tesisleri)\nTehlikeli atıklar geri dönüştürülmezler, özel yöntemlerle 'bertaraf' edilirler. Bu atıklar lisanslı, kalın yalıtımlı araçlarla toplanır. Atmosfere zehirli gaz salınımını engelleyen ağır baca filtrelerine sahip 'İnsineratör' (yakma) fırınlarında 1000°C'nin üzerinde sıcaklıklarda tamamen yakılarak steril küllere dönüştürülür. Elde edilen zararsız kül özel depolama alanlarına (lot) gömülür.\n\n4. Bireysel Sorumluluk (Ne Yapmalısınız?)\nTarihi geçmiş ilaçlar lavaboya veya klozete dökülmemelidir; aksi takdirde su arıtma tesislerinde bile temizlenemezler ve içme sularına karışarak hormon bozukluklarına sebep olurlar. Bu atıklar eczanelerde bulunan 'Atık İlaç Kumbaralarına' bırakılmalı, piller marketlerdeki pil kutularına, tıbbi atıklar ise hastane/sağlık ocaklarındaki sarı-kırmızı tehlikeli atık poşetlerine teslim edilmelidir.\n\n5. Yapay Zeka (EcoVision) Güvenlik Protokolü\nEcoVision sistemi bir şırınga, ilaç kutusu veya tehlikeli bir sıvı kabı algıladığında geri dönüşüm puanı veya rozet VERMEZ. Sistem doğrudan 'Güvenlik Protokolüne' geçer. Ekran uyarı rengine (kırmızıya) bürünür ve kullanıcıya bu atığı asla normal kutulara atmaması, özel toplama noktalarına ulaştırması gerektiği konusunda zorunlu bir bilgilendirme ekranı sunar.",
+    "questions": [
+      {
+        "questionText": "Tarihi geçmiş ilaçlar lavaboya veya tuvalete dökülürse ne gibi bir sonuç ortaya çıkar?",
+        "options": ["Su arıtma tesisleri bunları kolayca temizler", "Su arıtma tesislerinde temizlenemez ve su kaynaklarına karışarak doğayı tehdit eder", "Kanalizasyon borularını temizler"],
+        "correctOptionIndex": 1
+      },
+      {
+        "questionText": "Tıbbi ve tehlikeli atıklar (şırıngalar, tarihi geçmiş ilaçlar) genellikle nasıl imha edilir (bertaraf edilir)?",
+        "options": ["Özel yalıtımlı ve filtreli (İnsineratör) fırınlarda çok yüksek ısıda yakılarak sterilize edilir", "Derin denizlere atılarak çözünmeye bırakılır", "Plastik tesislerinde eritilerek yeni şırınga yapılır"],
+        "correctOptionIndex": 0
+      },
+      {
+        "questionText": "EcoVision sistemi kamerada tıbbi bir atık (ör. şırınga) algıladığında kullanıcıya hangi reaksiyonu verir?",
+        "options": ["Özel atık sınıfı olduğu için 100 Puan verir", "Atığı görmezden gelir ve analiz sonucunu gizler", "Puan vermez, ekranı kırmızıya çevirerek 'Tehlikeli Atık Uyarısı' verir ve bilgilendirir"],
+        "correctOptionIndex": 2
+      }
+    ]
+  }
+]

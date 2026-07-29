@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 
 import com.ecovision.backend.model.AppUser;
 import com.ecovision.backend.model.CommunityGroup;
@@ -16,6 +17,7 @@ import com.ecovision.backend.repository.CommunityGroupRepository;
 import com.ecovision.backend.repository.GroupEventAttendanceRepository;
 import com.ecovision.backend.repository.GroupEventRepository;
 import com.ecovision.backend.repository.GroupMemberRepository;
+import com.ecovision.backend.repository.GroupJoinRequestRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +36,7 @@ class CommunityGroupServiceTest {
     @Mock private GroupEventAttendanceRepository attendance;
     @Mock private ChatMessageRepository chatMessages;
     @Mock private PasswordEncoder passwordEncoder;
+    @Mock private GroupJoinRequestRepository joinRequests;
 
     private CommunityGroupService service;
     private CommunityGroup group;
@@ -51,7 +54,9 @@ class CommunityGroupServiceTest {
                 new AgeGateService(),
                 new InputSanitizer(),
                 null,
-                passwordEncoder
+                passwordEncoder,
+                null,
+                joinRequests
         );
         founder = user(1L, "kurucu");
         group = new CommunityGroup();
@@ -78,6 +83,7 @@ class CommunityGroupServiceTest {
 
     @Test
     void founderCanPromoteMember() {
+        when(chatMessages.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         GroupMember owner = member(founder, GroupRole.FOUNDER);
         GroupMember target = member(user(3L, "uye"), GroupRole.MEMBER);
         when(members.findByGroupIdAndUserId(10L, 1L))
@@ -89,6 +95,20 @@ class CommunityGroupServiceTest {
         service.promote(founder, 10L, 3L);
 
         assertEquals(GroupRole.ADMIN, target.getRole());
+    }
+
+    @Test
+    void adminCannotPromoteMember() {
+        AppUser adminUser = user(2L, "yonetici");
+        GroupMember admin = member(adminUser, GroupRole.ADMIN);
+        GroupMember target = member(user(3L, "uye"), GroupRole.MEMBER);
+        when(members.findByGroupIdAndUserId(10L, 2L))
+                .thenReturn(Optional.of(admin));
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> service.promote(adminUser, 10L, target.getUser().getId())
+        );
     }
 
     private GroupMember member(AppUser user, GroupRole role) {

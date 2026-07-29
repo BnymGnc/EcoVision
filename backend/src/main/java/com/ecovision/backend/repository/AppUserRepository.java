@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Pageable;
 
 public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     @EntityGraph(attributePaths = "ownedMarketItems")
@@ -24,6 +25,24 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     boolean existsByPublicUsername(String publicUsername);
 
     Optional<AppUser> findByPublicUsername(String publicUsername);
+
+    @Query("""
+            select user from AppUser user
+            where user.dateOfBirth <= :adultCutoff
+              and (
+                lower(user.publicUsername) like lower(concat('%', :query, '%'))
+                or lower(user.name) like lower(concat('%', :query, '%'))
+                or lower(user.surname) like lower(concat('%', :query, '%'))
+                or lower(concat(concat(user.name, ' '), user.surname))
+                    like lower(concat('%', :query, '%'))
+              )
+            order by user.totalPoints desc, user.name asc
+            """)
+    List<AppUser> searchAdultUsers(
+            @Param("query") String query,
+            @Param("adultCutoff") LocalDate adultCutoff,
+            Pageable pageable
+    );
 
     List<AppUser> findByCityIgnoreCaseOrderByTotalPointsDescNameAsc(String city);
 

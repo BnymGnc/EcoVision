@@ -13,7 +13,6 @@ import com.ecovision.backend.repository.AppUserRepository;
 import com.ecovision.backend.repository.ScanHistoryRepository;
 import java.util.List;
 import java.util.Map;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -22,9 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ScanService {
-    private static final int SCAN_LIMIT = 3;
-    private static final Duration SCAN_WINDOW = Duration.ofMinutes(15);
-
     private final ScanHistoryRepository scanHistoryRepository;
     private final AppUserRepository userRepository;
     private final BadgeService badgeService;
@@ -66,16 +62,6 @@ public class ScanService {
         AppUser user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Kullanıcı bulunamadı"));
         Instant now = Instant.now();
-        Instant windowStart = now.minus(SCAN_WINDOW);
-        long recentScans = scanHistoryRepository.countByUserIdAndScannedAtAfter(userId, windowStart);
-        if (recentScans >= SCAN_LIMIT) {
-            Instant oldest = scanHistoryRepository
-                    .findFirstByUserIdAndScannedAtAfterOrderByScannedAtAsc(userId, windowStart)
-                    .map(ScanHistory::getScannedAt)
-                    .orElse(now);
-            long retryAfter = Duration.between(now, oldest.plus(SCAN_WINDOW)).toSeconds();
-            throw new ScanCooldownException(retryAfter);
-        }
 
         String prediction = detectedClass == null ? "" : detectedClass.trim();
         WasteMaterial material = WasteMaterial.detect(prediction);

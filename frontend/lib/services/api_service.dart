@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 import '../models/chat_message.dart';
+import '../models/academy_module.dart';
 import '../models/avatar_tier.dart';
 import '../models/cleanup_event.dart';
 import '../models/community_group.dart';
@@ -17,6 +18,7 @@ import '../models/leaderboard_entry.dart';
 import '../models/group_mission.dart';
 import '../models/event_member.dart';
 import '../models/group_waste_report.dart';
+import '../models/group_join_request.dart';
 import '../models/map_pin.dart';
 import '../models/scan_result.dart';
 import '../models/user_profile.dart';
@@ -54,6 +56,15 @@ class ApiService {
   ValueListenable<int> get pointsListenable => _pointsNotifier;
   UserProfile? get currentUser => _currentUser;
   bool get isAuthenticated => _accessToken != null;
+  String? get authorizationHeader =>
+      _accessToken == null ? null : 'Bearer $_accessToken';
+  String get webSocketUrl {
+    final base = productionBaseUrl;
+    if (base.startsWith('https://')) {
+      return '${base.replaceFirst('https://', 'wss://')}/ws';
+    }
+    return '${base.replaceFirst('http://', 'ws://')}/ws';
+  }
 
   void setRememberMe(bool value) {
     _rememberMe = value;
@@ -218,6 +229,13 @@ class ApiService {
     return _applyUser(json);
   }
 
+  Future<UserProfile> updateThemePreference(String themePreference) async {
+    final json = await _putJson('/api/users/theme', {
+      'themePreference': themePreference,
+    });
+    return _applyUser(json);
+  }
+
   Future<UserProfile> purchaseMarketItem(String itemId) async {
     final json = await _postJson('/api/market/purchase/$itemId', const {});
     return _applyUser(json);
@@ -317,6 +335,36 @@ class ApiService {
     return _applyGamificationState(json);
   }
 
+  Future<Set<String>> fetchEducationProgress() async {
+    final response = await _authorizedRequest(
+      (headers) =>
+          _client.get(_uri('/api/education/progress'), headers: headers),
+    );
+    final decoded = _decodeAnyResponse(response);
+    if (decoded is! List) {
+      throw const ApiException(
+        'Akademi ilerleme bilgisi geçersiz biçimde döndü.',
+      );
+    }
+    return decoded
+        .map((item) => item.toString().trim())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+  }
+
+  Future<EducationCompletionResult> completeEducationModule(
+    String categoryId,
+  ) async {
+    final encodedCategory = Uri.encodeComponent(categoryId);
+    final json = await _postJson(
+      '/api/education/complete/$encodedCategory',
+      const {},
+    );
+    final result = EducationCompletionResult.fromJson(json);
+    _pointsNotifier.value = result.totalPoints;
+    return result;
+  }
+
   Future<GamificationState> completeCarbonFootprint(int score) async {
     final json = await _postJson('/api/gamification/carbon-footprint', {
       'score': score,
@@ -333,7 +381,23 @@ class ApiService {
 
   Future<List<QuestProgress>> fetchQuests() async {
     final json = await _getJsonList('/api/quests');
-    return json.map(QuestProgress.fromJson).toList();
+    final quests = <QuestProgress>[];
+    for (final item in json) {
+      try {
+        final quest = QuestProgress.fromJson(item);
+        if (quest.rewardPoints > 0 && quest.targetAmount > 0) {
+          quests.add(quest);
+        }
+      } on FormatException {
+        // Ignore stale malformed records while keeping valid missions visible.
+      }
+    }
+    if (json.isNotEmpty && quests.isEmpty) {
+      throw const ApiException(
+        'Görev verileri güncel değil. Lütfen biraz sonra tekrar deneyin.',
+      );
+    }
+    return quests;
   }
 
   Future<QuestProgress> checkInQuest(int questId) async {
@@ -341,16 +405,14 @@ class ApiService {
     return QuestProgress.fromJson(json);
   }
 
-  Future<GamificationState> claimQuest(int progressId) async {
+  Future<QuestClaimResult> claimQuest(int progressId) async {
     final json = await _postJson(
       '/api/quests/progress/$progressId/claim',
       const {},
     );
-    final totalPoints = (json['totalPoints'] as num?)?.toInt();
-    if (totalPoints != null) {
-      _pointsNotifier.value = totalPoints;
-    }
-    return fetchGamificationState();
+    final result = QuestClaimResult.fromJson(json);
+    _pointsNotifier.value = result.totalPoints;
+    return result;
   }
 
   Future<List<AvatarTier>> fetchAvatarTiers() async {
@@ -410,6 +472,7 @@ class ApiService {
     required String neighborhood,
     required int memberLimit,
     String? joinCode,
+    bool privateGroup = false,
     Uint8List? coverBytes,
     String? coverFileName,
   }) async {
@@ -420,6 +483,7 @@ class ApiService {
       'district': district,
       'neighborhood': neighborhood.trim(),
       'memberLimit': memberLimit,
+      'privateGroup': privateGroup,
       if (joinCode != null && joinCode.trim().isNotEmpty)
         'joinCode': joinCode.trim(),
     };
@@ -448,6 +512,57 @@ class ApiService {
     return CommunityGroup.fromJson(_decodeResponse(response));
   }
 
+  Future<CommunityGroup> updateCommunityGroup({
+    required int groupId,
+    required String name,
+    required String description,
+    required String city,
+    required String district,
+    required String neighborhood,
+    required int memberLimit,
+    bool? privateGroup,
+    Uint8List? coverBytes,
+    String? coverFileName,
+  }) async {
+    final payload = {
+      'name': name.trim(),
+      'description': description.trim(),
+      'city': city.trim(),
+      'district': district.trim(),
+      'neighborhood': neighborhood.trim(),
+      'memberLimit': memberLimit,
+      if (privateGroup != null) 'privateGroup': privateGroup,
+    };
+    if (coverBytes == null) {
+      return CommunityGroup.fromJson(
+        await _putJson('/api/groups/$groupId', payload),
+      );
+    }
+    final response = await _authorizedMultipart(() {
+      final request = http.MultipartRequest(
+        'PUT',
+        _uri('/api/groups/$groupId'),
+      );
+      request.files.add(
+        http.MultipartFile.fromString(
+          'group',
+          jsonEncode(payload),
+          contentType: MediaType('application', 'json'),
+        ),
+      );
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'coverImage',
+          coverBytes,
+          filename: coverFileName ?? 'group-cover.jpg',
+          contentType: _imageMediaType(coverBytes),
+        ),
+      );
+      return request;
+    });
+    return CommunityGroup.fromJson(_decodeResponse(response));
+  }
+
   Future<CommunityGroup> joinCommunityGroup(
     int groupId, {
     String? joinCode,
@@ -456,6 +571,47 @@ class ApiService {
       if (joinCode != null) 'joinCode': joinCode,
     });
     return CommunityGroup.fromJson(json);
+  }
+
+  Future<GroupJoinRequest> requestToJoinCommunityGroup(int groupId) async {
+    return GroupJoinRequest.fromJson(
+      await _postJson('/api/groups/$groupId/join-requests', const {}),
+    );
+  }
+
+  Future<List<GroupJoinRequest>> fetchGroupJoinRequests(int groupId) async {
+    final json = await _getJsonList('/api/groups/$groupId/join-requests');
+    return json.map(GroupJoinRequest.fromJson).toList();
+  }
+
+  Future<GroupJoinRequest> reviewGroupJoinRequest({
+    required int groupId,
+    required int requestId,
+    required bool approve,
+  }) async {
+    final action = approve ? 'approve' : 'reject';
+    return GroupJoinRequest.fromJson(
+      await _postJson(
+        '/api/groups/$groupId/join-requests/$requestId/$action',
+        const {},
+      ),
+    );
+  }
+
+  Future<void> leaveCommunityGroup(int groupId) async {
+    final response = await _authorizedRequest(
+      (headers) => _client.delete(
+        _uri('/api/groups/$groupId/membership'),
+        headers: headers,
+      ),
+    );
+    if (response.statusCode != 204) _decodeAnyResponse(response);
+  }
+
+  Future<CommunityGroup> resolveGroupInvite(String inviteCode) async {
+    return CommunityGroup.fromJson(
+      await _getJson('/api/groups/invite/${Uri.encodeComponent(inviteCode)}'),
+    );
   }
 
   Future<List<EventMember>> fetchCommunityGroupMembers(int groupId) async {
@@ -542,6 +698,11 @@ class ApiService {
       'exactAddress': exactAddress.trim(),
       'capacity': capacity,
     };
+    if (coverBytes == null) {
+      return GroupEvent.fromJson(
+        await _postJson('/api/groups/$groupId/events', payload),
+      );
+    }
     final response = await _authorizedMultipart(() {
       final request = http.MultipartRequest(
         'POST',
@@ -741,7 +902,6 @@ class ApiService {
     double? radiusKm,
     int? limit,
     Set<String> materials = const {},
-    bool openNow = false,
   }) async {
     final query = <String, String>{
       'lat': latitude.toString(),
@@ -749,7 +909,6 @@ class ApiService {
       if (radiusKm != null) 'radiusKm': radiusKm.toString(),
       if (limit != null) 'limit': limit.toString(),
       if (materials.isNotEmpty) 'materials': materials.join(','),
-      'openNow': openNow.toString(),
     };
     final uri = _uri('/api/map-pins/nearest').replace(queryParameters: query);
     final response = await _client.get(uri, headers: _authHeaders());
@@ -858,9 +1017,11 @@ class ApiService {
   Future<ChatMessage> sendGroupMessage({
     required int groupId,
     required String message,
+    int? replyToMessageId,
   }) async {
     final json = await _postJson('/api/chat/groups/$groupId', {
       'message': message,
+      if (replyToMessageId != null) 'replyToMessageId': replyToMessageId,
     });
     return ChatMessage.fromJson(json);
   }
@@ -870,6 +1031,7 @@ class ApiService {
     required Uint8List bytes,
     required String fileName,
     required String contentType,
+    int? replyToMessageId,
   }) async {
     if (bytes.length > 2 * 1024 * 1024) {
       throw const ApiException('Ek dosya 2 MB\'den küçük olmalıdır.');
@@ -877,7 +1039,12 @@ class ApiService {
     final response = await _authorizedMultipart(() {
       final request = http.MultipartRequest(
         'POST',
-        _uri('/api/chat/groups/$groupId/attachments'),
+        _uri('/api/chat/groups/$groupId/attachments').replace(
+          queryParameters: {
+            if (replyToMessageId != null)
+              'replyToMessageId': '$replyToMessageId',
+          },
+        ),
       );
       request.files.add(
         http.MultipartFile.fromBytes(
@@ -890,6 +1057,68 @@ class ApiService {
       return request;
     });
     return ChatMessage.fromJson(_decodeResponse(response));
+  }
+
+  Future<List<ChatMessage>> fetchGroupMedia(
+    int groupId, {
+    int limit = 60,
+    int offset = 0,
+  }) async {
+    final json = await _getJsonList(
+      '/api/chat/groups/$groupId/media?limit=$limit&offset=$offset',
+    );
+    return json.map(ChatMessage.fromJson).toList();
+  }
+
+  Future<ChatMessage> reactToGroupMessage({
+    required int groupId,
+    required int messageId,
+    required String emoji,
+  }) async {
+    return ChatMessage.fromJson(
+      await _postJson(
+        '/api/chat/groups/$groupId/messages/$messageId/reactions',
+        {'emoji': emoji},
+      ),
+    );
+  }
+
+  Future<ChatMessage> deleteGroupMessage({
+    required int groupId,
+    required int messageId,
+  }) async {
+    final response = await _authorizedRequest(
+      (headers) => _client.delete(
+        _uri('/api/chat/groups/$groupId/messages/$messageId'),
+        headers: headers,
+      ),
+    );
+    return ChatMessage.fromJson(_decodeResponse(response));
+  }
+
+  Future<ChatMessage> createGroupPoll({
+    required int groupId,
+    required String question,
+    required List<String> options,
+  }) async {
+    return ChatMessage.fromJson(
+      await _postJson('/api/chat/groups/$groupId/polls', {
+        'question': question.trim(),
+        'options': options.map((option) => option.trim()).toList(),
+      }),
+    );
+  }
+
+  Future<ChatMessage> voteInGroupPoll({
+    required int groupId,
+    required int messageId,
+    required int optionIndex,
+  }) async {
+    return ChatMessage.fromJson(
+      await _postJson('/api/chat/groups/$groupId/messages/$messageId/vote', {
+        'optionIndex': optionIndex,
+      }),
+    );
   }
 
   Future<int> fetchUnreadCommunityCount() async {
@@ -985,13 +1214,12 @@ class ApiService {
       _deleteJson('/api/social/users/$userId/like');
   Future<void> sendFriendRequest(int userId) async =>
       _postJson('/api/social/friends/$userId/request', const {});
-  Future<UserDiscovery> searchUserByUsername(
-    String username,
-  ) async => UserDiscovery.fromJson(
-    await _getJson(
-      '/api/social/users/search?username=${Uri.encodeQueryComponent(username.trim())}',
-    ),
-  );
+  Future<List<UserDiscovery>> searchUsers(String query) async {
+    final encoded = Uri.encodeQueryComponent(query.trim());
+    final json = await _getJsonList('/api/social/users/search?query=$encoded');
+    return json.map(UserDiscovery.fromJson).toList();
+  }
+
   Future<List<SocialUser>> fetchFriends() async => (await _getJsonList(
     '/api/social/friends',
   )).map(SocialUser.fromJson).toList();

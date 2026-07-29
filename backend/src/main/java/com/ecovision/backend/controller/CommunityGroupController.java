@@ -8,8 +8,10 @@ import com.ecovision.backend.dto.GroupEventAttendeeResponse;
 import com.ecovision.backend.dto.GroupEventRequest;
 import com.ecovision.backend.dto.GroupEventResponse;
 import com.ecovision.backend.dto.GroupMemberResponse;
+import com.ecovision.backend.dto.GroupJoinRequestResponse;
 import com.ecovision.backend.dto.JoinEventRequest;
 import com.ecovision.backend.dto.PinGroupContentRequest;
+import com.ecovision.backend.dto.UpdateCommunityGroupRequest;
 import com.ecovision.backend.service.CommunityGroupService;
 import com.ecovision.backend.service.CurrentUserService;
 import jakarta.validation.Valid;
@@ -56,6 +58,11 @@ public class CommunityGroupController {
         return groups.get(current.currentUser(), groupId);
     }
 
+    @GetMapping("/invite/{inviteCode}")
+    public CommunityGroupResponse resolveInvite(@PathVariable String inviteCode) {
+        return groups.resolveInvite(current.currentUser(), inviteCode);
+    }
+
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public CommunityGroupResponse create(
             @Valid @RequestBody CommunityGroupRequest request
@@ -77,6 +84,67 @@ public class CommunityGroupController {
             @RequestBody(required = false) JoinEventRequest request
     ) {
         return groups.join(current.currentUser(), groupId, request);
+    }
+
+    @PostMapping("/{groupId}/join-requests")
+    public GroupJoinRequestResponse requestToJoin(@PathVariable Long groupId) {
+        return groups.requestToJoin(current.currentUser(), groupId);
+    }
+
+    @GetMapping("/{groupId}/join-requests")
+    public List<GroupJoinRequestResponse> pendingRequests(
+            @PathVariable Long groupId
+    ) {
+        return groups.pendingRequests(current.currentUser(), groupId);
+    }
+
+    @PostMapping("/{groupId}/join-requests/{requestId}/approve")
+    public GroupJoinRequestResponse approveRequest(
+            @PathVariable Long groupId,
+            @PathVariable Long requestId
+    ) {
+        return groups.reviewJoinRequest(
+                current.currentUser(),
+                groupId,
+                requestId,
+                true
+        );
+    }
+
+    @PostMapping("/{groupId}/join-requests/{requestId}/reject")
+    public GroupJoinRequestResponse rejectRequest(
+            @PathVariable Long groupId,
+            @PathVariable Long requestId
+    ) {
+        return groups.reviewJoinRequest(
+                current.currentUser(),
+                groupId,
+                requestId,
+                false
+        );
+    }
+
+    @PutMapping(
+            value = "/{groupId}",
+            consumes = MediaType.APPLICATION_JSON_VALUE
+    )
+    public CommunityGroupResponse update(
+            @PathVariable Long groupId,
+            @Valid @RequestBody UpdateCommunityGroupRequest request
+    ) {
+        return groups.update(current.currentUser(), groupId, request, null);
+    }
+
+    @PutMapping(
+            value = "/{groupId}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public CommunityGroupResponse updateWithCover(
+            @PathVariable Long groupId,
+            @Valid @RequestPart("group") UpdateCommunityGroupRequest request,
+            @RequestPart(value = "coverImage", required = false) MultipartFile cover
+    ) {
+        return groups.update(current.currentUser(), groupId, request, cover);
     }
 
     @GetMapping("/{groupId}/members")
@@ -117,6 +185,12 @@ public class CommunityGroupController {
         return ResponseEntity.noContent().build();
     }
 
+    @DeleteMapping("/{groupId}/membership")
+    public ResponseEntity<Void> leaveGroup(@PathVariable Long groupId) {
+        groups.leaveGroup(current.currentUser(), groupId);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{groupId}/events")
     public List<GroupEventResponse> events(@PathVariable Long groupId) {
         return groups.upcomingEvents(current.currentUser(), groupId);
@@ -132,6 +206,17 @@ public class CommunityGroupController {
             @RequestPart(value = "coverImage", required = false) MultipartFile cover
     ) {
         return groups.createEvent(current.currentUser(), groupId, request, cover);
+    }
+
+    @PostMapping(
+            value = "/{groupId}/events",
+            consumes = MediaType.APPLICATION_JSON_VALUE
+    )
+    public GroupEventResponse createEventWithoutCover(
+            @PathVariable Long groupId,
+            @Valid @RequestBody GroupEventRequest request
+    ) {
+        return groups.createEvent(current.currentUser(), groupId, request, null);
     }
 
     @PostMapping("/{groupId}/events/{eventId}/rsvp")

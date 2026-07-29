@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../models/quest_progress.dart';
@@ -22,6 +23,7 @@ class MissionsScreen extends StatefulWidget {
 
 class _MissionsScreenState extends State<MissionsScreen> {
   late Future<List<QuestProgress>> _future;
+  List<QuestProgress> _quests = const [];
   String _selectedDomain = 'ALL';
   final Set<int> _busyQuestIds = {};
 
@@ -42,13 +44,32 @@ class _MissionsScreenState extends State<MissionsScreen> {
   @override
   void initState() {
     super.initState();
-    _future = widget.apiService.fetchQuests();
+    _future = _fetchQuests();
+  }
+
+  Future<List<QuestProgress>> _fetchQuests() async {
+    final quests = await widget.apiService.fetchQuests();
+    _quests = List.unmodifiable(quests);
+    return _quests;
   }
 
   Future<void> _refresh() async {
-    final future = widget.apiService.fetchQuests();
-    setState(() => _future = future);
-    await future;
+    try {
+      final quests = await widget.apiService.fetchQuests();
+      if (!mounted) return;
+      setState(() {
+        _quests = List.unmodifiable(quests);
+        _future = SynchronousFuture(_quests);
+      });
+    } catch (error) {
+      if (mounted) _showError(error);
+    }
+  }
+
+  void _retry() {
+    setState(() {
+      _future = _fetchQuests();
+    });
   }
 
   Future<void> _checkIn(QuestProgress quest) async {
@@ -81,9 +102,9 @@ class _MissionsScreenState extends State<MissionsScreen> {
     HapticFeedback.heavyImpact();
     setState(() => _busyQuestIds.add(quest.questId));
     try {
-      final state = await widget.apiService.claimQuest(progressId);
-      await _refresh();
+      final result = await widget.apiService.claimQuest(progressId);
       if (!mounted) return;
+      _replaceQuest(result.quest);
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
@@ -94,8 +115,8 @@ class _MissionsScreenState extends State<MissionsScreen> {
           ),
           title: const Text('Görev Tamamlandı!'),
           content: Text(
-            '+${quest.rewardPoints} Eko Puan kazandın.\n'
-            'Yeni bakiyen: ${state.totalPoints} puan',
+            '+${result.pointsAwarded} Eko Puan kazandın.\n'
+            'Yeni bakiyen: ${result.totalPoints} puan',
             textAlign: TextAlign.center,
           ),
           actionsAlignment: MainAxisAlignment.center,
@@ -107,6 +128,11 @@ class _MissionsScreenState extends State<MissionsScreen> {
           ],
         ),
       );
+      if (mounted) {
+        // Reconcile server state without replacing the visible list with a
+        // transient loading/blank screen.
+        await _refresh();
+      }
     } catch (error) {
       if (mounted) _showError(error);
     } finally {
@@ -115,8 +141,14 @@ class _MissionsScreenState extends State<MissionsScreen> {
   }
 
   void _replaceQuest(QuestProgress updated) {
-    final next = widget.apiService.fetchQuests();
-    setState(() => _future = next);
+    final next = [
+      for (final quest in _quests)
+        if (quest.questId == updated.questId) updated else quest,
+    ];
+    setState(() {
+      _quests = List.unmodifiable(next);
+      _future = SynchronousFuture(_quests);
+    });
   }
 
   void _showError(Object error) {
@@ -148,7 +180,13 @@ class _MissionsScreenState extends State<MissionsScreen> {
             );
           }
           if (snapshot.hasError) {
-            return _ErrorState(onRetry: _refresh);
+            return _ErrorState(
+              message: snapshot.error.toString().replaceFirst(
+                'ApiException: ',
+                '',
+              ),
+              onRetry: _retry,
+            );
           }
 
           final allQuests = snapshot.data ?? const <QuestProgress>[];
@@ -212,7 +250,9 @@ class _MissionsScreenState extends State<MissionsScreen> {
                 if (quests.isEmpty)
                   const SliverFillRemaining(
                     hasScrollBody: false,
-                    child: Center(child: Text('Bu kategoride görev bulunamadı.')),
+                    child: Center(
+                      child: Text('Bu kategoride görev bulunamadı.'),
+                    ),
                   )
                 else
                   SliverPadding(
@@ -515,8 +555,9 @@ class _CarbonFootprintMission extends StatelessWidget {
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.onRetry});
-  final Future<void> Function() onRetry;
+  const _ErrorState({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -532,8 +573,10 @@ class _ErrorState extends StatelessWidget {
             style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Bağlantını kontrol edip yeniden deneyebilirsin.',
+          Text(
+            message.isEmpty
+                ? 'Bağlantını kontrol edip yeniden deneyebilirsin.'
+                : message,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 18),
@@ -598,11 +641,7 @@ class _ErrorState extends StatelessWidget {
       color: const Color(0xFFBD6D24),
       label: 'Eco-Market',
     ),
-    _ => (
-      icon: Icons.eco_rounded,
-      color: colors.primary,
-      label: 'Eko Etki',
-    ),
+    _ => (icon: Icons.eco_rounded, color: colors.primary, label: 'Eko Etki'),
   };
 }
 

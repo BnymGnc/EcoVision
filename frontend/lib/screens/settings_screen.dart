@@ -336,10 +336,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   trailing: controller.selected == theme
                       ? const Icon(Icons.check_circle)
                       : null,
-                  onTap: () {
-                    controller.select(theme);
-                    Navigator.pop(context);
-                    setState(() {});
+                  onTap: () async {
+                    try {
+                      await controller.select(theme);
+                      if (!context.mounted) return;
+                      Navigator.pop(context);
+                      setState(() {});
+                    } catch (error) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(error.toString())));
+                    }
                   },
                 ),
               ),

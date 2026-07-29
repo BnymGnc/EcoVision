@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:stomp_dart_client/stomp_dart_client.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/chat_message.dart';
 import '../models/community_group.dart';
+import '../models/event_member.dart';
 import '../models/social_models.dart';
 import '../services/api_service.dart';
 import '../widgets/premium_ui.dart';
@@ -35,6 +39,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   List<ChatMessage> _messages = const [];
   Map<int, GroupEvent> _events = const {};
   Timer? _poller;
+  StompClient? _stompClient;
+  StompUnsubscribe? _unsubscribe;
+  StompUnsubscribe? _typingUnsubscribe;
+  Timer? _typingDebounce;
+  final Map<int, Timer> _typingExpiry = {};
+  final Map<int, String> _typingUsers = {};
+  List<EventMember> _members = const [];
+  ChatMessage? _replyingTo;
+  bool _realtimeConnected = false;
   bool _loading = true;
   bool _loadingOlder = false;
   bool _hasMore = true;
@@ -47,18 +60,133 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     super.initState();
     _group = widget.group;
     _scroll.addListener(_onScroll);
+    _message.addListener(_onComposerChanged);
     _loadInitial();
-    _poller = Timer.periodic(const Duration(seconds: 5), (_) => _poll());
+    _connectRealtime();
+    _poller = Timer.periodic(const Duration(seconds: 8), (_) => _poll());
   }
 
   @override
   void dispose() {
     _poller?.cancel();
+    _unsubscribe?.call();
+    _typingUnsubscribe?.call();
+    _typingDebounce?.cancel();
+    for (final timer in _typingExpiry.values) {
+      timer.cancel();
+    }
+    _stompClient?.deactivate();
     _message.dispose();
     _scroll
       ..removeListener(_onScroll)
       ..dispose();
     super.dispose();
+  }
+
+  void _connectRealtime() {
+    final authorization = widget.apiService.authorizationHeader;
+    if (authorization == null) return;
+    late final StompClient client;
+    client = StompClient(
+      config: StompConfig(
+        url: widget.apiService.webSocketUrl,
+        stompConnectHeaders: {'Authorization': authorization},
+        webSocketConnectHeaders: {'Authorization': authorization},
+        reconnectDelay: const Duration(seconds: 5),
+        heartbeatIncoming: const Duration(seconds: 10),
+        heartbeatOutgoing: const Duration(seconds: 10),
+        connectionTimeout: const Duration(seconds: 12),
+        onConnect: (_) {
+          if (!mounted) return;
+          setState(() => _realtimeConnected = true);
+          _unsubscribe?.call();
+          _unsubscribe = client.subscribe(
+            destination: '/topic/groups/${_group.id}',
+            callback: _onRealtimeMessage,
+          );
+          _typingUnsubscribe = client.subscribe(
+            destination: '/topic/groups/${_group.id}/typing',
+            callback: _onTypingEvent,
+          );
+        },
+        onDisconnect: (_) {
+          if (mounted) setState(() => _realtimeConnected = false);
+        },
+        onWebSocketDone: () {
+          if (mounted) setState(() => _realtimeConnected = false);
+        },
+        onWebSocketError: (_) {
+          if (mounted) setState(() => _realtimeConnected = false);
+        },
+        onStompError: (_) {
+          if (mounted) setState(() => _realtimeConnected = false);
+        },
+      ),
+    );
+    _stompClient = client;
+    client.activate();
+  }
+
+  void _onTypingEvent(StompFrame frame) {
+    final body = frame.body;
+    if (!mounted || body == null) return;
+    try {
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final userId = (json['userId'] as num).toInt();
+      if (userId == widget.apiService.currentUser?.id) return;
+      _typingExpiry[userId]?.cancel();
+      if (json['typing'] == true) {
+        setState(() {
+          _typingUsers[userId] = (json['fullName'] ?? '').toString();
+        });
+        _typingExpiry[userId] = Timer(const Duration(seconds: 4), () {
+          if (mounted) setState(() => _typingUsers.remove(userId));
+        });
+      } else {
+        setState(() => _typingUsers.remove(userId));
+      }
+    } catch (_) {
+      // A malformed typing frame is short-lived and can be ignored.
+    }
+  }
+
+  void _onComposerChanged() {
+    if (!mounted) return;
+    setState(() {});
+    if (!(_stompClient?.connected ?? false)) return;
+    _stompClient!.send(
+      destination: '/app/groups/${_group.id}/typing',
+      body: jsonEncode({'typing': _message.text.trim().isNotEmpty}),
+    );
+    _typingDebounce?.cancel();
+    _typingDebounce = Timer(const Duration(milliseconds: 1300), () {
+      if (_stompClient?.connected ?? false) {
+        _stompClient!.send(
+          destination: '/app/groups/${_group.id}/typing',
+          body: jsonEncode({'typing': false}),
+        );
+      }
+    });
+  }
+
+  void _onRealtimeMessage(StompFrame frame) {
+    final body = frame.body;
+    if (!mounted || body == null || body.isEmpty) return;
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is! Map<String, dynamic>) return;
+      final incoming = ChatMessage.fromJson(decoded);
+      final nearBottom =
+          !_scroll.hasClients ||
+          _scroll.position.maxScrollExtent - _scroll.offset < 180;
+      setState(() => _messages = _mergeMessages(_messages, [incoming]));
+      if (incoming.messageType == 'SYSTEM_EVENT') {
+        unawaited(_poll(forceMetadata: true));
+      }
+      if (nearBottom) _scrollToBottom();
+    } on FormatException {
+      // The HTTP fallback reconciles state if a malformed frame is received.
+    }
   }
 
   void _onScroll() {
@@ -73,6 +201,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         widget.apiService.fetchCommunityGroup(_group.id),
         widget.apiService.fetchGroupMessages(_group.id, limit: _pageSize),
         widget.apiService.fetchGroupEvents(_group.id),
+        widget.apiService.fetchCommunityGroupMembers(_group.id),
       ]);
       if (!mounted) return;
       final messages = result[1] as List<ChatMessage>;
@@ -83,6 +212,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         _events = {
           for (final event in result[2] as List<GroupEvent>) event.id: event,
         };
+        _members = result[3] as List<EventMember>;
         _hasMore = messages.length == _pageSize;
         _loading = false;
       });
@@ -200,10 +330,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       final sent = await widget.apiService.sendGroupMessage(
         groupId: _group.id,
         message: text,
+        replyToMessageId: _replyingTo?.id,
       );
-      _message.clear();
       if (!mounted) return;
-      setState(() => _messages = _mergeMessages(_messages, [sent]));
+      _message.clear();
+      setState(() {
+        _replyingTo = null;
+        _messages = _mergeMessages(_messages, [sent]);
+      });
       _scrollToBottom();
     } catch (error) {
       if (mounted) _showError(error);
@@ -239,9 +373,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         bytes: bytes,
         fileName: file.name,
         contentType: contentType,
+        replyToMessageId: _replyingTo?.id,
       );
       if (!mounted) return;
-      setState(() => _messages = _mergeMessages(_messages, [sent]));
+      setState(() {
+        _replyingTo = null;
+        _messages = _mergeMessages(_messages, [sent]);
+      });
       _scrollToBottom();
     } catch (error) {
       if (mounted) _showError(error);
@@ -251,15 +389,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   Future<void> _openGroupInfo() async {
-    final deleted = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute<bool>(
-        builder: (_) =>
-            GroupDetailsScreen(apiService: widget.apiService, group: _group),
+    final result = await showEcoGlassSheet<String>(
+      context: context,
+      builder: (_) => _GroupInfoSheet(
+        apiService: widget.apiService,
+        group: _group,
+        members: _members,
       ),
     );
     if (!mounted) return;
-    if (deleted == true) {
+    if (result == 'left' || result == 'deleted') {
       Navigator.pop(context, true);
       return;
     }
@@ -290,6 +429,151 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     } catch (error) {
       if (mounted) _showError(error);
     }
+  }
+
+  Future<void> _showMessageActions(ChatMessage message) async {
+    await EcoHaptics.selection();
+    final action = await showEcoGlassSheet<String>(
+      context: context,
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const EcoSheetHandle(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: ['👍', '❤️', '👏', '😂']
+                  .map(
+                    (emoji) => IconButton.filledTonal(
+                      onPressed: () => Navigator.pop(context, 'react:$emoji'),
+                      icon: Text(emoji, style: const TextStyle(fontSize: 24)),
+                    ),
+                  )
+                  .toList(),
+            ),
+            ListTile(
+              leading: const Icon(Icons.reply_rounded),
+              title: const Text('Yanıtla'),
+              onTap: () => Navigator.pop(context, 'reply'),
+            ),
+            if (_group.isAdmin)
+              ListTile(
+                leading: const Icon(Icons.push_pin_outlined),
+                title: const Text('Mesajı sabitle'),
+                onTap: () => Navigator.pop(context, 'pin'),
+              ),
+            if (_group.isAdmin ||
+                message.senderId == widget.apiService.currentUser?.id)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text(
+                  'Mesajı sil',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () => Navigator.pop(context, 'delete'),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+    try {
+      if (action.startsWith('react:')) {
+        final updated = await widget.apiService.reactToGroupMessage(
+          groupId: _group.id,
+          messageId: message.id,
+          emoji: action.substring(6),
+        );
+        _replaceMessage(updated);
+      } else if (action == 'reply') {
+        setState(() => _replyingTo = message);
+      } else if (action == 'pin') {
+        await _pinMessage(message);
+      } else if (action == 'delete') {
+        final updated = await widget.apiService.deleteGroupMessage(
+          groupId: _group.id,
+          messageId: message.id,
+        );
+        _replaceMessage(updated);
+      }
+    } catch (error) {
+      _showError(error);
+    }
+  }
+
+  void _replaceMessage(ChatMessage message) {
+    if (!mounted) return;
+    setState(() => _messages = _mergeMessages(_messages, [message]));
+  }
+
+  Future<void> _createPoll() async {
+    final draft = await showEcoGlassSheet<_PollDraft>(
+      context: context,
+      builder: (_) => const _CreatePollSheet(),
+    );
+    if (draft == null || !mounted) return;
+    try {
+      final poll = await widget.apiService.createGroupPoll(
+        groupId: _group.id,
+        question: draft.question,
+        options: draft.options,
+      );
+      _replaceMessage(poll);
+      _scrollToBottom();
+    } catch (error) {
+      _showError(error);
+    }
+  }
+
+  Future<void> _vote(ChatMessage message, int optionIndex) async {
+    try {
+      final updated = await widget.apiService.voteInGroupPoll(
+        groupId: _group.id,
+        messageId: message.id,
+        optionIndex: optionIndex,
+      );
+      _replaceMessage(updated);
+    } catch (error) {
+      _showError(error);
+    }
+  }
+
+  String? get _mentionQuery {
+    final match = RegExp(
+      r'(?:^|\s)@([a-zA-Z0-9._çğıöşüÇĞİÖŞÜ]*)$',
+    ).firstMatch(_message.text);
+    return match?.group(1)?.toLowerCase();
+  }
+
+  List<EventMember> get _mentionMatches {
+    final query = _mentionQuery;
+    if (query == null) return const [];
+    return _members
+        .where(
+          (member) =>
+              member.username.toLowerCase().contains(query) ||
+              member.fullName.toLowerCase().contains(query),
+        )
+        .take(5)
+        .toList();
+  }
+
+  void _insertMention(EventMember member) {
+    final text = _message.text;
+    final match = RegExp(
+      r'(?:^|\s)@[a-zA-Z0-9._çğıöşüÇĞİÖŞÜ]*$',
+    ).firstMatch(text);
+    if (match == null) return;
+    final prefix = text.substring(0, match.start);
+    final leadingSpace = match.group(0)!.startsWith(' ') ? ' ' : '';
+    _message.value = TextEditingValue(
+      text: '$prefix$leadingSpace@${member.username} ',
+      selection: TextSelection.collapsed(
+        offset:
+            prefix.length + leadingSpace.length + member.username.length + 2,
+      ),
+    );
   }
 
   Future<void> _pinEvent(GroupEvent event) async {
@@ -445,6 +729,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         actions: [
           if (_group.isAdmin)
             IconButton(
+              tooltip: 'Anket oluştur',
+              onPressed: _createPoll,
+              icon: const Icon(Icons.poll_outlined),
+            ),
+          if (_group.isAdmin)
+            IconButton(
               tooltip: 'Etkinlik oluştur',
               onPressed: _createEvent,
               icon: const Icon(Icons.event_available_outlined),
@@ -500,19 +790,115 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           onPin: _group.isAdmin ? () => _pinEvent(event) : null,
                         );
                       }
-                      return _MessageBubble(
+                      if (item.poll != null) {
+                        return _PollBubble(
+                          message: item,
+                          currentUserId: currentUserId,
+                          onVote: (index) => _vote(item, index),
+                          onLongPress: () => _showMessageActions(item),
+                        );
+                      }
+                      return _SwipeReply(
                         message: item,
-                        mine: item.senderId == currentUserId,
-                        onAvatarTap: item.senderId <= 0
-                            ? null
-                            : () => _openProfile(item.senderId),
-                        onLongPress: _group.isAdmin && !item.isSystem
-                            ? () => _pinMessage(item)
-                            : null,
+                        onReply: () => setState(() => _replyingTo = item),
+                        child: _MessageBubble(
+                          message: item,
+                          mine: item.senderId == currentUserId,
+                          currentUsername:
+                              widget.apiService.currentUser?.username ?? '',
+                          onAvatarTap: item.senderId <= 0
+                              ? null
+                              : () => _openProfile(item.senderId),
+                          onLongPress: item.isSystem
+                              ? null
+                              : () => _showMessageActions(item),
+                        ),
                       );
                     },
                   ),
           ),
+          if (_mentionMatches.isNotEmpty)
+            Container(
+              constraints: const BoxConstraints(maxHeight: 210),
+              margin: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ListView(
+                shrinkWrap: true,
+                children: _mentionMatches
+                    .map(
+                      (member) => ListTile(
+                        dense: true,
+                        leading: CircleAvatar(
+                          backgroundImage: member.profilePictureUrl == null
+                              ? null
+                              : NetworkImage(member.profilePictureUrl!),
+                          child: member.profilePictureUrl == null
+                              ? Text(member.fullName.characters.first)
+                              : null,
+                        ),
+                        title: Text(member.fullName),
+                        subtitle: Text('@${member.username}'),
+                        onTap: () => _insertMention(member),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          if (_typingUsers.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 3, 18, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${_typingUsers.values.take(2).join(', ')} yazıyor...',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ),
+          if (_replyingTo != null)
+            Container(
+              margin: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+              padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.reply_rounded, size: 19),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _replyingTo!.senderName,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        Text(
+                          _replyingTo!.message.isEmpty
+                              ? 'Medya'
+                              : _replyingTo!.message,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Yanıtı kapat',
+                    onPressed: () => setState(() => _replyingTo = null),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
           SafeArea(
             top: false,
             child: Padding(
@@ -884,12 +1270,14 @@ class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     required this.message,
     required this.mine,
+    required this.currentUsername,
     this.onAvatarTap,
     this.onLongPress,
   });
 
   final ChatMessage message;
   final bool mine;
+  final String currentUsername;
   final VoidCallback? onAvatarTap;
   final VoidCallback? onLongPress;
 
@@ -916,136 +1304,672 @@ class _MessageBubble extends StatelessWidget {
         ),
       );
     }
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        mainAxisAlignment: mine
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!mine) ...[
-            GestureDetector(
-              onTap: onAvatarTap,
-              child: CircleAvatar(
-                radius: 17,
-                backgroundImage: message.senderProfilePictureUrl == null
-                    ? null
-                    : NetworkImage(message.senderProfilePictureUrl!),
-                child: message.senderProfilePictureUrl == null
-                    ? Text(
-                        message.senderName.isEmpty
-                            ? 'E'
-                            : message.senderName[0],
-                      )
-                    : null,
-              ),
-            ),
-            const SizedBox(width: 7),
-          ],
-          Flexible(
-            child: GestureDetector(
-              onLongPress: onLongPress,
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 310),
-                padding: const EdgeInsets.fromLTRB(14, 10, 12, 7),
-                decoration: BoxDecoration(
-                  color: mine
-                      ? colors.primaryContainer
-                      : colors.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(20).copyWith(
-                    bottomRight: mine ? const Radius.circular(5) : null,
-                    bottomLeft: mine ? null : const Radius.circular(5),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(
+            mainAxisAlignment: mine
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (!mine) ...[
+                GestureDetector(
+                  onTap: onAvatarTap,
+                  child: CircleAvatar(
+                    radius: 17,
+                    backgroundImage: message.senderProfilePictureUrl == null
+                        ? null
+                        : NetworkImage(message.senderProfilePictureUrl!),
+                    child: message.senderProfilePictureUrl == null
+                        ? Text(
+                            message.senderName.isEmpty
+                                ? 'E'
+                                : message.senderName[0],
+                          )
+                        : null,
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!mine)
-                      Text(
-                        message.senderName,
-                        style: TextStyle(
-                          color: colors.primary,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
+                const SizedBox(width: 7),
+              ],
+              Flexible(
+                child: GestureDetector(
+                  onLongPress: onLongPress,
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 310),
+                    padding: const EdgeInsets.fromLTRB(14, 10, 12, 7),
+                    decoration: BoxDecoration(
+                      color: mine
+                          ? colors.primaryContainer
+                          : colors.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(20).copyWith(
+                        bottomRight: mine ? const Radius.circular(5) : null,
+                        bottomLeft: mine ? null : const Radius.circular(5),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (!mine)
+                          Text(
+                            message.senderName,
+                            style: TextStyle(
+                              color: colors.primary,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                            ),
+                          ),
+                        if (message.replyToMessageId != null)
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(top: 5, bottom: 7),
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: colors.surface.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(7),
+                              border: Border(
+                                left: BorderSide(
+                                  color: colors.primary,
+                                  width: 3,
+                                ),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  message.replyToSenderName ?? 'Yanıt',
+                                  style: TextStyle(
+                                    color: colors.primary,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  (message.replyToText ?? '').isEmpty
+                                      ? 'Medya'
+                                      : message.replyToText!,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (message.imageUrl != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 5, bottom: 6),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                message.imageUrl!,
+                                width: 240,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => const SizedBox(
+                                  width: 240,
+                                  height: 90,
+                                  child: Center(
+                                    child: Icon(Icons.broken_image_outlined),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (message.hasDocument)
+                          InkWell(
+                            onTap: () => launchUrl(
+                              Uri.parse(message.fileUrl!),
+                              mode: LaunchMode.externalApplication,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 7),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.picture_as_pdf_outlined),
+                                  const SizedBox(width: 7),
+                                  Flexible(
+                                    child: Text(
+                                      message.fileName ?? 'Belgeyi aç',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        if (message.deleted)
+                          const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.block_outlined, size: 16),
+                              SizedBox(width: 6),
+                              Text(
+                                'Bu mesaj silindi',
+                                style: TextStyle(fontStyle: FontStyle.italic),
+                              ),
+                            ],
+                          )
+                        else if (message.message.isNotEmpty)
+                          _MentionText(
+                            text: message.message,
+                            currentUsername: currentUsername,
+                          ),
+                        Align(
+                          alignment: Alignment.bottomRight,
+                          child: Text(
+                            time,
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (mine) ...[
+                const SizedBox(width: 7),
+                GestureDetector(
+                  onTap: onAvatarTap,
+                  child: CircleAvatar(
+                    radius: 17,
+                    backgroundImage: message.senderProfilePictureUrl == null
+                        ? null
+                        : NetworkImage(message.senderProfilePictureUrl!),
+                    child: message.senderProfilePictureUrl == null
+                        ? Text(
+                            message.senderName.isEmpty
+                                ? 'E'
+                                : message.senderName[0],
+                          )
+                        : null,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (message.reactions.isNotEmpty)
+          Align(
+            alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: mine ? 0 : 42,
+                right: mine ? 42 : 0,
+                top: 2,
+              ),
+              child: Wrap(
+                spacing: 5,
+                children: message.reactions
+                    .map(
+                      (reaction) => Chip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text(
+                          '${reaction.emoji} ${reaction.userIds.length}',
                         ),
                       ),
-                    if (message.imageUrl != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 5, bottom: 6),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
-                            message.imageUrl!,
-                            width: 240,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const SizedBox(
-                              width: 240,
-                              height: 90,
-                              child: Center(
-                                child: Icon(Icons.broken_image_outlined),
+                    )
+                    .toList(),
+              ),
+            ),
+          ),
+        const SizedBox(height: 6),
+      ],
+    );
+  }
+}
+
+class _SwipeReply extends StatelessWidget {
+  const _SwipeReply({
+    required this.message,
+    required this.onReply,
+    required this.child,
+  });
+
+  final ChatMessage message;
+  final VoidCallback onReply;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (message.isSystem || message.deleted) return child;
+    return Dismissible(
+      key: ValueKey('reply-${message.id}'),
+      direction: DismissDirection.startToEnd,
+      confirmDismiss: (_) async {
+        await EcoHaptics.selection();
+        onReply();
+        return false;
+      },
+      background: const Align(
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: EdgeInsets.only(left: 18),
+          child: Icon(Icons.reply_rounded),
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _MentionText extends StatelessWidget {
+  const _MentionText({required this.text, required this.currentUsername});
+
+  final String text;
+  final String currentUsername;
+
+  @override
+  Widget build(BuildContext context) {
+    final mention = RegExp(r'@[a-zA-Z0-9._çğıöşüÇĞİÖŞÜ]+');
+    final spans = <TextSpan>[];
+    var cursor = 0;
+    for (final match in mention.allMatches(text)) {
+      if (match.start > cursor) {
+        spans.add(TextSpan(text: text.substring(cursor, match.start)));
+      }
+      final value = match.group(0)!;
+      final mine =
+          value.substring(1).toLowerCase() == currentUsername.toLowerCase();
+      spans.add(
+        TextSpan(
+          text: value,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.primary,
+            fontWeight: mine ? FontWeight.w900 : FontWeight.w700,
+            backgroundColor: mine
+                ? Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer.withValues(alpha: 0.7)
+                : null,
+          ),
+        ),
+      );
+      cursor = match.end;
+    }
+    if (cursor < text.length) spans.add(TextSpan(text: text.substring(cursor)));
+    return Text.rich(TextSpan(children: spans));
+  }
+}
+
+class _PollBubble extends StatelessWidget {
+  const _PollBubble({
+    required this.message,
+    required this.currentUserId,
+    required this.onVote,
+    required this.onLongPress,
+  });
+
+  final ChatMessage message;
+  final int? currentUserId;
+  final ValueChanged<int> onVote;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final poll = message.poll!;
+    final colors = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: GestureDetector(
+        onLongPress: onLongPress,
+        child: Container(
+          width: 340,
+          margin: const EdgeInsets.only(bottom: 12, left: 40),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: colors.outlineVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.poll_outlined, color: colors.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      poll.question,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...poll.options.map((option) {
+                final selected =
+                    currentUserId != null &&
+                    option.voterIds.contains(currentUserId);
+                final ratio = poll.totalVotes == 0
+                    ? 0.0
+                    : option.voterIds.length / poll.totalVotes;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 9),
+                  child: InkWell(
+                    onTap: () => onVote(option.index),
+                    borderRadius: BorderRadius.circular(7),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: FractionallySizedBox(
+                            alignment: Alignment.centerLeft,
+                            widthFactor: ratio,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: colors.primaryContainer,
+                                borderRadius: BorderRadius.circular(7),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    if (message.hasDocument)
-                      InkWell(
-                        onTap: () => launchUrl(
-                          Uri.parse(message.fileUrl!),
-                          mode: LaunchMode.externalApplication,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 7),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 11,
+                            vertical: 10,
+                          ),
                           child: Row(
-                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.picture_as_pdf_outlined),
-                              const SizedBox(width: 7),
-                              Flexible(
-                                child: Text(
-                                  message.fileName ?? 'Belgeyi aç',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                              Icon(
+                                selected
+                                    ? Icons.check_circle
+                                    : Icons.radio_button_unchecked,
+                                size: 19,
+                                color: selected ? colors.primary : null,
                               ),
+                              const SizedBox(width: 8),
+                              Expanded(child: Text(option.text)),
+                              Text('${(ratio * 100).round()}%'),
                             ],
                           ),
                         ),
-                      ),
-                    if (message.message.isNotEmpty) Text(message.message),
-                    Align(
-                      alignment: Alignment.bottomRight,
-                      child: Text(
-                        time,
-                        style: Theme.of(context).textTheme.labelSmall,
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
+                );
+              }),
+              Text(
+                '${poll.totalVotes} oy',
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PollDraft {
+  const _PollDraft(this.question, this.options);
+
+  final String question;
+  final List<String> options;
+}
+
+class _CreatePollSheet extends StatefulWidget {
+  const _CreatePollSheet();
+
+  @override
+  State<_CreatePollSheet> createState() => _CreatePollSheetState();
+}
+
+class _CreatePollSheetState extends State<_CreatePollSheet> {
+  final _question = TextEditingController();
+  final _options = [TextEditingController(), TextEditingController()];
+
+  @override
+  void dispose() {
+    _question.dispose();
+    for (final option in _options) {
+      option.dispose();
+    }
+    super.dispose();
+  }
+
+  void _submit() {
+    final question = _question.text.trim();
+    final options = _options
+        .map((controller) => controller.text.trim())
+        .where((value) => value.isNotEmpty)
+        .toList();
+    if (question.isEmpty || options.length < 2) return;
+    Navigator.pop(context, _PollDraft(question, options));
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.fromLTRB(
+      18,
+      0,
+      18,
+      MediaQuery.viewInsetsOf(context).bottom + 24,
+    ),
+    child: SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const EcoSheetHandle(),
+          Text(
+            'Anket Oluştur',
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _question,
+            maxLength: 300,
+            decoration: const InputDecoration(
+              labelText: 'Soru',
+              prefixIcon: Icon(Icons.poll_outlined),
+            ),
+          ),
+          ...List.generate(
+            _options.length,
+            (index) => Padding(
+              padding: const EdgeInsets.only(top: 9),
+              child: TextField(
+                controller: _options[index],
+                maxLength: 160,
+                decoration: InputDecoration(
+                  labelText: '${index + 1}. seçenek',
+                  counterText: '',
                 ),
               ),
             ),
           ),
-          if (mine) ...[
-            const SizedBox(width: 7),
-            GestureDetector(
-              onTap: onAvatarTap,
-              child: CircleAvatar(
-                radius: 17,
-                backgroundImage: message.senderProfilePictureUrl == null
-                    ? null
-                    : NetworkImage(message.senderProfilePictureUrl!),
-                child: message.senderProfilePictureUrl == null
-                    ? Text(
-                        message.senderName.isEmpty
-                            ? 'E'
-                            : message.senderName[0],
-                      )
-                    : null,
-              ),
+          if (_options.length < 4)
+            TextButton.icon(
+              onPressed: () =>
+                  setState(() => _options.add(TextEditingController())),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Seçenek ekle'),
             ),
-          ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _submit,
+              icon: const Icon(Icons.send_rounded),
+              label: const Text('Anketi Yayınla'),
+            ),
+          ),
         ],
       ),
-    );
+    ),
+  );
+}
+
+class _GroupInfoSheet extends StatefulWidget {
+  const _GroupInfoSheet({
+    required this.apiService,
+    required this.group,
+    required this.members,
+  });
+
+  final ApiService apiService;
+  final CommunityGroup group;
+  final List<EventMember> members;
+
+  @override
+  State<_GroupInfoSheet> createState() => _GroupInfoSheetState();
+}
+
+class _GroupInfoSheetState extends State<_GroupInfoSheet> {
+  late final Future<List<ChatMessage>> _media;
+
+  @override
+  void initState() {
+    super.initState();
+    _media = widget.apiService.fetchGroupMedia(widget.group.id);
   }
+
+  Future<void> _leave() async {
+    try {
+      await widget.apiService.leaveCommunityGroup(widget.group.id);
+      if (mounted) Navigator.pop(context, 'left');
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => DefaultTabController(
+    length: 2,
+    child: SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.82,
+      child: Column(
+        children: [
+          const EcoSheetHandle(),
+          _GroupAvatar(group: widget.group),
+          const SizedBox(height: 10),
+          Text(
+            widget.group.name,
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          Text('${widget.group.memberCount} katılımcı'),
+          const SizedBox(height: 8),
+          const TabBar(
+            tabs: [
+              Tab(text: 'Bilgiler'),
+              Tab(text: 'Medya'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                ListView(
+                  padding: const EdgeInsets.all(18),
+                  children: [
+                    Text(widget.group.description),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.location_on_outlined),
+                      title: Text(widget.group.locationLabel),
+                    ),
+                    if (widget.group.inviteCode != null)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.link_rounded),
+                        title: const Text('Davet kodu'),
+                        subtitle: Text(widget.group.inviteCode!),
+                        trailing: IconButton(
+                          tooltip: 'Kopyala',
+                          onPressed: () {
+                            Clipboard.setData(
+                              ClipboardData(text: widget.group.inviteCode!),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Davet kodu kopyalandı.'),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.copy_rounded),
+                        ),
+                      ),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.tonalIcon(
+                        onPressed: () async {
+                          final result = await Navigator.push<bool>(
+                            context,
+                            MaterialPageRoute<bool>(
+                              builder: (_) => GroupDetailsScreen(
+                                apiService: widget.apiService,
+                                group: widget.group,
+                              ),
+                            ),
+                          );
+                          if (result == true && context.mounted) {
+                            Navigator.pop(context, 'deleted');
+                          }
+                        },
+                        icon: const Icon(Icons.tune_rounded),
+                        label: const Text('Grup Ayrıntıları'),
+                      ),
+                    ),
+                    if (!widget.group.isFounder) ...[
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Theme.of(context).colorScheme.error,
+                        ),
+                        onPressed: _leave,
+                        icon: const Icon(Icons.logout_rounded),
+                        label: const Text('Gruptan Ayrıl'),
+                      ),
+                    ],
+                  ],
+                ),
+                FutureBuilder<List<ChatMessage>>(
+                  future: _media,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const EcoShimmerList(itemCount: 4);
+                    }
+                    final media = snapshot.data ?? const [];
+                    if (media.isEmpty) {
+                      return const Center(
+                        child: Text('Henüz paylaşılan fotoğraf yok.'),
+                      );
+                    }
+                    return GridView.builder(
+                      padding: const EdgeInsets.all(12),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 6,
+                            mainAxisSpacing: 6,
+                          ),
+                      itemCount: media.length,
+                      itemBuilder: (_, index) => ClipRRect(
+                        borderRadius: BorderRadius.circular(7),
+                        child: Image.network(
+                          media[index].imageUrl!,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }

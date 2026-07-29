@@ -31,6 +31,7 @@ class ThemeController extends ChangeNotifier {
 
   AppThemeKind _selected = AppThemeKind.forest;
   int? _activeUserId;
+  Future<void> Function(String preference)? _remoteSaver;
 
   AppThemeKind get selected => _selected;
   ThemeData get themeData => AppThemes.forKind(_selected);
@@ -40,22 +41,40 @@ class ThemeController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> bindToUser(int userId) async {
+  Future<void> bindToUser({
+    required int userId,
+    String? remotePreference,
+    Future<void> Function(String preference)? remoteSaver,
+  }) async {
     _activeUserId = userId;
+    _remoteSaver = remoteSaver;
     final preferences = await SharedPreferences.getInstance();
-    final stored = preferences.getString('$_storagePrefix.$userId');
-    _selected = AppThemeKind.forest;
-    for (final theme in AppThemeKind.values) {
-      if (theme.name == stored) {
-        _selected = theme;
-        break;
+    final storageKey = '$_storagePrefix.$userId';
+    final localPreference = preferences.getString(storageKey);
+    final localTheme = _parse(localPreference);
+    final remoteTheme = _parse(remotePreference);
+
+    // The device value is the most recent choice made on this installation.
+    // The server value restores the account after a fresh installation.
+    _selected = localTheme ?? remoteTheme ?? AppThemeKind.forest;
+    await preferences.setString('$_storagePrefix.$userId', _selected.name);
+    notifyListeners();
+
+    if (localTheme != null &&
+        remoteTheme != localTheme &&
+        remoteSaver != null) {
+      try {
+        await remoteSaver(localTheme.name);
+      } catch (_) {
+        // Local persistence keeps the UI stable while an offline server sync
+        // is retried on the next authenticated app start.
       }
     }
-    notifyListeners();
   }
 
   void unbindUser() {
     _activeUserId = null;
+    _remoteSaver = null;
     _selected = AppThemeKind.forest;
     notifyListeners();
   }
@@ -70,6 +89,20 @@ class ThemeController extends ChangeNotifier {
     if (userId == null) return;
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString('$_storagePrefix.$userId', theme.name);
+    try {
+      await _remoteSaver?.call(theme.name);
+    } catch (_) {
+      // Never roll the visible theme back because a network sync failed.
+    }
+  }
+
+  AppThemeKind? _parse(String? value) {
+    final normalized = value?.trim();
+    if (normalized == null || normalized.isEmpty) return null;
+    for (final theme in AppThemeKind.values) {
+      if (theme.name == normalized) return theme;
+    }
+    return null;
   }
 }
 

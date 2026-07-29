@@ -8,18 +8,49 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final controller = ThemeController();
 
-    await controller.bindToUser(101);
+    await controller.bindToUser(userId: 101);
     await controller.select(AppThemeKind.ocean);
 
-    await controller.bindToUser(202);
+    await controller.bindToUser(userId: 202);
     expect(controller.selected, AppThemeKind.forest);
     await controller.select(AppThemeKind.sunset);
 
-    await controller.bindToUser(101);
+    await controller.bindToUser(userId: 101);
     expect(controller.selected, AppThemeKind.ocean);
 
-    await controller.bindToUser(202);
+    await controller.bindToUser(userId: 202);
     expect(controller.selected, AppThemeKind.sunset);
+  });
+
+  test('yerel hesap tercihi eski sunucu değerine karşı korunur', () async {
+    SharedPreferences.setMockInitialValues({
+      'ecovision.theme.101': AppThemeKind.ocean.name,
+    });
+    final synced = <String>[];
+    final controller = ThemeController();
+
+    await controller.bindToUser(
+      userId: 101,
+      remotePreference: AppThemeKind.forest.name,
+      remoteSaver: (value) async => synced.add(value),
+    );
+
+    expect(controller.selected, AppThemeKind.ocean);
+    expect(synced, [AppThemeKind.ocean.name]);
+  });
+
+  test('sunucu kapalıyken seçilen tema yerelde kalır', () async {
+    SharedPreferences.setMockInitialValues({});
+    final controller = ThemeController();
+    await controller.bindToUser(
+      userId: 101,
+      remoteSaver: (_) async => throw Exception('sunucu kapalı'),
+    );
+
+    await controller.select(AppThemeKind.darkEco);
+    await controller.bindToUser(userId: 101);
+
+    expect(controller.selected, AppThemeKind.darkEco);
   });
 
   test('dört tema okunaklı yüzey renkleri sunar', () {

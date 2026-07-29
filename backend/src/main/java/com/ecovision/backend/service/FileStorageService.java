@@ -26,14 +26,10 @@ public class FileStorageService {
     );
 
     private final Path uploadRoot;
-    private final String publicBaseUrl;
-
     public FileStorageService(
-            @Value("${app.storage.upload-dir}") String uploadDir,
-            @Value("${app.storage.public-base-url}") String publicBaseUrl
+            @Value("${app.storage.upload-dir}") String uploadDir
     ) {
         this.uploadRoot = initializeUploadRoot(uploadDir);
-        this.publicBaseUrl = publicBaseUrl;
     }
 
     public String storeImage(MultipartFile file, String folder) {
@@ -92,7 +88,7 @@ public class FileStorageService {
                 throw new IllegalArgumentException("Geçersiz dosya yolu");
             }
             Files.write(target, bytes, StandardOpenOption.CREATE_NEW);
-            return publicBaseUrl + "/uploads/" + folder + "/" + fileName;
+            return "/uploads/" + folder + "/" + fileName;
         } catch (IOException exception) {
             throw new IllegalStateException("Yüklenen dosya kaydedilemedi", exception);
         }

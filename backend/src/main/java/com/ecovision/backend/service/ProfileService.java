@@ -3,6 +3,7 @@ package com.ecovision.backend.service;
 import com.ecovision.backend.dto.ChangePasswordRequest;
 import com.ecovision.backend.dto.UpdateProfileRequest;
 import com.ecovision.backend.dto.ProfileVisibilityRequest;
+import com.ecovision.backend.dto.ThemePreferenceRequest;
 import com.ecovision.backend.dto.UserResponse;
 import com.ecovision.backend.model.AppUser;
 import com.ecovision.backend.repository.AppUserRepository;
@@ -68,6 +69,16 @@ public class ProfileService {
     ) {
         AppUser user = lockUser(currentUser.getId());
         user.setProfileVisibility(request.visibility());
+        return UserResponse.from(userRepository.save(user));
+    }
+
+    @Transactional
+    public UserResponse updateTheme(
+            AppUser currentUser,
+            ThemePreferenceRequest request
+    ) {
+        AppUser user = lockUser(currentUser.getId());
+        user.setThemePreference(request.themePreference());
         return UserResponse.from(userRepository.save(user));
     }
 

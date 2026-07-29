@@ -11,11 +11,9 @@ class MapPin {
     required this.createdByName,
     required this.createdAt,
     required this.address,
-    required this.workingHours,
     required this.acceptedMaterials,
     required this.binStates,
     required this.active,
-    required this.openNow,
     this.distanceKm,
   });
 
@@ -29,11 +27,9 @@ class MapPin {
   final DateTime createdAt;
   final double? distanceKm;
   final String address;
-  final String workingHours;
   final Set<String> acceptedMaterials;
   final Map<String, bool> binStates;
   final bool active;
-  final bool openNow;
 
   LatLng get point => LatLng(latitude, longitude);
 
@@ -54,7 +50,6 @@ class MapPin {
           DateTime.now(),
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
       address: (json['address'] ?? '').toString(),
-      workingHours: (json['workingHours'] ?? '').toString(),
       acceptedMaterials:
           (json['acceptedMaterials'] as List<dynamic>? ?? const [])
               .map((item) => item.toString())
@@ -63,7 +58,6 @@ class MapPin {
         (key, value) => MapEntry(key.toLowerCase(), value == true),
       ),
       active: json['active'] as bool? ?? true,
-      openNow: json['openNow'] as bool? ?? false,
     );
   }
 

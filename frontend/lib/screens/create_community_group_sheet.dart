@@ -33,6 +33,7 @@ class _CreateCommunityGroupSheetState extends State<CreateCommunityGroupSheet> {
   late String _district;
   int _memberLimit = 20;
   bool _saving = false;
+  bool _privateGroup = false;
   Uint8List? _coverBytes;
   String? _coverName;
 
@@ -89,6 +90,7 @@ class _CreateCommunityGroupSheetState extends State<CreateCommunityGroupSheet> {
         neighborhood: _neighborhood.text,
         memberLimit: _memberLimit,
         joinCode: _joinCode.text,
+        privateGroup: _privateGroup,
         coverBytes: _coverBytes,
         coverFileName: _coverName,
       );
@@ -239,14 +241,25 @@ class _CreateCommunityGroupSheetState extends State<CreateCommunityGroupSheet> {
                 onChanged: (value) => setState(() => _memberLimit = value!),
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _joinCode,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Katılım parolası (isteğe bağlı)',
-                  prefixIcon: Icon(Icons.lock_outline),
-                ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _privateGroup,
+                onChanged: (value) => setState(() => _privateGroup = value),
+                secondary: const Icon(Icons.shield_outlined),
+                title: const Text('Özel grup'),
+                subtitle: const Text('Yeni üyeler yönetici onayıyla katılır.'),
               ),
+              if (_privateGroup) ...[
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _joinCode,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Davet parolası (isteğe bağlı)',
+                    prefixIcon: Icon(Icons.lock_outline),
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,

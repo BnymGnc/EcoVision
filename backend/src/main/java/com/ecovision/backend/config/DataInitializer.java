@@ -14,9 +14,12 @@ import com.ecovision.backend.repository.GroupMemberRepository;
 import com.ecovision.backend.service.UsernameService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
+import java.util.UUID;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
 public class DataInitializer {
@@ -111,9 +114,11 @@ public class DataInitializer {
             EventMemberRepository legacyMembers,
             ChatMessageRepository chatMessages,
             CommunityGroupRepository groups,
-            GroupMemberRepository members
+            GroupMemberRepository members,
+            PlatformTransactionManager transactionManager
     ) {
-        return args -> {
+        return args -> new TransactionTemplate(transactionManager)
+                .executeWithoutResult(status -> {
             for (var legacy : eventRepository.findAllByOrderByEventDateAsc()) {
                 CommunityGroup group = groups.findByLegacyEventId(legacy.getId())
                         .orElseGet(CommunityGroup::new);
@@ -159,6 +164,20 @@ public class DataInitializer {
             }
 
             for (CommunityGroup group : groups.findAll()) {
+                if (group.getInviteCode() == null
+                        || group.getInviteCode().isBlank()) {
+                    group.setInviteCode(
+                            UUID.randomUUID().toString()
+                                    .replace("-", "")
+                                    .substring(0, 16)
+                    );
+                    groups.save(group);
+                }
+                if (group.getJoinCodeHash() != null
+                        && !group.getJoinCodeHash().isBlank()) {
+                    group.setPrivateGroup(true);
+                    groups.save(group);
+                }
                 if (!members.existsByGroupIdAndUserId(
                         group.getId(),
                         group.getCreator().getId()
@@ -184,6 +203,6 @@ public class DataInitializer {
                     members.save(member);
                 }
             }
-        };
+        });
     }
 }
