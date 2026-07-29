@@ -33,7 +33,7 @@ class _CreateCommunityGroupSheetState extends State<CreateCommunityGroupSheet> {
   late String _district;
   int _memberLimit = 20;
   bool _saving = false;
-  bool _privateGroup = false;
+  bool _passwordProtected = false;
   Uint8List? _coverBytes;
   String? _coverName;
 
@@ -89,8 +89,8 @@ class _CreateCommunityGroupSheetState extends State<CreateCommunityGroupSheet> {
         district: _district,
         neighborhood: _neighborhood.text,
         memberLimit: _memberLimit,
-        joinCode: _joinCode.text,
-        privateGroup: _privateGroup,
+        joinCode: _passwordProtected ? _joinCode.text : null,
+        privateGroup: _passwordProtected,
         coverBytes: _coverBytes,
         coverFileName: _coverName,
       );
@@ -243,21 +243,33 @@ class _CreateCommunityGroupSheetState extends State<CreateCommunityGroupSheet> {
               const SizedBox(height: 12),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                value: _privateGroup,
-                onChanged: (value) => setState(() => _privateGroup = value),
-                secondary: const Icon(Icons.shield_outlined),
-                title: const Text('Özel grup'),
-                subtitle: const Text('Yeni üyeler yönetici onayıyla katılır.'),
+                value: _passwordProtected,
+                onChanged: (value) => setState(() {
+                  _passwordProtected = value;
+                  if (!value) _joinCode.clear();
+                }),
+                secondary: const Icon(Icons.lock_outline_rounded),
+                title: const Text('Şifreli grup'),
+                subtitle: const Text(
+                  'Katılımcılar doğru şifreyi girerek doğrudan katılır.',
+                ),
               ),
-              if (_privateGroup) ...[
+              if (_passwordProtected) ...[
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _joinCode,
                   obscureText: true,
                   decoration: const InputDecoration(
-                    labelText: 'Davet parolası (isteğe bağlı)',
+                    labelText: 'Grup şifresi',
                     prefixIcon: Icon(Icons.lock_outline),
                   ),
+                  validator: (value) {
+                    if (!_passwordProtected) return null;
+                    if ((value ?? '').trim().length < 4) {
+                      return 'Grup şifresi en az 4 karakter olmalıdır';
+                    }
+                    return null;
+                  },
                 ),
               ],
               const SizedBox(height: 20),

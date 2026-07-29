@@ -143,10 +143,19 @@ public class CommunityGroupService {
                 120
         ));
         group.setMemberLimit(request.memberLimit() == null ? 20 : request.memberLimit());
-        group.setPrivateGroup(Boolean.TRUE.equals(request.privateGroup()));
-        if (request.joinCode() != null && !request.joinCode().isBlank()) {
-            group.setJoinCodeHash(passwordEncoder.encode(request.joinCode().trim()));
-            group.setPrivateGroup(true);
+        String password = request.joinCode() == null
+                ? ""
+                : request.joinCode().trim();
+        boolean passwordProtected = Boolean.TRUE.equals(request.privateGroup())
+                || !password.isBlank();
+        if (passwordProtected && password.length() < 4) {
+            throw new IllegalArgumentException(
+                    "Şifreli grup için en az 4 karakterli bir şifre belirleyin"
+            );
+        }
+        group.setPrivateGroup(passwordProtected);
+        if (passwordProtected) {
+            group.setJoinCodeHash(passwordEncoder.encode(password));
         }
         if (cover != null && !cover.isEmpty()) {
             group.setCoverImageUrl(storage.storeImage(cover, "groups"));
@@ -187,7 +196,7 @@ public class CommunityGroupService {
                     && code.equalsIgnoreCase(group.getInviteCode());
             if (!legacyPasswordValid && !inviteCodeValid) {
                 throw new IllegalArgumentException(
-                        "Bu özel grup için katılım isteği göndermelisiniz"
+                        "Grup şifresi hatalı"
                 );
             }
         }
@@ -219,23 +228,11 @@ public class CommunityGroupService {
     @Transactional
     public GroupJoinRequestResponse requestToJoin(AppUser user, Long groupId) {
         ageGate.requireAdult(user);
-        CommunityGroup group = findGroup(groupId);
-        if (!group.isPrivateGroup()) {
-            throw new IllegalArgumentException(
-                    "Grup herkese açık; doğrudan katılabilirsiniz"
-            );
-        }
-        if (members.existsByGroupIdAndUserId(groupId, user.getId())) {
-            throw new IllegalArgumentException("Zaten bu grubun üyesisiniz");
-        }
-        GroupJoinRequest request = joinRequests
-                .findByGroupIdAndRequesterId(groupId, user.getId())
-                .orElseGet(GroupJoinRequest::new);
-        request.setGroup(group);
-        request.setRequester(user);
-        request.setStatus(GroupJoinRequestStatus.PENDING);
-        request.setRespondedAt(null);
-        return GroupJoinRequestResponse.from(joinRequests.save(request));
+        findGroup(groupId);
+        throw new IllegalArgumentException(
+                "Katılım onayı kullanılmıyor. Şifreli gruplara doğru "
+                        + "şifreyle doğrudan katılabilirsiniz."
+        );
     }
 
     @Transactional(readOnly = true)
@@ -243,7 +240,7 @@ public class CommunityGroupService {
             AppUser user,
             Long groupId
     ) {
-        requireAdmin(user, groupId);
+        requireFounder(user, groupId);
         return joinRequests.findByGroupIdAndStatusOrderByRequestedAtAsc(
                         groupId,
                         GroupJoinRequestStatus.PENDING
@@ -322,7 +319,26 @@ public class CommunityGroupService {
                         : request.memberLimit()
         );
         if (request.privateGroup() != null) {
-            group.setPrivateGroup(request.privateGroup());
+            if (!request.privateGroup()) {
+                group.setPrivateGroup(false);
+                group.setJoinCodeHash(null);
+            } else {
+                String password = request.joinCode() == null
+                        ? ""
+                        : request.joinCode().trim();
+                boolean alreadyHasPassword =
+                        group.getJoinCodeHash() != null
+                                && !group.getJoinCodeHash().isBlank();
+                if (password.isBlank() && !alreadyHasPassword) {
+                    throw new IllegalArgumentException(
+                            "Şifreli grup için en az 4 karakterli bir şifre belirleyin"
+                    );
+                }
+                if (!password.isBlank()) {
+                    group.setJoinCodeHash(passwordEncoder.encode(password));
+                }
+                group.setPrivateGroup(true);
+            }
         }
         if (cover != null && !cover.isEmpty()) {
             group.setCoverImageUrl(storage.storeImage(cover, "groups"));
@@ -345,7 +361,7 @@ public class CommunityGroupService {
             Long groupId,
             AddGroupMemberRequest request
     ) {
-        requireAdmin(user, groupId);
+        requireFounder(user, groupId);
         CommunityGroup group = findGroup(groupId);
         String username = request.username().trim().toLowerCase(Locale.ROOT);
         AppUser target = users.findByPublicUsername(username)
@@ -411,24 +427,10 @@ public class CommunityGroupService {
     @Transactional
     public void removeMember(AppUser user, Long groupId, Long userId) {
         CommunityGroup group = findGroup(groupId);
-        GroupMember actor = requireMemberRecord(user, groupId);
+        requireFounder(user, groupId);
         GroupMember target = findMember(groupId, userId);
         if (isFounder(target, group)) {
             throw new AccessDeniedException("Grup kurucusu gruptan çıkarılamaz");
-        }
-        if (isFounder(actor, group)) {
-            members.delete(target);
-            publishSystem(
-                    group,
-                    user,
-                    target.getUser().getName() + " gruptan çıkarıldı"
-            );
-            return;
-        }
-        if (!isAdmin(actor.getRole()) || target.getRole() != GroupRole.MEMBER) {
-            throw new AccessDeniedException(
-                    "Yöneticiler yalnızca normal üyeleri gruptan çıkarabilir"
-            );
         }
         members.delete(target);
         publishSystem(

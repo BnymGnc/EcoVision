@@ -12,6 +12,7 @@ public record UpdateCommunityGroupRequest(
         @NotBlank @Size(max = 80) String district,
         @Size(max = 120) String neighborhood,
         @Min(2) @Max(200) Integer memberLimit,
-        Boolean privateGroup
+        Boolean privateGroup,
+        @Size(min = 4, max = 64) String joinCode
 ) {
 }

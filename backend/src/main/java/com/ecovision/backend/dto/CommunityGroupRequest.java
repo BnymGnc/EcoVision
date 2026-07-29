@@ -12,7 +12,7 @@ public record CommunityGroupRequest(
         @NotBlank @Size(max = 80) String district,
         @Size(max = 120) String neighborhood,
         @Min(2) @Max(200) Integer memberLimit,
-        @Size(max = 64) String joinCode,
+        @Size(min = 4, max = 64) String joinCode,
         Boolean privateGroup
 ) {
 }

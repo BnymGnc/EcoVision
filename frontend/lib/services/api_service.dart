@@ -521,6 +521,7 @@ class ApiService {
     required String neighborhood,
     required int memberLimit,
     bool? privateGroup,
+    String? joinCode,
     Uint8List? coverBytes,
     String? coverFileName,
   }) async {
@@ -532,6 +533,8 @@ class ApiService {
       'neighborhood': neighborhood.trim(),
       'memberLimit': memberLimit,
       if (privateGroup != null) 'privateGroup': privateGroup,
+      if (joinCode != null && joinCode.trim().isNotEmpty)
+        'joinCode': joinCode.trim(),
     };
     if (coverBytes == null) {
       return CommunityGroup.fromJson(

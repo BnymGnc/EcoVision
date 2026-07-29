@@ -173,11 +173,11 @@ public class DataInitializer {
                     );
                     groups.save(group);
                 }
-                if (group.getJoinCodeHash() != null
-                        && !group.getJoinCodeHash().isBlank()) {
-                    group.setPrivateGroup(true);
-                    groups.save(group);
-                }
+                boolean passwordProtected =
+                        group.getJoinCodeHash() != null
+                                && !group.getJoinCodeHash().isBlank();
+                group.setPrivateGroup(passwordProtected);
+                groups.save(group);
                 if (!members.existsByGroupIdAndUserId(
                         group.getId(),
                         group.getCreator().getId()

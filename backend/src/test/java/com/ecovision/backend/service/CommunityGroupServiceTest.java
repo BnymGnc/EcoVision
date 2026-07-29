@@ -11,6 +11,7 @@ import com.ecovision.backend.model.AppUser;
 import com.ecovision.backend.model.CommunityGroup;
 import com.ecovision.backend.model.GroupMember;
 import com.ecovision.backend.model.GroupRole;
+import com.ecovision.backend.dto.JoinEventRequest;
 import com.ecovision.backend.repository.AppUserRepository;
 import com.ecovision.backend.repository.ChatMessageRepository;
 import com.ecovision.backend.repository.CommunityGroupRepository;
@@ -71,8 +72,6 @@ class CommunityGroupServiceTest {
         GroupMember target = member(user(3L, "diger"), GroupRole.ADMIN);
         when(members.findByGroupIdAndUserId(10L, 2L))
                 .thenReturn(Optional.of(actor));
-        when(members.findByGroupIdAndUserId(10L, 3L))
-                .thenReturn(Optional.of(target));
 
         assertThrows(
                 AccessDeniedException.class,
@@ -109,6 +108,29 @@ class CommunityGroupServiceTest {
                 AccessDeniedException.class,
                 () -> service.promote(adminUser, 10L, target.getUser().getId())
         );
+    }
+
+    @Test
+    void passwordProtectedGroupRejectsWrongPasswordWithoutApprovalFlow() {
+        AppUser joiningUser = user(4L, "katilimci");
+        group.setPrivateGroup(true);
+        group.setJoinCodeHash("bcrypt-hash");
+        when(members.existsByGroupIdAndUserId(10L, 4L)).thenReturn(false);
+        when(members.countByGroupId(10L)).thenReturn(1L);
+        when(passwordEncoder.matches("yanlis", "bcrypt-hash"))
+                .thenReturn(false);
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.join(
+                        joiningUser,
+                        10L,
+                        new JoinEventRequest("yanlis")
+                )
+        );
+
+        assertEquals("Grup şifresi hatalı", exception.getMessage());
+        verify(members, never()).saveAndFlush(any(GroupMember.class));
     }
 
     private GroupMember member(AppUser user, GroupRole role) {

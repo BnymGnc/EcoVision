@@ -1823,11 +1823,13 @@ class _GroupInfoSheet extends StatefulWidget {
 
 class _GroupInfoSheetState extends State<_GroupInfoSheet> {
   late final Future<List<ChatMessage>> _media;
+  late List<EventMember> _members;
 
   @override
   void initState() {
     super.initState();
     _media = widget.apiService.fetchGroupMedia(widget.group.id);
+    _members = List<EventMember>.from(widget.members);
   }
 
   Future<void> _leave() async {
@@ -1842,9 +1844,110 @@ class _GroupInfoSheetState extends State<_GroupInfoSheet> {
     }
   }
 
+  Future<void> _openMemberProfile(EventMember member) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => PublicProfileScreen(
+          apiService: widget.apiService,
+          userId: member.userId,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _removeMember(EventMember member) async {
+    if (!widget.group.isFounder || member.isFounder) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Üye gruptan çıkarılsın mı?'),
+        content: Text(
+          '${member.fullName} grup sohbetine ve etkinliklerine '
+          'artık erişemeyecek.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Gruptan Çıkar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.apiService.removeCommunityGroupMember(
+        widget.group.id,
+        member.userId,
+      );
+      if (!mounted) return;
+      setState(
+        () => _members.removeWhere((item) => item.userId == member.userId),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${member.fullName} gruptan çıkarıldı.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
+  }
+
+  Widget _membersTab() {
+    if (_members.isEmpty) {
+      return const Center(child: Text('Grup üyesi bulunamadı.'));
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 28),
+      itemCount: _members.length,
+      separatorBuilder: (_, _) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final member = _members[index];
+        return ListTile(
+          onTap: () => _openMemberProfile(member),
+          leading: CircleAvatar(
+            backgroundImage: member.profilePictureUrl == null
+                ? null
+                : NetworkImage(member.profilePictureUrl!),
+            child: member.profilePictureUrl == null
+                ? Text(member.fullName.isEmpty ? 'E' : member.fullName[0])
+                : null,
+          ),
+          title: Text(member.fullName),
+          subtitle: Text(
+            member.isFounder
+                ? 'Kurucu'
+                : member.isAdmin
+                ? 'Yönetici'
+                : 'Üye',
+          ),
+          trailing: widget.group.isFounder && !member.isFounder
+              ? IconButton(
+                  tooltip: 'Gruptan çıkar',
+                  onPressed: () => _removeMember(member),
+                  icon: Icon(
+                    Icons.person_remove_outlined,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                )
+              : const Icon(Icons.chevron_right_rounded),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) => DefaultTabController(
-    length: 2,
+    length: 3,
     child: SizedBox(
       height: MediaQuery.sizeOf(context).height * 0.82,
       child: Column(
@@ -1863,6 +1966,7 @@ class _GroupInfoSheetState extends State<_GroupInfoSheet> {
           const TabBar(
             tabs: [
               Tab(text: 'Bilgiler'),
+              Tab(text: 'Üyeler'),
               Tab(text: 'Medya'),
             ],
           ),
@@ -1934,6 +2038,7 @@ class _GroupInfoSheetState extends State<_GroupInfoSheet> {
                     ],
                   ],
                 ),
+                _membersTab(),
                 FutureBuilder<List<ChatMessage>>(
                   future: _media,
                   builder: (context, snapshot) {

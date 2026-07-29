@@ -125,7 +125,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
       appBar: AppBar(
         title: const Text('Grup Profili'),
         actions: [
-          if (_group.isAdmin)
+          if (_group.isFounder)
             PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'edit') _editGroup();
@@ -360,6 +360,7 @@ class _EditGroupSheetState extends State<_EditGroupSheet> {
   late final TextEditingController _description;
   late final TextEditingController _neighborhood;
   late final TextEditingController _memberLimit;
+  late final TextEditingController _password;
   late String _city;
   late String _district;
   Uint8List? _cover;
@@ -376,6 +377,7 @@ class _EditGroupSheetState extends State<_EditGroupSheet> {
     _memberLimit = TextEditingController(
       text: widget.group.memberLimit.toString(),
     );
+    _password = TextEditingController();
     _city = TurkishLocations.provinces.containsKey(widget.group.city)
         ? widget.group.city
         : TurkishLocations.provinceNames.first;
@@ -392,6 +394,7 @@ class _EditGroupSheetState extends State<_EditGroupSheet> {
     _description.dispose();
     _neighborhood.dispose();
     _memberLimit.dispose();
+    _password.dispose();
     super.dispose();
   }
 
@@ -432,6 +435,7 @@ class _EditGroupSheetState extends State<_EditGroupSheet> {
         neighborhood: _neighborhood.text,
         memberLimit: int.parse(_memberLimit.text),
         privateGroup: _privateGroup,
+        joinCode: _privateGroup ? _password.text : null,
         coverBytes: _cover,
         coverFileName: _coverName,
       );
@@ -508,13 +512,37 @@ class _EditGroupSheetState extends State<_EditGroupSheet> {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 value: _privateGroup,
-                onChanged: (value) => setState(() => _privateGroup = value),
-                secondary: const Icon(Icons.shield_outlined),
-                title: const Text('Özel grup'),
+                onChanged: (value) => setState(() {
+                  _privateGroup = value;
+                  if (!value) _password.clear();
+                }),
+                secondary: const Icon(Icons.lock_outline_rounded),
+                title: const Text('Şifreli grup'),
                 subtitle: const Text(
-                  'Katılım istekleri yönetici onayı gerektirir.',
+                  'Doğru şifreyi bilen kullanıcılar doğrudan katılır.',
                 ),
               ),
+              if (_privateGroup) ...[
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _password,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: widget.group.privateGroup
+                        ? 'Yeni şifre (değiştirmeyeceksen boş bırak)'
+                        : 'Grup şifresi',
+                    prefixIcon: const Icon(Icons.password_rounded),
+                  ),
+                  validator: (value) {
+                    if (!_privateGroup || widget.group.privateGroup) {
+                      return null;
+                    }
+                    return (value ?? '').trim().length < 4
+                        ? 'Şifre en az 4 karakter olmalıdır'
+                        : null;
+                  },
+                ),
+              ],
               const SizedBox(height: 12),
               TextFormField(
                 controller: _description,
@@ -827,9 +855,7 @@ class _RoleAwareMembersSheetState extends State<_RoleAwareMembersSheet> {
   void _reload() {
     setState(() {
       _members = widget.apiService.fetchCommunityGroupMembers(widget.group.id);
-      _requests = widget.group.isAdmin
-          ? widget.apiService.fetchGroupJoinRequests(widget.group.id)
-          : Future.value(const []);
+      _requests = Future.value(const []);
     });
     widget.onChanged();
   }
@@ -902,13 +928,12 @@ class _RoleAwareMembersSheetState extends State<_RoleAwareMembersSheet> {
 
   bool _canRemove(EventMember member) {
     if (member.isFounder) return false;
-    if (widget.group.isFounder) return true;
-    return widget.group.isAdmin && !member.isAdmin;
+    return widget.group.isFounder;
   }
 
   @override
   Widget build(BuildContext context) => DefaultTabController(
-    length: widget.group.isAdmin ? 2 : 1,
+    length: 1,
     child: Padding(
       padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
       child: Column(
@@ -920,40 +945,15 @@ class _RoleAwareMembersSheetState extends State<_RoleAwareMembersSheet> {
               'Grup Üyeleri',
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
-            subtitle: Text('Kurucu, yöneticiler ve üyeler'),
+            subtitle: Text(
+              'Bir üyeye dokunarak EcoVision profilini görüntüleyebilirsin.',
+            ),
           ),
           TabBar(
             onTap: (index) => setState(() => _tabIndex = index),
-            tabs: [
-              const Tab(text: 'Üyeler'),
-              if (widget.group.isAdmin) const Tab(text: 'Katılım İstekleri'),
-            ],
+            tabs: const [Tab(text: 'Üyeler')],
           ),
           const SizedBox(height: 10),
-          if (_tabIndex == 0 && widget.group.isAdmin) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _username,
-                    autocorrect: false,
-                    decoration: const InputDecoration(
-                      hintText: 'Kullanıcı adıyla üye ekle',
-                      prefixIcon: Icon(Icons.alternate_email),
-                    ),
-                    onSubmitted: (_) => _addMember(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  tooltip: 'Üye ekle',
-                  onPressed: _adding ? null : _addMember,
-                  icon: const Icon(Icons.person_add_alt_1),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-          ],
           if (_tabIndex == 0)
             Expanded(
               child: FutureBuilder<List<EventMember>>(
@@ -1003,10 +1003,8 @@ class _RoleAwareMembersSheetState extends State<_RoleAwareMembersSheet> {
                         ),
                         trailing: member.isFounder
                             ? const Icon(Icons.workspace_premium_outlined)
-                            : PopupMenuButton<String>(
-                                enabled:
-                                    widget.group.isFounder ||
-                                    _canRemove(member),
+                            : widget.group.isFounder
+                            ? PopupMenuButton<String>(
                                 onSelected: (value) => _action(member, value),
                                 itemBuilder: (_) => [
                                   if (widget.group.isFounder && !member.isAdmin)
@@ -1030,7 +1028,8 @@ class _RoleAwareMembersSheetState extends State<_RoleAwareMembersSheet> {
                                       ),
                                     ),
                                 ],
-                              ),
+                              )
+                            : const Icon(Icons.chevron_right_rounded),
                       );
                     },
                   );

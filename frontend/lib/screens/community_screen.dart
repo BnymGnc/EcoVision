@@ -162,26 +162,76 @@ class _CommunityScreenState extends State<CommunityScreen>
   Future<void> _join(CommunityGroup group) async {
     await EcoHaptics.light();
     if (group.privateGroup && !group.isJoined) {
-      if (group.hasPendingJoinRequest) {
-        _showError('Katılım isteğin yönetici onayı bekliyor.');
-        return;
-      }
-      try {
-        await widget.apiService.requestToJoinCommunityGroup(group.id);
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Katılım isteğin gönderildi.')),
-        );
-        _reload();
-      } catch (error) {
-        _showError(error);
-      }
+      final password = await _askGroupPassword(group);
+      if (password == null || !mounted) return;
+      await _joinAndOpen(group, password: password);
       return;
     }
+    await _joinAndOpen(group);
+  }
+
+  Future<String?> _askGroupPassword(CommunityGroup group) async {
+    final controller = TextEditingController();
+    var obscure = true;
+    final password = await showDialog<String>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Şifreli Grup'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${group.name} grubunun şifresini gir.'),
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                obscureText: obscure,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (value) => Navigator.pop(context, value.trim()),
+                decoration: InputDecoration(
+                  labelText: 'Grup şifresi',
+                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                  suffixIcon: IconButton(
+                    tooltip: obscure ? 'Şifreyi göster' : 'Şifreyi gizle',
+                    onPressed: () => setDialogState(() => obscure = !obscure),
+                    icon: Icon(
+                      obscure
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              child: const Text('Katıl'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    if (password == null || password.isEmpty) return null;
+    return password;
+  }
+
+  Future<void> _joinAndOpen(CommunityGroup group, {String? password}) async {
     try {
       final joined = group.isJoined
           ? group
-          : await widget.apiService.joinCommunityGroup(group.id);
+          : await widget.apiService.joinCommunityGroup(
+              group.id,
+              joinCode: password,
+            );
       if (!mounted) return;
       await Navigator.push(
         context,
@@ -1105,15 +1155,10 @@ class _GroupCard extends StatelessWidget {
                     avatar: Icon(Icons.check_circle, size: 17),
                     label: Text('Üyesin'),
                   ),
-                if (!group.isJoined && group.hasPendingJoinRequest)
-                  const Chip(
-                    avatar: Icon(Icons.hourglass_top_rounded, size: 17),
-                    label: Text('Onay bekliyor'),
-                  )
-                else if (!group.isJoined && group.privateGroup)
+                if (!group.isJoined && group.privateGroup)
                   const Chip(
                     avatar: Icon(Icons.lock_outline_rounded, size: 17),
-                    label: Text('Katılım isteği'),
+                    label: Text('Şifreli'),
                   ),
               ],
             ),
