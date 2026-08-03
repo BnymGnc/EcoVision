@@ -18,7 +18,16 @@ class EventLocationMapScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final point = LatLng(latitude, longitude);
     return Scaffold(
-      appBar: AppBar(title: const Text('Etkinlik Konumu')),
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Theme.of(
+          context,
+        ).colorScheme.surface.withValues(alpha: 0),
+        surfaceTintColor: Theme.of(
+          context,
+        ).colorScheme.surface.withValues(alpha: 0),
+        title: const Text('Etkinlik Konumu'),
+      ),
       body: FlutterMap(
         options: MapOptions(initialCenter: point, initialZoom: 16),
         children: [
@@ -32,9 +41,9 @@ class EventLocationMapScreen extends StatelessWidget {
                 point: point,
                 width: 64,
                 height: 64,
-                child: const Icon(
+                child: Icon(
                   Icons.location_on_rounded,
-                  color: Colors.red,
+                  color: Theme.of(context).colorScheme.error,
                   size: 48,
                 ),
               ),

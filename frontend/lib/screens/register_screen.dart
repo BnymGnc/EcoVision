@@ -286,7 +286,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 14),
                 InkWell(
                   onTap: _selectDateOfBirth,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(24),
                   child: InputDecorator(
                     decoration: const InputDecoration(
                       labelText: 'Doğum Tarihi',
@@ -428,7 +428,7 @@ class _PasswordStrengthIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = switch (score) {
       0 || 1 => Theme.of(context).colorScheme.error,
-      2 || 3 => Colors.orange.shade700,
+      2 || 3 => Theme.of(context).colorScheme.tertiary,
       _ => Theme.of(context).colorScheme.primary,
     };
     final label = switch (score) {

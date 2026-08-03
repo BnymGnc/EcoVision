@@ -91,9 +91,8 @@ class _ScanHistoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = scan.isRecyclable
-        ? const Color(0xFF2E7D32)
-        : const Color(0xFFEF6C00);
+    final colors = Theme.of(context).colorScheme;
+    final color = scan.isRecyclable ? colors.primary : colors.error;
 
     return Card(
       child: ListTile(

@@ -11,4 +11,6 @@ public interface ChatPollVoteRepository extends JpaRepository<ChatPollVote, Long
 
     @EntityGraph(attributePaths = "user")
     List<ChatPollVote> findByPollId(Long pollId);
+
+    void deleteByPollId(Long pollId);
 }

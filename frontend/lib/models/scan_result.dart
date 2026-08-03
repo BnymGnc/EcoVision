@@ -100,8 +100,7 @@ class WasteDetection {
       material: (json['material'] ?? json['type'] ?? 'Bilinmeyen').toString(),
       confidence: (json['confidence'] as num? ?? 0).toDouble(),
       machineEligible: json['machine_eligible'] as bool? ?? false,
-      eligibilityLabel:
-          (json['eligibility_label'] ?? 'Uygun değil').toString(),
+      eligibilityLabel: (json['eligibility_label'] ?? 'Uygun değil').toString(),
     );
   }
 }

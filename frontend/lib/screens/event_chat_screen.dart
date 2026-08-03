@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as image_lib;
+import 'package:stomp_dart_client/stomp_dart_client.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/chat_message.dart';
@@ -36,12 +38,17 @@ class _EventChatScreenState extends State<EventChatScreen> {
   final List<ChatMessage> _messages = [];
   final List<GroupMission> _missions = [];
 
-  Timer? _timer;
+  StompClient? _stompClient;
+  StompUnsubscribe? _messageUnsubscribe;
+  StompUnsubscribe? _typingUnsubscribe;
+  Timer? _typingDebounce;
+  final Map<int, Timer> _typingExpiry = {};
+  final Map<int, String> _typingUsers = {};
+  bool _realtimeConnected = false;
   bool _isLoading = true;
   bool _isSending = false;
   bool _isLoadingOlder = false;
   bool _hasMore = true;
-  bool _isTyping = false;
   Object? _error;
   String? _currentAttendance;
   late int _attendeeCount;
@@ -53,13 +60,10 @@ class _EventChatScreenState extends State<EventChatScreen> {
     _attendeeCount = widget.event.attendeeCount;
     _loadMessages();
     _loadMissions();
+    _connectRealtime();
     _messageController.addListener(_onComposingChanged);
     unawaited(widget.apiService.markCommunityRead());
     _scrollController.addListener(_handleScroll);
-    _timer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _loadMessages(silent: true),
-    );
   }
 
   Future<void> _rsvp(String status) async {
@@ -110,9 +114,9 @@ class _EventChatScreenState extends State<EventChatScreen> {
               children: [
                 Text(
                   'Katılanlar (${attendees.length})',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 12),
                 if (attendees.isEmpty)
@@ -158,18 +162,134 @@ class _EventChatScreenState extends State<EventChatScreen> {
   }
 
   void _onComposingChanged() {
-    final typing = _messageController.text.trim().isNotEmpty;
-    if (typing != _isTyping && mounted) {
-      setState(() => _isTyping = typing);
-    }
+    if (!(_stompClient?.connected ?? false)) return;
+    _stompClient!.send(
+      destination: '/app/events/${widget.event.id}/typing',
+      body: jsonEncode({'typing': _messageController.text.trim().isNotEmpty}),
+    );
+    _typingDebounce?.cancel();
+    _typingDebounce = Timer(const Duration(milliseconds: 1300), () {
+      if (_stompClient?.connected ?? false) {
+        _stompClient!.send(
+          destination: '/app/events/${widget.event.id}/typing',
+          body: jsonEncode({'typing': false}),
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _messageUnsubscribe?.call();
+    _typingUnsubscribe?.call();
+    _typingDebounce?.cancel();
+    for (final timer in _typingExpiry.values) {
+      timer.cancel();
+    }
+    _stompClient?.deactivate();
+    _messageController.removeListener(_onComposingChanged);
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _connectRealtime() {
+    final authorization = widget.apiService.authorizationHeader;
+    if (authorization == null) return;
+
+    late final StompClient client;
+    client = StompClient(
+      config: StompConfig(
+        url: widget.apiService.webSocketUrl,
+        stompConnectHeaders: {'Authorization': authorization},
+        webSocketConnectHeaders: {'Authorization': authorization},
+        reconnectDelay: const Duration(seconds: 5),
+        heartbeatIncoming: const Duration(seconds: 10),
+        heartbeatOutgoing: const Duration(seconds: 10),
+        connectionTimeout: const Duration(seconds: 12),
+        onConnect: (_) {
+          if (!mounted) return;
+          setState(() => _realtimeConnected = true);
+          _messageUnsubscribe?.call();
+          _typingUnsubscribe?.call();
+          _messageUnsubscribe = client.subscribe(
+            destination: '/topic/events/${widget.event.id}',
+            callback: _onRealtimeMessage,
+          );
+          _typingUnsubscribe = client.subscribe(
+            destination: '/topic/events/${widget.event.id}/typing',
+            callback: _onTypingEvent,
+          );
+        },
+        onDisconnect: (_) => _setRealtimeConnected(false),
+        onWebSocketDone: () => _setRealtimeConnected(false),
+        onWebSocketError: (_) => _setRealtimeConnected(false),
+        onStompError: (_) => _setRealtimeConnected(false),
+      ),
+    );
+    _stompClient = client;
+    client.activate();
+  }
+
+  void _setRealtimeConnected(bool connected) {
+    if (mounted && _realtimeConnected != connected) {
+      setState(() => _realtimeConnected = connected);
+    }
+  }
+
+  void _onRealtimeMessage(StompFrame frame) {
+    final body = frame.body;
+    if (!mounted || body == null || body.isEmpty) return;
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is! Map<String, dynamic>) return;
+      final incoming = ChatMessage.fromJson(decoded);
+      final nearBottom =
+          !_scrollController.hasClients ||
+          _scrollController.position.maxScrollExtent -
+                  _scrollController.offset <
+              180;
+      setState(() {
+        _mergeMessage(incoming);
+      });
+      if (nearBottom) _scrollToBottom();
+    } catch (_) {
+      // The initial HTTP history remains authoritative for malformed frames.
+    }
+  }
+
+  void _onTypingEvent(StompFrame frame) {
+    final body = frame.body;
+    if (!mounted || body == null || body.isEmpty) return;
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is! Map<String, dynamic>) return;
+      final userId = (decoded['userId'] as num).toInt();
+      if (userId == widget.apiService.currentUser?.id) return;
+      _typingExpiry[userId]?.cancel();
+      if (decoded['typing'] == true) {
+        setState(() {
+          _typingUsers[userId] = (decoded['fullName'] ?? '').toString();
+        });
+        _typingExpiry[userId] = Timer(const Duration(seconds: 4), () {
+          if (mounted) setState(() => _typingUsers.remove(userId));
+        });
+      } else {
+        setState(() => _typingUsers.remove(userId));
+      }
+    } catch (_) {
+      // Typing events are ephemeral; malformed frames can be ignored.
+    }
+  }
+
+  void _mergeMessage(ChatMessage incoming) {
+    final index = _messages.indexWhere((item) => item.id == incoming.id);
+    if (index == -1) {
+      _messages.add(incoming);
+    } else {
+      _messages[index] = incoming;
+    }
+    _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
   }
 
   Future<void> _loadMessages({bool silent = false}) async {
@@ -311,7 +431,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
         fileName: 'ecovision_chat.jpg',
       );
       if (!mounted) return;
-      setState(() => _messages.add(message));
+      setState(() => _mergeMessage(message));
       _scrollToBottom();
       await EcoHaptics.light();
     } catch (error) {
@@ -361,7 +481,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
         contentType: 'application/pdf',
       );
       if (!mounted) return;
-      setState(() => _messages.add(message));
+      setState(() => _mergeMessage(message));
       _scrollToBottom();
       await EcoHaptics.light();
     } catch (error) {
@@ -719,7 +839,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
       }
       _messageController.clear();
       setState(() {
-        _messages.add(message);
+        _mergeMessage(message);
         _isSending = false;
       });
       _scrollToBottom();
@@ -754,6 +874,56 @@ class _EventChatScreenState extends State<EventChatScreen> {
     );
   }
 
+  Future<void> _showMessageActions(ChatMessage message) async {
+    if (message.poll == null) return;
+    final canDelete =
+        widget.event.isAdmin ||
+        widget.event.creatorId == widget.apiService.currentUser?.id ||
+        message.senderId == widget.apiService.currentUser?.id;
+    if (!canDelete) return;
+
+    await EcoHaptics.selection();
+    final action = await showEcoGlassSheet<String>(
+      context: context,
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const EcoSheetHandle(),
+            ListTile(
+              leading: Icon(
+                Icons.delete_outline,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                'Anketi Sil',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              onTap: () => Navigator.pop(context, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action != 'delete' || !mounted) return;
+    try {
+      await widget.apiService.deleteGroupPoll(
+        groupId: widget.event.id,
+        messageId: message.id,
+      );
+      if (mounted) {
+        setState(() => _messages.removeWhere((item) => item.id == message.id));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) {
@@ -778,15 +948,20 @@ class _EventChatScreenState extends State<EventChatScreen> {
       appBar: AppBar(
         titleSpacing: 0,
         title: InkWell(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute<void>(
-              builder: (_) => GroupInfoScreen(
-                apiService: widget.apiService,
-                event: widget.event,
+          onTap: () async {
+            final deleted = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute<bool>(
+                builder: (_) => GroupInfoScreen(
+                  apiService: widget.apiService,
+                  event: widget.event,
+                ),
               ),
-            ),
-          ),
+            );
+            if (deleted == true && context.mounted) {
+              Navigator.pop(context, true);
+            }
+          },
           child: Row(
             children: [
               CircleAvatar(
@@ -872,10 +1047,15 @@ class _EventChatScreenState extends State<EventChatScreen> {
                 const PopupMenuItem(
                   value: 'delete',
                   child: ListTile(
-                    leading: Icon(Icons.delete_outline, color: Colors.red),
+                    leading: Icon(
+                      Icons.delete_outline,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                     title: Text(
                       'Grubu Sil',
-                      style: TextStyle(color: Colors.red),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ),
                 ),
@@ -895,8 +1075,11 @@ class _EventChatScreenState extends State<EventChatScreen> {
             ),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 180),
-              child: _isTyping
-                  ? const _TypingIndicator(key: ValueKey('typing'))
+              child: _typingUsers.isNotEmpty
+                  ? _TypingIndicator(
+                      key: const ValueKey('typing'),
+                      names: _typingUsers.values.take(2).join(', '),
+                    )
                   : const SizedBox.shrink(key: ValueKey('idle')),
             ),
             _MessageComposer(
@@ -974,6 +1157,9 @@ class _EventChatScreenState extends State<EventChatScreen> {
               message: message,
               isMine: isMine,
               onAvatar: () => _openPublicProfile(message.senderId),
+              onLongPress: message.poll == null
+                  ? null
+                  : () => _showMessageActions(message),
             ),
           ],
         );
@@ -1141,15 +1327,18 @@ class _MessageRow extends StatelessWidget {
     required this.message,
     required this.isMine,
     required this.onAvatar,
+    this.onLongPress,
   });
 
   final ChatMessage message;
   final bool isMine;
   final VoidCallback onAvatar;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final bubbleColor = isMine ? colors.primaryContainer : colors.surface;
     final avatar = _EcoChatAvatar(
       level: message.senderAvatarLevel,
       isMine: isMine,
@@ -1169,85 +1358,119 @@ class _MessageRow extends StatelessWidget {
             const SizedBox(width: 8),
           ],
           Flexible(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 430),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(13, 9, 11, 7),
-                decoration: BoxDecoration(
-                  color: Color.alphaBlend(
-                    (isMine ? colors.primary : colors.tertiary).withAlpha(28),
-                    colors.surface,
-                  ),
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(24),
-                    topRight: const Radius.circular(24),
-                    bottomLeft: Radius.circular(isMine ? 24 : 6),
-                    bottomRight: Radius.circular(isMine ? 6 : 24),
-                  ),
-                  border: isMine
-                      ? null
-                      : Border.all(color: colors.outlineVariant.withAlpha(150)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: colors.shadow.withAlpha(14),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+            child: GestureDetector(
+              onLongPress: onLongPress,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: (MediaQuery.sizeOf(context).width * 0.76)
+                      .clamp(220.0, 430.0)
+                      .toDouble(),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    if (!isMine) ...[
-                      Text(
-                        message.senderName,
-                        style: TextStyle(
-                          color: colors.primary,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 12,
+                    Positioned(
+                      bottom: 6,
+                      left: isMine ? null : -6,
+                      right: isMine ? -6 : null,
+                      child: CustomPaint(
+                        size: const Size(9, 13),
+                        painter: _EventBubbleTailPainter(
+                          color: bubbleColor,
+                          shadowColor: colors.shadow,
+                          pointsRight: isMine,
                         ),
                       ),
-                      const SizedBox(height: 3),
-                    ],
-                    if (message.imageUrl != null)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          message.imageUrl!,
-                          width: 260,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const SizedBox(
-                            width: 220,
-                            height: 100,
-                            child: Center(
-                              child: Icon(Icons.broken_image_outlined),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 12, 8),
+                      decoration: BoxDecoration(
+                        color: bubbleColor,
+                        borderRadius: BorderRadius.circular(20).copyWith(
+                          bottomRight: isMine ? const Radius.circular(5) : null,
+                          bottomLeft: isMine ? null : const Radius.circular(5),
+                        ),
+                        border: Border.all(
+                          color: isMine
+                              ? colors.primary.withValues(alpha: 0.16)
+                              : colors.outlineVariant.withValues(alpha: 0.5),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colors.shadow.withValues(alpha: 0.06),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (!isMine) ...[
+                            Text(
+                              message.senderName,
+                              style: TextStyle(
+                                color: _senderColor(colors, message.senderId),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                          ],
+                          if (message.imageUrl != null)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                message.imageUrl!,
+                                width: 260,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => const SizedBox(
+                                  width: 220,
+                                  height: 100,
+                                  child: Center(
+                                    child: Icon(Icons.broken_image_outlined),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (message.hasDocument)
+                            _DocumentAttachment(message: message),
+                          if (message.message.isNotEmpty)
+                            Text(
+                              message.message,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: colors.onSurface,
+                                    height: 1.4,
+                                  ),
+                            ),
+                          const SizedBox(height: 4),
+                          Align(
+                            alignment: Alignment.bottomRight,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _time(message.timestamp),
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(
+                                        color: colors.onSurfaceVariant,
+                                        fontSize: 10,
+                                      ),
+                                ),
+                                if (isMine) ...[
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.done_all_rounded,
+                                    size: 14,
+                                    color: colors.primary,
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
-                        ),
-                      ),
-                    if (message.hasDocument)
-                      _DocumentAttachment(message: message),
-                    if (message.message.isNotEmpty)
-                      Text(
-                        message.message,
-                        style: const TextStyle(height: 1.35),
-                      ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _time(message.timestamp),
-                          style: TextStyle(
-                            color: colors.onSurfaceVariant,
-                            fontSize: 10,
-                          ),
-                        ),
-                        if (isMine) ...[
-                          const SizedBox(width: 4),
-                          Icon(Icons.done_all, size: 14, color: colors.primary),
                         ],
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -1267,6 +1490,51 @@ class _MessageRow extends StatelessWidget {
     final local = timestamp.toLocal();
     return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
   }
+
+  Color _senderColor(ColorScheme colors, int senderId) =>
+      switch (senderId % 3) {
+        0 => colors.primary,
+        1 => colors.secondary,
+        _ => colors.tertiary,
+      };
+}
+
+class _EventBubbleTailPainter extends CustomPainter {
+  const _EventBubbleTailPainter({
+    required this.color,
+    required this.shadowColor,
+    required this.pointsRight,
+  });
+
+  final Color color;
+  final Color shadowColor;
+  final bool pointsRight;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path();
+    if (pointsRight) {
+      path
+        ..moveTo(0, 0)
+        ..lineTo(size.width, size.height * 0.72)
+        ..lineTo(0, size.height)
+        ..close();
+    } else {
+      path
+        ..moveTo(size.width, 0)
+        ..lineTo(0, size.height * 0.72)
+        ..lineTo(size.width, size.height)
+        ..close();
+    }
+    canvas.drawShadow(path, shadowColor.withValues(alpha: 0.12), 2, true);
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _EventBubbleTailPainter oldDelegate) =>
+      oldDelegate.color != color ||
+      oldDelegate.shadowColor != shadowColor ||
+      oldDelegate.pointsRight != pointsRight;
 }
 
 class _SystemActivityMessage extends StatelessWidget {
@@ -1305,7 +1573,10 @@ class _DocumentAttachment extends StatelessWidget {
 
   Future<void> _open(BuildContext context) async {
     await EcoHaptics.light();
-    final uri = Uri.tryParse(message.fileUrl ?? '');
+    final source = Uri.tryParse(message.fileUrl ?? '');
+    final uri = source?.replace(
+      queryParameters: {...source.queryParameters, 'download': 'true'},
+    );
     if (uri == null ||
         !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (context.mounted) {
@@ -1343,18 +1614,24 @@ class _DocumentAttachment extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
-                  const Text(
-                    'Açmak için dokun',
-                    style: TextStyle(fontSize: 11),
+                  Text(
+                    _sizeLabel(message.fileSizeBytes),
+                    style: const TextStyle(fontSize: 11),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.open_in_new_rounded, size: 18),
+            const Icon(Icons.download_rounded, size: 20),
           ],
         ),
       ),
     );
+  }
+
+  String _sizeLabel(int? bytes) {
+    if (bytes == null || bytes <= 0) return 'Belgeyi indir';
+    final megabytes = bytes / (1024 * 1024);
+    return '${megabytes.toStringAsFixed(2)} MB • Belgeyi indir';
   }
 }
 
@@ -1612,7 +1889,9 @@ class _MessageComposer extends StatelessWidget {
 }
 
 class _TypingIndicator extends StatefulWidget {
-  const _TypingIndicator({super.key});
+  const _TypingIndicator({required this.names, super.key});
+
+  final String names;
 
   @override
   State<_TypingIndicator> createState() => _TypingIndicatorState();
@@ -1645,7 +1924,7 @@ class _TypingIndicatorState extends State<_TypingIndicator>
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(
-          'Yazıyor...',
+          '${widget.names} yazıyor...',
           style: TextStyle(
             color: Theme.of(context).colorScheme.primary,
             fontWeight: FontWeight.w700,

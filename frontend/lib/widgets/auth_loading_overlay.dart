@@ -18,6 +18,7 @@ class AuthLoadingOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Stack(
       children: [
         child,
@@ -27,17 +28,17 @@ class AuthLoadingOverlay extends StatelessWidget {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                 child: ColoredBox(
-                  color: Colors.black.withValues(alpha: 0.22),
+                  color: colors.scrim.withValues(alpha: 0.22),
                   child: Center(
                     child: Container(
                       width: 230,
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: const [
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
                           BoxShadow(
-                            color: Color(0x33000000),
+                            color: colors.shadow.withValues(alpha: 0.12),
                             blurRadius: 28,
                             offset: Offset(0, 12),
                           ),
@@ -60,7 +61,9 @@ class AuthLoadingOverlay extends StatelessWidget {
                                       child: CircularProgressIndicator(),
                                     ),
                                   )
-                                : Lottie.asset('assets/animations/loading.json'),
+                                : Lottie.asset(
+                                    'assets/animations/loading.json',
+                                  ),
                           ),
                           const SizedBox(height: 12),
                           Text(

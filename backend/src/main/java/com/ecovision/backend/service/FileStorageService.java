@@ -1,22 +1,16 @@
 package com.ecovision.backend.service;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
+import com.ecovision.backend.model.MediaAsset;
+import com.ecovision.backend.repository.MediaAssetRepository;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class FileStorageService {
-    private static final Logger LOGGER =
-            LoggerFactory.getLogger(FileStorageService.class);
     private static final long MAX_IMAGE_BYTES = 5L * 1024 * 1024;
     private static final long MAX_CHAT_BYTES = 2L * 1024 * 1024;
     private static final Set<String> IMAGE_TYPES = Set.of(
@@ -25,11 +19,12 @@ public class FileStorageService {
             "image/webp"
     );
 
-    private final Path uploadRoot;
-    public FileStorageService(
-            @Value("${app.storage.upload-dir}") String uploadDir
-    ) {
-        this.uploadRoot = initializeUploadRoot(uploadDir);
+    private static final String MEDIA_PATH = "/api/media/";
+
+    private final MediaAssetRepository mediaAssets;
+
+    public FileStorageService(MediaAssetRepository mediaAssets) {
+        this.mediaAssets = mediaAssets;
     }
 
     public String storeImage(MultipartFile file, String folder) {
@@ -38,6 +33,14 @@ public class FileStorageService {
 
     public String store(MultipartFile file, String folder) {
         return storeValidated(file, folder, MAX_CHAT_BYTES, true);
+    }
+
+    public String replaceImage(MultipartFile file, String folder, String currentUrl) {
+        String replacement = storeImage(file, folder);
+        if (replacement != null) {
+            deleteManaged(currentUrl);
+        }
+        return replacement;
     }
 
     private String storeValidated(
@@ -76,22 +79,46 @@ public class FileStorageService {
                 throw new IllegalArgumentException("Dosya içeriği ve türü uyuşmuyor");
             }
 
-            Path folderPath = uploadRoot.resolve(folder).normalize();
-            if (!folderPath.startsWith(uploadRoot)) {
-                throw new IllegalArgumentException("Geçersiz yükleme yolu");
-            }
-            Files.createDirectories(folderPath);
-
-            String fileName = UUID.randomUUID() + detected.extension();
-            Path target = folderPath.resolve(fileName).normalize();
-            if (!target.startsWith(folderPath)) {
-                throw new IllegalArgumentException("Geçersiz dosya yolu");
-            }
-            Files.write(target, bytes, StandardOpenOption.CREATE_NEW);
-            return "/uploads/" + folder + "/" + fileName;
+            MediaAsset asset = new MediaAsset();
+            asset.setId(UUID.randomUUID());
+            asset.setCategory(folder);
+            asset.setContentType(detected.contentType());
+            asset.setOriginalFileName(safeFileName(
+                    file.getOriginalFilename(),
+                    detected.extension()
+            ));
+            asset.setSizeBytes(bytes.length);
+            asset.setData(bytes);
+            return MEDIA_PATH + mediaAssets.save(asset).getId();
         } catch (IOException exception) {
             throw new IllegalStateException("Yüklenen dosya kaydedilemedi", exception);
         }
+    }
+
+    private void deleteManaged(String url) {
+        UUID id = managedId(url);
+        if (id != null) {
+            mediaAssets.deleteById(id);
+        }
+    }
+
+    private UUID managedId(String url) {
+        if (url == null || url.isBlank()) return null;
+        int marker = url.indexOf(MEDIA_PATH);
+        if (marker < 0) return null;
+        String value = url.substring(marker + MEDIA_PATH.length()).split("[?#/]", 2)[0];
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private String safeFileName(String original, String extension) {
+        String candidate = original == null ? "ecovision-media" + extension : original;
+        candidate = candidate.replaceAll("[\\r\\n\\\\/]", "_").trim();
+        if (candidate.isBlank()) candidate = "ecovision-media" + extension;
+        return candidate.length() <= 200 ? candidate : candidate.substring(candidate.length() - 200);
     }
 
     private DetectedFile detect(byte[] bytes) {
@@ -121,33 +148,6 @@ public class FileStorageService {
             return new DetectedFile("application/pdf", ".pdf");
         }
         throw new IllegalArgumentException("Dosya biçimi doğrulanamadı");
-    }
-
-    private Path initializeUploadRoot(String configuredDirectory) {
-        Path requested = Path.of(configuredDirectory).toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(requested);
-            return requested;
-        } catch (IOException | SecurityException primaryFailure) {
-            Path fallback = Path.of(
-                    System.getProperty("java.io.tmpdir"),
-                    "ecovision-uploads"
-            ).toAbsolutePath().normalize();
-            try {
-                Files.createDirectories(fallback);
-                LOGGER.warn(
-                        "Configured upload directory is unavailable; using temporary storage at {}",
-                        fallback
-                );
-            } catch (IOException | SecurityException fallbackFailure) {
-                LOGGER.error(
-                        "Temporary upload directory could not be prepared. "
-                                + "Uploads will return a controlled error.",
-                        fallbackFailure
-                );
-            }
-            return fallback;
-        }
     }
 
     private record DetectedFile(String contentType, String extension) {

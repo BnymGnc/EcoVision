@@ -1,6 +1,7 @@
 package com.ecovision.backend.controller;
 
 import com.ecovision.backend.dto.ChatMessageRequest;
+import com.ecovision.backend.dto.EventTypingEventResponse;
 import com.ecovision.backend.dto.TypingEventRequest;
 import com.ecovision.backend.dto.TypingEventResponse;
 import com.ecovision.backend.model.AppUser;
@@ -46,6 +47,15 @@ public class RealtimeChatController {
         chatService.sendGroupMessage(user, groupId, request);
     }
 
+    @MessageMapping("/events/{eventId}/messages")
+    public void sendEventMessage(
+            @DestinationVariable Long eventId,
+            @Valid ChatMessageRequest request,
+            Principal principal
+    ) {
+        chatService.sendMessage(authenticatedUser(principal), eventId, request);
+    }
+
     @MessageMapping("/groups/{groupId}/typing")
     public void typing(
             @DestinationVariable Long groupId,
@@ -56,6 +66,24 @@ public class RealtimeChatController {
         chatService.requireTypingAccess(user, groupId);
         publisher.publishTyping(new TypingEventResponse(
                 groupId,
+                user.getId(),
+                user.getPublicUsername(),
+                user.getName() + " " + user.getSurname(),
+                request.typing(),
+                Instant.now().plusSeconds(4)
+        ));
+    }
+
+    @MessageMapping("/events/{eventId}/typing")
+    public void eventTyping(
+            @DestinationVariable Long eventId,
+            TypingEventRequest request,
+            Principal principal
+    ) {
+        AppUser user = authenticatedUser(principal);
+        chatService.requireEventTypingAccess(user, eventId);
+        publisher.publishEventTyping(new EventTypingEventResponse(
+                eventId,
                 user.getId(),
                 user.getPublicUsername(),
                 user.getName() + " " + user.getSurname(),

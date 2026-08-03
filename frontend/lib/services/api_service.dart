@@ -4,7 +4,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
@@ -36,8 +35,6 @@ class ApiService {
       _configuredBaseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
   static const _accessTokenKey = 'ecovision.access_token';
   static const _refreshTokenKey = 'ecovision.refresh_token';
-  static const _googleWebClientId =
-      'dummy-client-id.apps.googleusercontent.com';
 
   final http.Client _client;
   final FlutterSecureStorage _secureStorage;
@@ -47,7 +44,6 @@ class ApiService {
   String? _refreshToken;
   bool _rememberMe = true;
   UserProfile? _currentUser;
-  static bool _googleInitialized = false;
 
   ApiService({http.Client? client, FlutterSecureStorage? secureStorage})
     : _client = client ?? http.Client(),
@@ -123,31 +119,6 @@ class ApiService {
     return true;
   }
 
-  Future<bool> loginWithGoogle() async {
-    await _initializeGoogleSignIn();
-    if (!GoogleSignIn.instance.supportsAuthenticate()) {
-      throw ApiException('Google ile giriş bu platformda desteklenmiyor.');
-    }
-
-    final account = await GoogleSignIn.instance.authenticate();
-    final idToken = account.authentication.idToken;
-    if (idToken == null || idToken.isEmpty) {
-      throw ApiException('Google geçerli bir kimlik anahtarı döndürmedi.');
-    }
-
-    final names = _splitDisplayName(account.displayName);
-    final response = await _postJson('/api/auth/google', {
-      'idToken': idToken,
-      'email': account.email,
-      'name': names.$1,
-      'surname': names.$2,
-      'profilePictureUrl': account.photoUrl,
-    }, authenticated: false);
-
-    await _persistAuthResponse(response);
-    return true;
-  }
-
   Future<void> logout() async {
     final refreshToken = _refreshToken;
     if (refreshToken != null) {
@@ -167,9 +138,6 @@ class ApiService {
     _refreshToken = null;
     _currentUser = null;
     _pointsNotifier.value = 0;
-    if (_googleInitialized) {
-      await GoogleSignIn.instance.signOut();
-    }
   }
 
   Future<void> requestPasswordReset(String email) async {
@@ -685,7 +653,12 @@ class ApiService {
   }
 
   Future<List<GroupEvent>> fetchGroupEvents(int groupId) async {
-    final json = await _getJsonList('/api/groups/$groupId/events');
+    final json = await _getJsonList('/api/groups/$groupId/events').timeout(
+      const Duration(seconds: 20),
+      onTimeout: () => throw const ApiException(
+        'Etkinlikler zamanında yüklenemedi. Lütfen tekrar deneyin.',
+      ),
+    );
     return json.map(GroupEvent.fromJson).toList();
   }
 
@@ -1121,6 +1094,19 @@ class ApiService {
     );
   }
 
+  Future<ChatMessage> deleteGroupPoll({
+    required int groupId,
+    required int messageId,
+  }) async {
+    final response = await _authorizedRequest(
+      (headers) => _client.delete(
+        _uri('/api/chat/groups/$groupId/polls/$messageId'),
+        headers: headers,
+      ),
+    );
+    return ChatMessage.fromJson(_decodeResponse(response));
+  }
+
   Future<ChatMessage> voteInGroupPoll({
     required int groupId,
     required int messageId,
@@ -1504,25 +1490,6 @@ class ApiService {
     } catch (_) {
       return false;
     }
-  }
-
-  Future<void> _initializeGoogleSignIn() async {
-    if (_googleInitialized) {
-      return;
-    }
-    await GoogleSignIn.instance.initialize(clientId: _googleWebClientId);
-    _googleInitialized = true;
-  }
-
-  (String, String) _splitDisplayName(String? displayName) {
-    final parts = (displayName ?? '').trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty || parts.first.isEmpty) {
-      return ('Google', 'User');
-    }
-    if (parts.length == 1) {
-      return (parts.first, 'User');
-    }
-    return (parts.first, parts.skip(1).join(' '));
   }
 }
 

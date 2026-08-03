@@ -34,10 +34,23 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _page = 0;
+  double _pageOffset = 0;
   bool _finishing = false;
 
   @override
+  void initState() {
+    super.initState();
+    _pageController.addListener(_trackPageOffset);
+  }
+
+  void _trackPageOffset() {
+    final value = _pageController.page;
+    if (value != null && mounted) setState(() => _pageOffset = value);
+  }
+
+  @override
   void dispose() {
+    _pageController.removeListener(_trackPageOffset);
     _pageController.dispose();
     super.dispose();
   }
@@ -111,6 +124,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   key: ValueKey('onboarding-page-$index'),
                   data: _pages[index],
                   active: index == _page,
+                  parallax: (_pageOffset - index).clamp(-1, 1).toDouble(),
                 ),
               ),
             ),
@@ -149,10 +163,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 }
 
 class _OnboardingPage extends StatelessWidget {
-  const _OnboardingPage({required this.data, required this.active, super.key});
+  const _OnboardingPage({
+    required this.data,
+    required this.active,
+    required this.parallax,
+    super.key,
+  });
 
   final _OnboardingData data;
   final bool active;
+  final double parallax;
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +186,13 @@ class _OnboardingPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _AnimationPlaceholder(data: data),
+            Transform.translate(
+              offset: Offset(parallax * -34, parallax.abs() * 8),
+              child: Transform.scale(
+                scale: 1 - (parallax.abs() * 0.06),
+                child: _AnimationPlaceholder(data: data),
+              ),
+            ),
             const SizedBox(height: 30),
             TweenAnimationBuilder<double>(
               key: ValueKey('title-${data.pageNumber}-$active'),
@@ -228,6 +254,13 @@ class _AnimationPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final accent = switch (data.pageNumber) {
+      1 => colors.primary,
+      2 => colors.secondary,
+      3 => colors.tertiary,
+      _ => colors.inversePrimary,
+    };
     // Replace this placeholder for page 1 with:
     // Lottie.asset('assets/animations/onboarding_1.json')
     // Replace this placeholder for page 2 with:
@@ -240,18 +273,25 @@ class _AnimationPlaceholder extends StatelessWidget {
       width: MediaQuery.sizeOf(context).width.clamp(240, 330),
       height: MediaQuery.sizeOf(context).width.clamp(240, 330),
       decoration: BoxDecoration(
-        color: data.color.withAlpha(24),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: data.color.withAlpha(80), width: 2),
+        color: accent.withAlpha(24),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: accent.withAlpha(80), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.16),
+            blurRadius: 36,
+            offset: const Offset(0, 14),
+          ),
+        ],
       ),
       child: Stack(
         alignment: Alignment.center,
         children: [
-          Icon(data.icon, size: 116, color: data.color),
+          Icon(data.icon, size: 116, color: accent),
           Positioned(
             right: 34,
             top: 32,
-            child: Icon(data.accentIcon, size: 40, color: data.color),
+            child: Icon(data.accentIcon, size: 40, color: accent),
           ),
         ],
       ),
@@ -288,7 +328,7 @@ class _PageIndicator extends StatelessWidget {
   }
 }
 
-class _GlowingStartButton extends StatelessWidget {
+class _GlowingStartButton extends StatefulWidget {
   const _GlowingStartButton({
     required this.loading,
     required this.onPressed,
@@ -299,23 +339,50 @@ class _GlowingStartButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
+  State<_GlowingStartButton> createState() => _GlowingStartButtonState();
+}
+
+class _GlowingStartButtonState extends State<_GlowingStartButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1450),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: primary.withAlpha(80),
-            blurRadius: 24,
-            spreadRadius: 2,
-          ),
-        ],
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (context, child) => Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: primary.withValues(alpha: 0.22 + _pulse.value * 0.20),
+              blurRadius: 22 + _pulse.value * 16,
+              spreadRadius: 1 + _pulse.value * 3,
+            ),
+          ],
+        ),
+        child: child,
       ),
       child: FilledButton.icon(
-        onPressed: loading ? null : onPressed,
-        icon: loading
+        onPressed: widget.loading ? null : widget.onPressed,
+        icon: widget.loading
             ? const SizedBox.square(
                 dimension: 20,
                 child: CircularProgressIndicator(strokeWidth: 2),
@@ -334,7 +401,6 @@ class _OnboardingData {
     required this.body,
     required this.icon,
     required this.accentIcon,
-    required this.color,
   });
 
   final int pageNumber;
@@ -342,7 +408,6 @@ class _OnboardingData {
   final String body;
   final IconData icon;
   final IconData accentIcon;
-  final Color color;
 }
 
 const _pages = [
@@ -356,7 +421,6 @@ const _pages = [
         'iyileştirmeye hazır mısın?',
     icon: Icons.public_rounded,
     accentIcon: Icons.favorite_rounded,
-    color: Color(0xFF43A047),
   ),
   _OnboardingData(
     pageNumber: 2,
@@ -368,7 +432,6 @@ const _pages = [
         'anında söyleyeceğim.',
     icon: Icons.document_scanner_rounded,
     accentIcon: Icons.auto_awesome_rounded,
-    color: Color(0xFF1976D2),
   ),
   _OnboardingData(
     pageNumber: 3,
@@ -380,7 +443,6 @@ const _pages = [
         'tırmanabilirsin.',
     icon: Icons.emoji_events_rounded,
     accentIcon: Icons.stars_rounded,
-    color: Color(0xFFF9A825),
   ),
   _OnboardingData(
     pageNumber: 4,
@@ -392,6 +454,5 @@ const _pages = [
         'başlasın!',
     icon: Icons.groups_rounded,
     accentIcon: Icons.volunteer_activism_rounded,
-    color: Color(0xFFE76F51),
   ),
 ];

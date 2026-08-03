@@ -198,7 +198,7 @@ public class CommunityGroupController {
 
     @GetMapping("/{groupId}/events")
     public List<GroupEventResponse> events(@PathVariable Long groupId) {
-        return groups.upcomingEvents(current.currentUser(), groupId);
+        return groups.groupEvents(current.currentUser(), groupId);
     }
 
     @PostMapping(

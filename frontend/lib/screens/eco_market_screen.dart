@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
 import '../services/share_service.dart';
+import '../widgets/premium_ui.dart';
 
 class EcoMarketScreen extends StatefulWidget {
   const EcoMarketScreen({required this.apiService, super.key});
@@ -32,6 +33,7 @@ class _EcoMarketScreenState extends State<EcoMarketScreen> {
   }
 
   Future<void> _purchase(_MarketItem item) async {
+    await EcoHaptics.light();
     setState(() => _purchasingItemId = item.id);
     try {
       final user = await widget.apiService.purchaseMarketItem(item.id);
@@ -65,7 +67,7 @@ class _EcoMarketScreenState extends State<EcoMarketScreen> {
         final colors = Theme.of(context).colorScheme;
         return AlertDialog(
           icon: Icon(Icons.check_circle, color: colors.primary, size: 48),
-          title: const Text('Avatarın gelişti!'),
+          title: const Text('Yeni ödül açıldı!'),
           content: Text(
             '${item.title} koleksiyonuna eklendi. Kalan Eko Puanın: $points.',
             textAlign: TextAlign.center,
@@ -119,7 +121,11 @@ class _EcoMarketScreenState extends State<EcoMarketScreen> {
         future: _userFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const EcoShimmerList(
+              itemCount: 4,
+              showHeader: true,
+              padding: EdgeInsets.fromLTRB(20, 10, 20, 32),
+            );
           }
           if (snapshot.hasError) {
             return _MarketError(onRetry: _refresh);
@@ -135,14 +141,14 @@ class _EcoMarketScreenState extends State<EcoMarketScreen> {
                 _PointsWallet(points: user.totalPoints),
                 const SizedBox(height: 26),
                 Text(
-                  'Avatar Çerçeveleri',
+                  'Sürdürülebilir Ödüller',
                   style: Theme.of(
                     context,
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Tarzına uygun çerçeveyi Eko Puanlarınla aç.',
+                  'Serini koru, profilini geliştir ve doğa etkini görünür kıl.',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -155,8 +161,8 @@ class _EcoMarketScreenState extends State<EcoMarketScreen> {
                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 280,
                     mainAxisExtent: 318,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 14,
                   ),
                   itemBuilder: (context, index) {
                     final item = _items[index];
@@ -189,8 +195,19 @@ class _PointsWallet extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: colors.primary,
-        borderRadius: BorderRadius.circular(8),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [colors.primary, colors.secondary],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: colors.primary.withValues(alpha: 0.24),
+            blurRadius: 30,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -248,9 +265,30 @@ class _MarketItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
+    final accent = item.colorOf(colors);
+    return Container(
+      padding: const EdgeInsets.all(1.5),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [accent, colors.outlineVariant.withValues(alpha: 0.3)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.12),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Container(
         padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(22.5),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -259,17 +297,32 @@ class _MarketItemCard extends StatelessWidget {
                 width: double.infinity,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: item.color.withAlpha(25),
-                  borderRadius: BorderRadius.circular(8),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      accent.withValues(alpha: 0.18),
+                      accent.withValues(alpha: 0.04),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: accent.withValues(alpha: 0.30)),
                 ),
                 child: Container(
                   width: 104,
                   height: 104,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: item.color, width: 7),
+                    border: Border.all(color: accent, width: 7),
+                    boxShadow: [
+                      BoxShadow(
+                        color: accent.withValues(alpha: 0.28),
+                        blurRadius: 24,
+                        spreadRadius: 2,
+                      ),
+                    ],
                   ),
-                  child: Icon(item.icon, color: item.color, size: 48),
+                  child: Icon(item.icon, color: accent, size: 48),
                 ),
               ),
             ),
@@ -347,7 +400,7 @@ class _MarketItem {
     required this.description,
     required this.price,
     required this.icon,
-    required this.color,
+    required this.tone,
   });
 
   final String id;
@@ -355,40 +408,49 @@ class _MarketItem {
   final String description;
   final int price;
   final IconData icon;
-  final Color color;
+  final _MarketTone tone;
+
+  Color colorOf(ColorScheme colors) => switch (tone) {
+    _MarketTone.primary => colors.primary,
+    _MarketTone.secondary => colors.secondary,
+    _MarketTone.tertiary => colors.tertiary,
+    _MarketTone.cool => colors.inversePrimary,
+  };
 }
+
+enum _MarketTone { primary, secondary, tertiary, cool }
 
 const _items = [
   _MarketItem(
     id: 'streak_freeze',
     title: 'Seri Dondurucu',
-    description: 'Bir gün taramayı kaçırdığında serini otomatik olarak korur.',
+    description: 'Bir gün ara verdiğinde emek verdiğin çevre serisini korur.',
     price: 250,
     icon: Icons.ac_unit_rounded,
-    color: Color(0xFF0087A8),
+    tone: _MarketTone.cool,
   ),
   _MarketItem(
     id: 'leaf_frame',
-    title: 'Yaprak Çerçeve',
-    description: 'Günlük doğa başarıları için taze yeşil çerçeve.',
+    title: 'Fidan Çerçevesi',
+    description: 'Yeni başlayan doğa kahramanları için canlı profil çerçevesi.',
     price: 100,
     icon: Icons.eco_rounded,
-    color: Color(0xFF2E7D32),
+    tone: _MarketTone.primary,
   ),
   _MarketItem(
     id: 'ocean_frame',
-    title: 'Okyanus Çerçeve',
-    description: 'Temiz denizlerden ilham alan mavi çerçeve.',
+    title: 'Okyanus Muhafızı',
+    description: 'Su kaynaklarını koruyan kahramanlara özel koleksiyon rozeti.',
     price: 200,
     icon: Icons.water_drop_rounded,
-    color: Color(0xFF0277BD),
+    tone: _MarketTone.secondary,
   ),
   _MarketItem(
     id: 'earth_frame',
-    title: 'Dünya Çerçeve',
-    description: 'Etki liderleri için özel gezegen çerçevesi.',
+    title: 'Eko Profil Arka Planı',
+    description: 'Profil vitrinin için doğadan ilham alan seçkin arka plan.',
     price: 300,
     icon: Icons.public_rounded,
-    color: Color(0xFF6A1B9A),
+    tone: _MarketTone.tertiary,
   ),
 ];

@@ -16,6 +16,7 @@ class ChatMessage {
     this.imageUrl,
     this.fileUrl,
     this.fileName,
+    this.fileSizeBytes,
     this.contentType,
     this.messageType = 'USER',
     this.deleted = false,
@@ -41,6 +42,7 @@ class ChatMessage {
   final String? imageUrl;
   final String? fileUrl;
   final String? fileName;
+  final int? fileSizeBytes;
   final String? contentType;
   final String messageType;
   final bool deleted;
@@ -75,6 +77,7 @@ class ChatMessage {
       imageUrl: MediaUrl.resolve(json['imageUrl']),
       fileUrl: MediaUrl.resolve(json['fileUrl']),
       fileName: json['fileName']?.toString(),
+      fileSizeBytes: (json['fileSizeBytes'] as num?)?.toInt(),
       contentType: json['contentType']?.toString(),
       messageType: (json['messageType'] ?? 'USER').toString(),
       deleted: json['deleted'] as bool? ?? false,

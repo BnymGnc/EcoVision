@@ -15,7 +15,9 @@ class UserProfile {
     this.themePreference = 'forest',
     this.district = '',
     this.neighborhood = '',
+    this.selectedAvatarPath = 'assets/images/avatars/avatar_level_1.png',
     this.equippedAvatarLevel = 1,
+    this.currentAvatarLevel = 1,
     this.lifetimePoints = 0,
     this.age,
     this.profilePictureUrl,
@@ -40,7 +42,9 @@ class UserProfile {
   final String district;
   final String neighborhood;
   final Set<String> ownedMarketItems;
+  final String selectedAvatarPath;
   final int equippedAvatarLevel;
+  final int currentAvatarLevel;
   final int lifetimePoints;
   final int? age;
   final String? profilePictureUrl;
@@ -76,7 +80,16 @@ class UserProfile {
                 .map((item) => item.toString())
                 .toSet()
           : <String>{},
+      selectedAvatarPath:
+          (json['selectedAvatarPath'] ??
+                  'assets/images/avatars/avatar_level_1.png')
+              .toString(),
       equippedAvatarLevel: (json['equippedAvatarLevel'] as num? ?? 1).toInt(),
+      currentAvatarLevel:
+          (json['currentAvatarLevel'] as num? ??
+                  json['equippedAvatarLevel'] as num? ??
+                  1)
+              .toInt(),
       lifetimePoints:
           (json['lifetimePoints'] as num? ?? json['totalPoints'] as num? ?? 0)
               .toInt(),

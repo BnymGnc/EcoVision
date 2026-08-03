@@ -47,6 +47,8 @@ public class ChatMessage {
 
     private String fileName;
 
+    private Long fileSizeBytes;
+
     private String contentType;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -134,6 +136,8 @@ public class ChatMessage {
     public void setFileUrl(String fileUrl) { this.fileUrl = fileUrl; }
     public String getFileName() { return fileName; }
     public void setFileName(String fileName) { this.fileName = fileName; }
+    public Long getFileSizeBytes() { return fileSizeBytes; }
+    public void setFileSizeBytes(Long fileSizeBytes) { this.fileSizeBytes = fileSizeBytes; }
     public String getContentType() { return contentType; }
     public void setContentType(String contentType) { this.contentType = contentType; }
     public ChatMessage getReplyTo() { return replyTo; }

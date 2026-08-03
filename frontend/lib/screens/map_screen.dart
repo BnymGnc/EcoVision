@@ -8,6 +8,7 @@ import '../models/map_pin.dart';
 import '../services/api_service.dart';
 import '../services/location_service.dart';
 import '../widgets/notification_bell.dart';
+import '../widgets/premium_ui.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({
@@ -99,10 +100,8 @@ class _MapScreenState extends State<MapScreen> {
     var draftMaterials = Set<String>.from(_selectedMaterials);
     var draftRadius = _radiusKm;
 
-    final result = await showModalBottomSheet<_MapFilters>(
+    final result = await showEcoGlassSheet<_MapFilters>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
       builder: (context) => StatefulBuilder(
         builder: (context, setSheetState) => SafeArea(
           child: Padding(
@@ -397,8 +396,12 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     final location = _currentLocation ?? AppConstants.sanliurfaFallback;
+    final colors = Theme.of(context).colorScheme;
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
+        backgroundColor: colors.surface.withValues(alpha: 0),
+        surfaceTintColor: colors.surface.withValues(alpha: 0),
         title: const Text('DOA Geri Dönüşüm'),
         actions: [
           if (widget.onNotifications != null)
@@ -451,7 +454,7 @@ class _MapScreenState extends State<MapScreen> {
           if (_isLoading || _isAddingPin)
             const Align(
               alignment: Alignment.topCenter,
-              child: LinearProgressIndicator(minHeight: 3),
+              child: LinearProgressIndicator(minHeight: 4),
             ),
           Positioned(
             left: 14,
@@ -475,9 +478,9 @@ class _MapScreenState extends State<MapScreen> {
       point: userLocation,
       width: 50,
       height: 50,
-      child: const _MapMarker(
+      child: _MapMarker(
         icon: Icons.person_pin_circle_rounded,
-        color: Color(0xFF1565C0),
+        color: Theme.of(context).colorScheme.secondary,
       ),
     ),
     for (final pin in _pins)
@@ -523,10 +526,10 @@ class _MachineSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      elevation: 8,
-      borderRadius: BorderRadius.circular(8),
+      elevation: 0,
+      borderRadius: BorderRadius.circular(24),
       clipBehavior: Clip.antiAlias,
-      color: Theme.of(context).colorScheme.surface,
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
         child: Column(
@@ -639,9 +642,9 @@ class _MapMarker extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         shape: BoxShape.circle,
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x33000000),
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.12),
             blurRadius: 12,
             offset: Offset(0, 5),
           ),
@@ -665,7 +668,8 @@ class _MaterialAcceptance extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = accepted ? const Color(0xFF238636) : const Color(0xFFC62828);
+    final colors = Theme.of(context).colorScheme;
+    final color = accepted ? colors.primary : colors.error;
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,

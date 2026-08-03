@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:ecovision/core/constants.dart';
+import 'package:ecovision/models/user_profile.dart';
 import 'package:ecovision/services/api_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -92,5 +93,27 @@ void main() {
     await service.login(email: 'ada@ecovision.test', password: 'Test123!');
 
     expect(await service.fetchEducationProgress(), {'modul-1', 'modul-3'});
+  });
+
+  test('kullanıcı avatar yolu ve mevcut seviyesi doğru ayrıştırılır', () {
+    final profile = UserProfile.fromJson({
+      'id': 4,
+      'name': 'Ada',
+      'surname': 'Eco',
+      'email': 'ada@ecovision.test',
+      'totalPoints': 600,
+      'role': 'USER',
+      'city': 'Kayseri',
+      'ownedMarketItems': <String>[],
+      'selectedAvatarPath': 'assets/images/avatars/avatar_level_5.png',
+      'equippedAvatarLevel': 5,
+      'currentAvatarLevel': 5,
+    });
+
+    expect(profile.currentAvatarLevel, 5);
+    expect(
+      profile.selectedAvatarPath,
+      'assets/images/avatars/avatar_level_5.png',
+    );
   });
 }

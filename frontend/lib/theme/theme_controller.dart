@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum AppThemeKind { forest, ocean, sunset, darkEco }
@@ -28,6 +29,8 @@ extension AppThemeKindDetails on AppThemeKind {
 
 class ThemeController extends ChangeNotifier {
   static const _storagePrefix = 'ecovision.theme';
+  static const _syncedPrefix = 'ecovision.theme.synced';
+  static const _bootstrapKey = 'ecovision.theme.bootstrap';
 
   AppThemeKind _selected = AppThemeKind.forest;
   int? _activeUserId;
@@ -37,7 +40,9 @@ class ThemeController extends ChangeNotifier {
   ThemeData get themeData => AppThemes.forKind(_selected);
 
   Future<void> load() async {
-    _selected = AppThemeKind.forest;
+    final preferences = await SharedPreferences.getInstance();
+    _selected =
+        _parse(preferences.getString(_bootstrapKey)) ?? AppThemeKind.forest;
     notifyListeners();
   }
 
@@ -50,21 +55,36 @@ class ThemeController extends ChangeNotifier {
     _remoteSaver = remoteSaver;
     final preferences = await SharedPreferences.getInstance();
     final storageKey = '$_storagePrefix.$userId';
+    final syncedKey = '$_syncedPrefix.$userId';
     final localPreference = preferences.getString(storageKey);
+    final lastSyncedPreference = preferences.getString(syncedKey);
     final localTheme = _parse(localPreference);
     final remoteTheme = _parse(remotePreference);
+    final lastSyncedTheme = _parse(lastSyncedPreference);
 
-    // The device value is the most recent choice made on this installation.
-    // The server value restores the account after a fresh installation.
-    _selected = localTheme ?? remoteTheme ?? AppThemeKind.forest;
-    await preferences.setString('$_storagePrefix.$userId', _selected.name);
+    // A remote value that changed since the last successful sync came from
+    // another device and wins. Otherwise an unsynced local choice is retried.
+    final remoteChangedElsewhere =
+        remoteTheme != null &&
+        lastSyncedTheme != null &&
+        remoteTheme != lastSyncedTheme;
+    _selected = remoteChangedElsewhere
+        ? remoteTheme
+        : localTheme ?? remoteTheme ?? AppThemeKind.forest;
+    await preferences.setString(storageKey, _selected.name);
+    await preferences.setString(_bootstrapKey, _selected.name);
     notifyListeners();
 
-    if (localTheme != null &&
+    if (remoteChangedElsewhere) {
+      await preferences.setString(syncedKey, remoteTheme.name);
+    } else if (remoteTheme != null && remoteTheme == _selected) {
+      await preferences.setString(syncedKey, remoteTheme.name);
+    } else if (localTheme != null &&
         remoteTheme != localTheme &&
         remoteSaver != null) {
       try {
         await remoteSaver(localTheme.name);
+        await preferences.setString(syncedKey, localTheme.name);
       } catch (_) {
         // Local persistence keeps the UI stable while an offline server sync
         // is retried on the next authenticated app start.
@@ -75,8 +95,6 @@ class ThemeController extends ChangeNotifier {
   void unbindUser() {
     _activeUserId = null;
     _remoteSaver = null;
-    _selected = AppThemeKind.forest;
-    notifyListeners();
   }
 
   Future<void> select(AppThemeKind theme) async {
@@ -89,8 +107,10 @@ class ThemeController extends ChangeNotifier {
     if (userId == null) return;
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString('$_storagePrefix.$userId', theme.name);
+    await preferences.setString(_bootstrapKey, theme.name);
     try {
       await _remoteSaver?.call(theme.name);
+      await preferences.setString('$_syncedPrefix.$userId', theme.name);
     } catch (_) {
       // Never roll the visible theme back because a network sync failed.
     }
@@ -125,11 +145,11 @@ class AppThemes {
 
   static ThemeData forKind(AppThemeKind kind) => switch (kind) {
     AppThemeKind.forest => _build(
-      seed: const Color(0xFF2E7D32),
-      primary: const Color(0xFF2E7D32),
-      secondary: const Color(0xFF2A7180),
-      tertiary: const Color(0xFFD29A27),
-      scaffold: const Color(0xFFF6FAF2),
+      seed: const Color(0xFF10B981),
+      primary: const Color(0xFF10B981),
+      secondary: const Color(0xFF14532D),
+      tertiary: const Color(0xFFC89B67),
+      scaffold: const Color(0xFFF8F9FA),
       brightness: Brightness.light,
     ),
     AppThemeKind.ocean => _build(
@@ -194,10 +214,43 @@ class AppThemes {
           : const Color(0xFFE8EEE7),
     );
 
-    final textTheme = ThemeData(brightness: brightness).textTheme.apply(
-      bodyColor: scheme.onSurface,
-      displayColor: scheme.onSurface,
-    );
+    final textTheme =
+        GoogleFonts.nunitoTextTheme(ThemeData(brightness: brightness).textTheme)
+            .apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface)
+            .copyWith(
+              displaySmall: GoogleFonts.nunito(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+                color: scheme.onSurface,
+              ),
+              headlineLarge: GoogleFonts.nunito(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+                color: scheme.onSurface,
+              ),
+              headlineMedium: GoogleFonts.nunito(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+                color: scheme.onSurface,
+              ),
+              headlineSmall: GoogleFonts.nunito(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+                color: scheme.onSurface,
+              ),
+              titleLarge: GoogleFonts.nunito(
+                fontWeight: FontWeight.w900,
+                color: scheme.onSurface,
+              ),
+              bodyLarge: GoogleFonts.nunito(
+                height: 1.5,
+                color: scheme.onSurface,
+              ),
+              bodyMedium: GoogleFonts.nunito(
+                height: 1.5,
+                color: scheme.onSurfaceVariant,
+              ),
+            );
 
     return ThemeData(
       useMaterial3: true,
@@ -217,8 +270,8 @@ class AppThemes {
         color: scheme.surface,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          side: BorderSide(color: scheme.outlineVariant.withAlpha(130)),
-          borderRadius: const BorderRadius.all(Radius.circular(8)),
+          side: BorderSide(color: scheme.outlineVariant.withAlpha(90)),
+          borderRadius: const BorderRadius.all(Radius.circular(24)),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
@@ -229,27 +282,49 @@ class AppThemes {
       listTileTheme: ListTileThemeData(
         textColor: scheme.onSurface,
         iconColor: scheme.onSurfaceVariant,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       iconTheme: IconThemeData(color: scheme.onSurfaceVariant),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surfaceContainerHighest.withAlpha(110),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.62),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 17,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: scheme.outlineVariant),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: scheme.primary, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: scheme.error),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(52),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w900),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(52),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w900),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
       dividerTheme: DividerThemeData(color: scheme.outlineVariant),

@@ -136,10 +136,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
     );
     if (confirmed != true) return;
     try {
-      await widget.apiService.removeEventMember(
-        widget.event.id,
-        member.userId,
-      );
+      await widget.apiService.removeEventMember(widget.event.id, member.userId);
       if (mounted) {
         _reload();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -151,93 +148,153 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Grup Bilgisi'),
-      actions: [
-        PopupMenuButton<String>(
-          onSelected: (v) {
-            if (v == 'report') _report();
-          },
-          itemBuilder: (_) => const [
-            PopupMenuItem(
-              value: 'report',
-              child: ListTile(
-                leading: Icon(Icons.flag_outlined),
-                title: Text('Grubu Bildir'),
-              ),
-            ),
-          ],
+  Future<void> _deleteEvent() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: Icon(
+          Icons.delete_forever_outlined,
+          color: Theme.of(context).colorScheme.error,
         ),
-      ],
-    ),
-    body: FutureBuilder<List<EventMember>>(
-      future: _members,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
-          return const Center(child: CircularProgressIndicator());
-        if (snapshot.hasError)
-          return Center(
-            child: FilledButton.icon(
-              onPressed: _reload,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Tekrar Dene'),
+        title: const Text('Etkinlik silinsin mi?'),
+        content: const Text(
+          'Bu işlem etkinliği, katılım kayıtlarını ve sohbet geçmişini kalıcı '
+          'olarak kaldırır.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
             ),
-          );
-        final members = snapshot.data ?? const [];
-        final admins = members.where((m) => m.isAdmin).toList();
-        final regular = members.where((m) => !m.isAdmin).toList();
-        return ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Center(
-              child: CircleAvatar(
-                radius: 46,
-                child: Text(
-                  widget.event.title.isEmpty
-                      ? 'EV'
-                      : widget.event.title.substring(0, 1).toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Etkinliği Sil'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.apiService.deleteEvent(widget.event.id);
+      if (mounted) Navigator.pop(context, true);
+    } catch (error) {
+      if (mounted) _error(error);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canDelete =
+        widget.event.isAdmin ||
+        widget.event.creatorId == widget.apiService.currentUser?.id;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Grup Bilgisi'),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (v) {
+              if (v == 'report') _report();
+              if (v == 'delete') _deleteEvent();
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                value: 'report',
+                child: ListTile(
+                  leading: Icon(Icons.flag_outlined),
+                  title: Text('Grubu Bildir'),
+                ),
+              ),
+              if (canDelete)
+                PopupMenuItem(
+                  value: 'delete',
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.delete_outline,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                    title: Text(
+                      'Etkinliği Sil',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+      body: FutureBuilder<List<EventMember>>(
+        future: _members,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting)
+            return const Center(child: CircularProgressIndicator());
+          if (snapshot.hasError)
+            return Center(
+              child: FilledButton.icon(
+                onPressed: _reload,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Tekrar Dene'),
+              ),
+            );
+          final members = snapshot.data ?? const [];
+          final admins = members.where((m) => m.isAdmin).toList();
+          final regular = members.where((m) => !m.isAdmin).toList();
+          return ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              Center(
+                child: CircleAvatar(
+                  radius: 46,
+                  child: Text(
+                    widget.event.title.isEmpty
+                        ? 'EV'
+                        : widget.event.title.substring(0, 1).toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              widget.event.title,
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
-            ),
-            Text(widget.event.location, textAlign: TextAlign.center),
-            const SizedBox(height: 8),
-            Text(
-              '${widget.event.memberCount}/${widget.event.memberLimit} üye • ${widget.event.privateGroup ? 'Özel grup' : 'Açık grup'}',
-              textAlign: TextAlign.center,
-            ),
-            if (widget.event.isAdmin && widget.event.privateGroup) ...[
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: _invite,
-                icon: const Icon(Icons.person_add_alt_1),
-                label: const Text('Arkadaş Davet Et'),
+              const SizedBox(height: 12),
+              Text(
+                widget.event.title,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
               ),
+              Text(widget.event.location, textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+              Text(
+                '${widget.event.memberCount}/${widget.event.memberLimit} üye • ${widget.event.privateGroup ? 'Özel grup' : 'Açık grup'}',
+                textAlign: TextAlign.center,
+              ),
+              if (widget.event.isAdmin && widget.event.privateGroup) ...[
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _invite,
+                  icon: const Icon(Icons.person_add_alt_1),
+                  label: const Text('Arkadaş Davet Et'),
+                ),
+              ],
+              const SizedBox(height: 24),
+              _title(context, 'Yöneticiler'),
+              ...admins.map((m) => _member(m)),
+              const SizedBox(height: 14),
+              _title(context, 'Üyeler'),
+              ...regular.map((m) => _member(m)),
             ],
-            const SizedBox(height: 24),
-            _title(context, 'Yöneticiler'),
-            ...admins.map((m) => _member(m)),
-            const SizedBox(height: 14),
-            _title(context, 'Üyeler'),
-            ...regular.map((m) => _member(m)),
-          ],
-        );
-      },
-    ),
-  );
+          );
+        },
+      ),
+    );
+  }
+
   Widget _title(BuildContext context, String text) => Padding(
     padding: const EdgeInsets.only(bottom: 6),
     child: Text(

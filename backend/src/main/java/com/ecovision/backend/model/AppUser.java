@@ -28,6 +28,8 @@ import java.util.Set;
 @Table(name = "users")
 public class AppUser implements UserDetails {
     public static final String DEFAULT_CITY = "Şanlıurfa";
+    public static final String DEFAULT_AVATAR_PATH =
+            "assets/images/avatars/avatar_level_1.png";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -53,6 +55,13 @@ public class AppUser implements UserDetails {
     private LocalDate dateOfBirth;
 
     private String profilePictureUrl;
+
+    @Column(
+            nullable = false,
+            length = 100,
+            columnDefinition = "varchar(100) default 'assets/images/avatars/avatar_level_1.png'"
+    )
+    private String selectedAvatarPath = DEFAULT_AVATAR_PATH;
 
     private String city = DEFAULT_CITY;
 
@@ -127,6 +136,9 @@ public class AppUser implements UserDetails {
         }
         if (themePreference == null || themePreference.isBlank()) {
             themePreference = "forest";
+        }
+        if (selectedAvatarPath == null || selectedAvatarPath.isBlank()) {
+            selectedAvatarPath = DEFAULT_AVATAR_PATH;
         }
     }
 
@@ -207,6 +219,21 @@ public class AppUser implements UserDetails {
 
     public void setProfilePictureUrl(String profilePictureUrl) {
         this.profilePictureUrl = profilePictureUrl;
+    }
+
+    public String getSelectedAvatarPath() {
+        if (selectedAvatarPath == null || selectedAvatarPath.isBlank()) {
+            return avatarPathForLevel(getEquippedAvatarLevel());
+        }
+        return selectedAvatarPath;
+    }
+
+    public void setSelectedAvatarPath(String selectedAvatarPath) {
+        this.selectedAvatarPath = selectedAvatarPath;
+    }
+
+    public static String avatarPathForLevel(int level) {
+        return "assets/images/avatars/avatar_level_" + level + ".png";
     }
 
     public String getCity() {

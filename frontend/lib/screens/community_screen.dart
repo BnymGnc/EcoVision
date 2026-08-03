@@ -446,21 +446,6 @@ class _CommunityScreenState extends State<CommunityScreen>
             },
           ),
         ],
-        const SizedBox(height: 10),
-        Material(
-          color: Theme.of(context).colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(8),
-          child: ListTile(
-            leading: const Icon(Icons.key_rounded),
-            title: const Text(
-              'Davet kodun mu var?',
-              style: TextStyle(fontWeight: FontWeight.w900),
-            ),
-            subtitle: const Text('Kodu girerek özel gruba doğrudan katıl.'),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: _openInviteCode,
-          ),
-        ),
         const SizedBox(height: 14),
         FutureBuilder<List<CommunityGroup>>(
           future: _groups,
@@ -1273,8 +1258,22 @@ class _Empty extends StatelessWidget {
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, size: 64, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(height: 14),
+        Container(
+          width: 108,
+          height: 108,
+          decoration: BoxDecoration(
+            color: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: 0.10),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            size: 58,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+        const SizedBox(height: 20),
         Text(
           title,
           textAlign: TextAlign.center,

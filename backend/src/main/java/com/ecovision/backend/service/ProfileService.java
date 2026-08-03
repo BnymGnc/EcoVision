@@ -36,7 +36,11 @@ public class ProfileService {
 
     @Transactional
     public UserResponse updateProfilePicture(AppUser user, MultipartFile image) {
-        String url = fileStorageService.storeImage(image, "profiles");
+        String url = fileStorageService.replaceImage(
+                image,
+                "profiles",
+                user.getProfilePictureUrl()
+        );
         user.setProfilePictureUrl(url);
         return UserResponse.from(userRepository.save(user));
     }

@@ -190,4 +190,16 @@ public class ChatController {
                 request.optionIndex()
         );
     }
+
+    @DeleteMapping("/groups/{groupId}/polls/{messageId}")
+    public ChatMessageResponse deletePoll(
+            @PathVariable Long groupId,
+            @PathVariable Long messageId
+    ) {
+        return chatService.deletePoll(
+                currentUserService.currentUser(),
+                groupId,
+                messageId
+        );
+    }
 }

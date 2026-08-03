@@ -220,7 +220,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Container(
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.errorContainer,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: Theme.of(context).colorScheme.error.withAlpha(80),
               ),
@@ -444,7 +444,7 @@ class _Group extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surface,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(16),
       border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
     ),
     clipBehavior: Clip.antiAlias,

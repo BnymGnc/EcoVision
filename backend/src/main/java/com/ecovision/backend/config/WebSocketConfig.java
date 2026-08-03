@@ -2,6 +2,7 @@ package com.ecovision.backend.config;
 
 import com.ecovision.backend.model.AppUser;
 import com.ecovision.backend.repository.AppUserRepository;
+import com.ecovision.backend.repository.EventMemberRepository;
 import com.ecovision.backend.repository.GroupMemberRepository;
 import com.ecovision.backend.security.JwtService;
 import java.util.List;
@@ -26,21 +27,26 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private static final Pattern GROUP_TOPIC =
             Pattern.compile("^/topic/groups/(\\d+)(?:/typing)?$");
+    private static final Pattern EVENT_TOPIC =
+            Pattern.compile("^/topic/events/(\\d+)(?:/typing)?$");
 
     private final JwtService jwtService;
     private final AppUserRepository users;
     private final GroupMemberRepository groupMembers;
+    private final EventMemberRepository eventMembers;
     private final List<String> allowedOrigins;
 
     public WebSocketConfig(
             JwtService jwtService,
             AppUserRepository users,
             GroupMemberRepository groupMembers,
+            EventMemberRepository eventMembers,
             @Value("${app.cors.allowed-origin-patterns}") List<String> allowedOrigins
     ) {
         this.jwtService = jwtService;
         this.users = users;
         this.groupMembers = groupMembers;
+        this.eventMembers = eventMembers;
         this.allowedOrigins = allowedOrigins;
     }
 
@@ -73,22 +79,43 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     }
 
     private void authorizeSubscription(StompHeaderAccessor accessor) {
-        Matcher matcher = GROUP_TOPIC.matcher(
-                accessor.getDestination() == null ? "" : accessor.getDestination()
-        );
-        if (!matcher.matches()) {
-            throw new IllegalArgumentException("Geçersiz sohbet aboneliği");
-        }
-        if (!(accessor.getUser() instanceof UsernamePasswordAuthenticationToken auth)
-                || !(auth.getPrincipal() instanceof AppUser user)
-                || !groupMembers.existsByGroupIdAndUserId(
-                        Long.parseLong(matcher.group(1)),
-                        user.getId()
-                )) {
+        String destination = accessor.getDestination() == null
+                ? ""
+                : accessor.getDestination();
+        AppUser user = authenticatedSubscriptionUser(accessor);
+        Matcher groupMatcher = GROUP_TOPIC.matcher(destination);
+        if (groupMatcher.matches()) {
+            if (groupMembers.existsByGroupIdAndUserId(
+                    Long.parseLong(groupMatcher.group(1)),
+                    user.getId()
+            )) {
+                return;
+            }
             throw new IllegalArgumentException(
                     "Bu grup sohbetini dinleme yetkiniz yok"
             );
         }
+        Matcher eventMatcher = EVENT_TOPIC.matcher(destination);
+        if (eventMatcher.matches()) {
+            if (eventMembers.existsByEventIdAndUserId(
+                    Long.parseLong(eventMatcher.group(1)),
+                    user.getId()
+            )) {
+                return;
+            }
+            throw new IllegalArgumentException(
+                    "Bu etkinlik sohbetini dinleme yetkiniz yok"
+            );
+        }
+        throw new IllegalArgumentException("Geçersiz sohbet aboneliği");
+    }
+
+    private AppUser authenticatedSubscriptionUser(StompHeaderAccessor accessor) {
+        if (accessor.getUser() instanceof UsernamePasswordAuthenticationToken auth
+                && auth.getPrincipal() instanceof AppUser user) {
+            return user;
+        }
+        throw new IllegalArgumentException("Sohbet aboneliği için oturum gerekli");
     }
 
     private void authenticate(StompHeaderAccessor accessor) {

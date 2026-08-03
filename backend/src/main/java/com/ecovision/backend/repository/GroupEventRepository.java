@@ -1,7 +1,6 @@
 package com.ecovision.backend.repository;
 
 import com.ecovision.backend.model.GroupEvent;
-import java.time.Instant;
 import java.util.List;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,10 +12,7 @@ import java.util.Optional;
 
 public interface GroupEventRepository extends JpaRepository<GroupEvent, Long> {
     @EntityGraph(attributePaths = {"group", "creator"})
-    List<GroupEvent> findByGroupIdAndEventDateGreaterThanEqualOrderByEventDateAsc(
-            Long groupId,
-            Instant from
-    );
+    List<GroupEvent> findByGroupIdOrderByEventDateDesc(Long groupId);
 
     @EntityGraph(attributePaths = {"group", "creator"})
     Optional<GroupEvent> findByIdAndGroupId(Long id, Long groupId);

@@ -229,9 +229,9 @@ class _EcoCenter extends StatelessWidget {
             final item = actions[index];
             return Material(
               color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(16),
               child: InkWell(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(16),
                 onTap: () {
                   EcoHaptics.light();
                   Navigator.push(
@@ -242,7 +242,7 @@ class _EcoCenter extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: Theme.of(context).colorScheme.outlineVariant,
                     ),
@@ -288,7 +288,14 @@ class _HeroPanel extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.04),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
         border: Border.all(color: colorScheme.primary.withValues(alpha: 0.12)),
       ),
       child: Column(
@@ -301,7 +308,7 @@ class _HeroPanel extends StatelessWidget {
                 height: 52,
                 decoration: BoxDecoration(
                   color: colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
                   Icons.eco_outlined,
@@ -456,27 +463,30 @@ class _ScanningOverlayState extends State<_ScanningOverlay>
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
+    final colors = Theme.of(context).colorScheme;
+    final accent = colors.primary;
     return Material(
-      color: Colors.black.withValues(alpha: 0.88),
+      color: colors.inverseSurface.withValues(alpha: 0.96),
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
           child: Column(
             children: [
-              const Text(
+              Text(
                 'EcoVision AI Tarayıcı',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: colors.onInverseSurface,
                   fontSize: 19,
                   fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Fotoğraf güvenli biçimde analiz ediliyor',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(
+                  color: colors.onInverseSurface.withValues(alpha: 0.72),
+                ),
               ),
               const Spacer(),
               AspectRatio(
@@ -512,10 +522,12 @@ class _ScanningOverlayState extends State<_ScanningOverlay>
                           ),
                         ),
                       ),
-                      const Center(
+                      Center(
                         child: Icon(
                           Icons.recycling_rounded,
-                          color: Colors.white24,
+                          color: colors.onInverseSurface.withValues(
+                            alpha: 0.24,
+                          ),
                           size: 84,
                         ),
                       ),
@@ -530,9 +542,11 @@ class _ScanningOverlayState extends State<_ScanningOverlay>
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
+                  color: colors.onInverseSurface.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: Colors.white24),
+                  border: Border.all(
+                    color: colors.onInverseSurface.withValues(alpha: 0.24),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -549,8 +563,8 @@ class _ScanningOverlayState extends State<_ScanningOverlay>
                     Flexible(
                       child: Text(
                         widget.message,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: colors.onInverseSurface,
                           fontWeight: FontWeight.w800,
                         ),
                       ),

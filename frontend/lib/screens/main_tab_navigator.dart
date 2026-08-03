@@ -1,13 +1,15 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
+import '../widgets/premium_ui.dart';
 import 'community_screen.dart';
 import 'home_screen.dart';
 import 'map_screen.dart';
-import 'profile_screen.dart';
 import 'notifications_screen.dart';
+import 'profile_screen.dart';
 
 class MainTabNavigator extends StatefulWidget {
   const MainTabNavigator({required this.apiService, super.key});
@@ -80,6 +82,7 @@ class _MainTabNavigatorState extends State<MainTabNavigator> {
   }
 
   void _selectTab(int index, {String? mapMaterial}) {
+    EcoHaptics.selection();
     setState(() {
       _selectedIndex = index;
       if (index == 1 && mapMaterial != null) {
@@ -96,7 +99,7 @@ class _MainTabNavigatorState extends State<MainTabNavigator> {
     if (_unreadCommunityCount == 0) return Icon(icon);
     return Badge.count(
       count: _unreadCommunityCount.clamp(1, 99),
-      backgroundColor: Colors.red.shade700,
+      backgroundColor: Theme.of(context).colorScheme.error,
       child: Icon(icon),
     );
   }
@@ -104,6 +107,7 @@ class _MainTabNavigatorState extends State<MainTabNavigator> {
   @override
   Widget build(BuildContext context) {
     final adult = widget.apiService.currentUser?.adult ?? false;
+    final colors = Theme.of(context).colorScheme;
     final screens = <Widget>[
       HomeScreen(
         apiService: widget.apiService,
@@ -131,33 +135,62 @@ class _MainTabNavigatorState extends State<MainTabNavigator> {
     ];
 
     return Scaffold(
+      extendBody: false,
       body: IndexedStack(index: _selectedIndex, children: screens),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _selectTab,
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.document_scanner_outlined),
-            selectedIcon: Icon(Icons.document_scanner),
-            label: 'Tarayıcı',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.map_outlined),
-            selectedIcon: Icon(Icons.map),
-            label: 'Harita',
-          ),
-          if (adult)
-            NavigationDestination(
-              icon: _communityIcon(Icons.groups_outlined),
-              selectedIcon: _communityIcon(Icons.groups),
-              label: 'Topluluk',
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Container(
+              decoration: BoxDecoration(
+                color: colors.surface.withValues(alpha: 0.82),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: colors.onSurface.withValues(alpha: 0.12),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.shadow.withValues(alpha: 0.08),
+                    blurRadius: 30,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: NavigationBar(
+                height: 72,
+                backgroundColor: colors.surface.withValues(alpha: 0),
+                elevation: 0,
+                selectedIndex: _selectedIndex,
+                onDestinationSelected: _selectTab,
+                destinations: [
+                  const NavigationDestination(
+                    icon: Icon(Icons.document_scanner_outlined),
+                    selectedIcon: Icon(Icons.document_scanner_rounded),
+                    label: 'Tarayıcı',
+                  ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.map_outlined),
+                    selectedIcon: Icon(Icons.map_rounded),
+                    label: 'Harita',
+                  ),
+                  if (adult)
+                    NavigationDestination(
+                      icon: _communityIcon(Icons.groups_outlined),
+                      selectedIcon: _communityIcon(Icons.groups_rounded),
+                      label: 'Topluluk',
+                    ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.person_outline_rounded),
+                    selectedIcon: Icon(Icons.person_rounded),
+                    label: 'Profil',
+                  ),
+                ],
+              ),
             ),
-          const NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profil',
           ),
-        ],
+        ),
       ),
     );
   }

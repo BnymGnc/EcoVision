@@ -64,6 +64,7 @@ public class GamificationService {
             throw new IllegalArgumentException("Bu avatar seviyesi henüz kilitli");
         }
         user.setEquippedAvatarLevel(level);
+        user.setSelectedAvatarPath(AppUser.avatarPathForLevel(level));
         return UserResponse.from(userRepository.save(user));
     }
 

@@ -1,6 +1,7 @@
 package com.ecovision.backend.dto;
 
 import com.ecovision.backend.model.AppUser;
+import com.ecovision.backend.model.AvatarTier;
 import java.util.Set;
 import java.time.LocalDate;
 import java.time.Instant;
@@ -17,7 +18,9 @@ public record UserResponse(
         String neighborhood,
         String themePreference,
         String profilePictureUrl,
+        String selectedAvatarPath,
         Integer equippedAvatarLevel,
+        Integer currentAvatarLevel,
         Integer totalPoints,
         Integer lifetimePoints,
         boolean adult,
@@ -43,7 +46,9 @@ public record UserResponse(
                 user.getNeighborhood(),
                 user.getThemePreference(),
                 user.getProfilePictureUrl(),
+                user.getSelectedAvatarPath(),
                 user.getEquippedAvatarLevel(),
+                AvatarTier.highestUnlocked(user.getLifetimePoints()).level(),
                 user.getTotalPoints(),
                 user.getLifetimePoints(),
                 user.isAdult(),

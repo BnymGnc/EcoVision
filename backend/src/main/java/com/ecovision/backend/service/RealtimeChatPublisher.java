@@ -1,6 +1,7 @@
 package com.ecovision.backend.service;
 
 import com.ecovision.backend.dto.ChatMessageResponse;
+import com.ecovision.backend.dto.EventTypingEventResponse;
 import com.ecovision.backend.dto.TypingEventResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +39,20 @@ public class RealtimeChatPublisher {
                             exception
                     );
                 }
+            } else if (message.eventId() != null) {
+                try {
+                    messaging.convertAndSend(
+                            "/topic/events/" + message.eventId(),
+                            message
+                    );
+                } catch (RuntimeException exception) {
+                    log.error(
+                            "Realtime publish failed for event={} message={}",
+                            message.eventId(),
+                            message.id(),
+                            exception
+                    );
+                }
             }
         };
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
@@ -64,6 +79,21 @@ public class RealtimeChatPublisher {
             log.debug(
                     "Typing event publish failed for group={}",
                     event.groupId(),
+                    exception
+            );
+        }
+    }
+
+    public void publishEventTyping(EventTypingEventResponse event) {
+        try {
+            messaging.convertAndSend(
+                    "/topic/events/" + event.eventId() + "/typing",
+                    event
+            );
+        } catch (RuntimeException exception) {
+            log.debug(
+                    "Typing event publish failed for event={}",
+                    event.eventId(),
                     exception
             );
         }

@@ -16,29 +16,38 @@ Future<T?> showEcoGlassSheet<T>({
   bool isScrollControlled = true,
 }) {
   EcoHaptics.light();
+  final colors = Theme.of(context).colorScheme;
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: isScrollControlled,
     useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.36),
-    builder: (context) => BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-      child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.92,
-        ),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.94),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          border: Border.all(
+    backgroundColor: colors.surface.withValues(alpha: 0),
+    barrierColor: colors.scrim.withValues(alpha: 0.28),
+    builder: (context) => ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+          ),
+          decoration: BoxDecoration(
             color: Theme.of(
               context,
-            ).colorScheme.outlineVariant.withValues(alpha: 0.55),
+            ).colorScheme.surface.withValues(alpha: 0.94),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: colors.onSurface.withValues(alpha: 0.12)),
+            boxShadow: [
+              BoxShadow(
+                color: colors.shadow.withValues(alpha: 0.08),
+                blurRadius: 32,
+                offset: const Offset(0, -8),
+              ),
+            ],
           ),
+          clipBehavior: Clip.antiAlias,
+          child: builder(context),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: builder(context),
       ),
     ),
   );
@@ -77,8 +86,12 @@ class EcoShimmerList extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Shimmer.fromColors(
-      baseColor: colors.surfaceContainerHighest,
-      highlightColor: colors.surface,
+      baseColor: colors.surfaceContainerHighest.withValues(alpha: 0.72),
+      highlightColor: Color.alphaBlend(
+        colors.primary.withValues(alpha: 0.06),
+        colors.surface,
+      ),
+      period: const Duration(milliseconds: 1450),
       child: ListView(
         physics: const NeverScrollableScrollPhysics(),
         shrinkWrap: true,
@@ -105,8 +118,12 @@ class EcoChatShimmer extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Shimmer.fromColors(
-      baseColor: colors.surfaceContainerHighest,
-      highlightColor: colors.surface,
+      baseColor: colors.surfaceContainerHighest.withValues(alpha: 0.72),
+      highlightColor: Color.alphaBlend(
+        colors.primary.withValues(alpha: 0.06),
+        colors.surface,
+      ),
+      period: const Duration(milliseconds: 1450),
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(14, 24, 14, 18),
         itemCount: 7,
@@ -120,7 +137,7 @@ class EcoChatShimmer extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 14),
             decoration: BoxDecoration(
               color: colors.surface,
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(20),
             ),
           ),
         ),
@@ -130,27 +147,39 @@ class EcoChatShimmer extends StatelessWidget {
 }
 
 class GlassPanel extends StatelessWidget {
-  const GlassPanel({required this.child, this.padding, this.tint, super.key});
+  const GlassPanel({
+    required this.child,
+    this.padding,
+    this.tint,
+    this.borderRadius = 24,
+    super.key,
+  });
 
   final Widget child;
   final EdgeInsets? padding;
   final Color? tint;
+  final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(borderRadius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
           padding: padding ?? const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: (tint ?? colors.surface).withValues(alpha: 0.78),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: colors.outlineVariant.withValues(alpha: 0.55),
-            ),
+            color: (tint ?? colors.surface).withValues(alpha: 0.74),
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(color: colors.onSurface.withValues(alpha: 0.12)),
+            boxShadow: [
+              BoxShadow(
+                color: colors.shadow.withValues(alpha: 0.04),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: child,
         ),
@@ -168,7 +197,7 @@ class _Skeleton extends StatelessWidget {
     height: height,
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surface,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
     ),
   );
 }

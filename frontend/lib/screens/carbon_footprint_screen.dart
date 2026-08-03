@@ -176,10 +176,7 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
                 ],
               ),
               const SizedBox(height: 9),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(value: progress, minHeight: 7),
-              ),
+              _CarbonProgress(value: progress),
             ],
           ),
         ),
@@ -258,8 +255,8 @@ class _QuestionPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visual = _categoryVisual(question.category);
     final colors = Theme.of(context).colorScheme;
+    final visual = _categoryVisual(question.category, colors);
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 760),
@@ -273,7 +270,7 @@ class _QuestionPage extends StatelessWidget {
                   height: 52,
                   decoration: BoxDecoration(
                     color: visual.color.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(visual.icon, color: visual.color, size: 28),
                 ),
@@ -321,7 +318,51 @@ class _QuestionPage extends StatelessWidget {
   }
 }
 
-class _CarbonOptionCard extends StatelessWidget {
+class _CarbonProgress extends StatelessWidget {
+  const _CarbonProgress({required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) => Container(
+        height: 12,
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(99),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(end: value),
+          duration: const Duration(milliseconds: 480),
+          curve: Curves.easeOutCubic,
+          builder: (context, progress, _) => Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              width: constraints.maxWidth * progress,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [colors.primary, colors.tertiary],
+                ),
+                borderRadius: BorderRadius.circular(99),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.primary.withValues(alpha: 0.34),
+                    blurRadius: 12,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CarbonOptionCard extends StatefulWidget {
   const _CarbonOptionCard({
     required this.option,
     required this.accent,
@@ -335,92 +376,117 @@ class _CarbonOptionCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_CarbonOptionCard> createState() => _CarbonOptionCardState();
+}
+
+class _CarbonOptionCardState extends State<_CarbonOptionCard> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 240),
-          curve: Curves.easeInOut,
-          constraints: const BoxConstraints(minHeight: 82),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Color.alphaBlend(
-                  accent.withValues(alpha: selected ? 0.18 : 0.07),
-                  colors.surface,
+    return AnimatedScale(
+      scale: _pressed ? 0.975 : 1,
+      duration: const Duration(milliseconds: 120),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeInOut,
+            constraints: const BoxConstraints(minHeight: 82),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color.alphaBlend(
+                    widget.accent.withValues(
+                      alpha: widget.selected ? 0.22 : 0.06,
+                    ),
+                    colors.surface,
+                  ),
+                  colors.surface.withValues(alpha: 0.80),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: widget.selected
+                    ? widget.accent
+                    : colors.onSurface.withValues(alpha: 0.12),
+                width: widget.selected ? 2.5 : 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: widget.selected
+                      ? widget.accent.withValues(alpha: 0.22)
+                      : colors.shadow.withValues(alpha: 0.04),
+                  blurRadius: widget.selected ? 26 : 20,
+                  offset: const Offset(0, 8),
                 ),
-                colors.surface.withValues(alpha: 0.86),
               ],
             ),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: selected ? accent : colors.outlineVariant,
-              width: selected ? 2 : 1,
-            ),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: accent.withValues(alpha: 0.16),
-                      blurRadius: 18,
-                      offset: const Offset(0, 7),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Material(
-            type: MaterialType.transparency,
-            child: InkWell(
-              onTap: onTap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 17,
-                  vertical: 15,
-                ),
-                child: Row(
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        color: selected ? accent : Colors.transparent,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: selected ? accent : colors.outline,
-                          width: 2,
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: widget.onTap,
+                onTapDown: (_) => setState(() => _pressed = true),
+                onTapUp: (_) => setState(() => _pressed = false),
+                onTapCancel: () => setState(() => _pressed = false),
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 17,
+                    vertical: 15,
+                  ),
+                  child: Row(
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: widget.selected
+                              ? widget.accent
+                              : colors.surface.withValues(alpha: 0),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: widget.selected
+                                ? widget.accent
+                                : colors.outline,
+                            width: 2,
+                          ),
+                        ),
+                        child: widget.selected
+                            ? Icon(
+                                Icons.check_rounded,
+                                color: _onSchemeColor(colors, widget.accent),
+                                size: 19,
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          widget.option.label,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            height: 1.3,
+                          ),
                         ),
                       ),
-                      child: selected
-                          ? Icon(
-                              Icons.check_rounded,
-                              color: _contrastOn(accent),
-                              size: 19,
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        option.label,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          height: 1.3,
+                      const SizedBox(width: 10),
+                      Text(
+                        _weightLabel(widget.option.kgOfCo2),
+                        style: TextStyle(
+                          color: widget.option.kgOfCo2 < 0
+                              ? colors.primary
+                              : widget.accent,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      _weightLabel(option.kgOfCo2),
-                      style: TextStyle(
-                        color: option.kgOfCo2 < 0 ? Colors.green : accent,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -473,8 +539,20 @@ class _CalculatingViewState extends State<_CalculatingView>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox.square(
-              dimension: 260,
+            Container(
+              width: 280,
+              height: 280,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colors.surface.withValues(alpha: 0.58),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.primary.withValues(alpha: 0.16),
+                    blurRadius: 44,
+                    spreadRadius: 4,
+                  ),
+                ],
+              ),
               child: AnimatedBuilder(
                 animation: _controller,
                 builder: (context, _) => CustomPaint(
@@ -534,11 +612,12 @@ class _CarbonRadarPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
-    final radius = size.shortestSide / 2 - 10;
+    final radius = size.shortestSide / 2 - 18;
+    final pulse = (math.sin(progress * math.pi * 2) + 1) / 2;
     final gridPaint = Paint()
-      ..color = color.withValues(alpha: 0.20)
+      ..color = color.withValues(alpha: 0.16 + pulse * 0.06)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+      ..strokeWidth = 1.2;
     for (final scale in [0.34, 0.67, 1.0]) {
       canvas.drawCircle(center, radius * scale, gridPaint);
     }
@@ -552,18 +631,56 @@ class _CarbonRadarPainter extends CustomPainter {
     }
 
     final sweepAngle = progress * math.pi * 2 - math.pi / 2;
+    final radarRect = Rect.fromCircle(center: center, radius: radius);
+    final cone = Path()
+      ..moveTo(center.dx, center.dy)
+      ..arcTo(radarRect, sweepAngle - math.pi / 4, math.pi / 4, false)
+      ..close();
+    canvas.drawPath(
+      cone,
+      Paint()
+        ..shader = SweepGradient(
+          startAngle: sweepAngle - math.pi / 4,
+          endAngle: sweepAngle,
+          colors: [color.withValues(alpha: 0), color.withValues(alpha: 0.22)],
+        ).createShader(radarRect),
+    );
+
     final sweepPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [color.withValues(alpha: 0.65), color.withValues(alpha: 0)],
-      ).createShader(Rect.fromCircle(center: center, radius: radius))
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
+      ..color = color.withValues(alpha: 0.95)
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
     canvas.drawLine(
       center,
       center + Offset(math.cos(sweepAngle), math.sin(sweepAngle)) * radius,
       sweepPaint,
     );
-    canvas.drawCircle(center, 7, Paint()..color = color.withValues(alpha: 0.9));
+    canvas.drawCircle(
+      center,
+      12 + pulse * 4,
+      Paint()
+        ..color = color.withValues(alpha: 0.16)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+    );
+    canvas.drawCircle(center, 6, Paint()..color = color);
+
+    for (var index = 0; index < 5; index++) {
+      final angle = index * 1.37 + 0.28;
+      final distance = radius * (0.30 + (index % 3) * 0.22);
+      final point =
+          center + Offset(math.cos(angle), math.sin(angle)) * distance;
+      final proximity =
+          1 -
+          ((sweepAngle - angle + math.pi * 4) % (math.pi * 2)) / (math.pi * 2);
+      canvas.drawCircle(
+        point,
+        3.5 + proximity * 2.5,
+        Paint()
+          ..color = color.withValues(alpha: 0.34 + proximity * 0.60)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+      );
+    }
 
     for (var index = 0; index < 12; index++) {
       final angle = index * math.pi / 6 + progress * 0.35;
@@ -611,8 +728,8 @@ class _ResultView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visual = _tierVisual(result.tier);
     final colors = Theme.of(context).colorScheme;
+    final visual = _tierVisual(result.tier, colors);
     return TweenAnimationBuilder<double>(
       key: const ValueKey('carbon-result'),
       duration: const Duration(milliseconds: 900),
@@ -642,7 +759,7 @@ class _ResultView extends StatelessWidget {
                       ),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
                       color: visual.color.withValues(alpha: 0.28),
@@ -656,14 +773,14 @@ class _ResultView extends StatelessWidget {
                   children: [
                     Icon(
                       visual.icon,
-                      color: _contrastOn(visual.color),
+                      color: _onSchemeColor(colors, visual.color),
                       size: 42,
                     ),
                     const SizedBox(height: 10),
                     Text(
                       '${result.annualTons.toStringAsFixed(2)} Ton',
                       style: TextStyle(
-                        color: _contrastOn(visual.color),
+                        color: _onSchemeColor(colors, visual.color),
                         fontSize: 38,
                         fontWeight: FontWeight.w900,
                         fontFeatures: const [FontFeature.tabularFigures()],
@@ -672,7 +789,8 @@ class _ResultView extends StatelessWidget {
                     Text(
                       '${result.annualKg} kg CO₂e / yıl',
                       style: TextStyle(
-                        color: _contrastOn(
+                        color: _onSchemeColor(
+                          colors,
                           visual.color,
                         ).withValues(alpha: 0.84),
                         fontWeight: FontWeight.w700,
@@ -730,7 +848,7 @@ class _ResultView extends StatelessWidget {
                 onPressed: onStart,
                 style: FilledButton.styleFrom(
                   backgroundColor: visual.color,
-                  foregroundColor: _contrastOn(visual.color),
+                  foregroundColor: _onSchemeColor(colors, visual.color),
                 ),
                 icon: const Icon(Icons.eco_rounded),
                 label: const Text('Karbonunu Sıfırlamaya Başla!'),
@@ -743,49 +861,54 @@ class _ResultView extends StatelessWidget {
   }
 }
 
-({IconData icon, Color color}) _categoryVisual(String category) =>
-    switch (category) {
-      'Ulaşım ve Seyahat' => (
-        icon: Icons.commute_rounded,
-        color: const Color(0xFF2574A9),
-      ),
-      'Beslenme ve Tüketim' => (
-        icon: Icons.restaurant_rounded,
-        color: const Color(0xFF3E8C57),
-      ),
-      'Ev ve Enerji' => (
-        icon: Icons.energy_savings_leaf_rounded,
-        color: const Color(0xFFD18421),
-      ),
-      'Alışveriş ve Atık' => (
-        icon: Icons.recycling_rounded,
-        color: const Color(0xFF8B5BA5),
-      ),
-      _ => (icon: Icons.devices_rounded, color: const Color(0xFF3D7C7A)),
-    };
+({IconData icon, Color color}) _categoryVisual(
+  String category,
+  ColorScheme colors,
+) => switch (category) {
+  'Ulaşım ve Seyahat' => (icon: Icons.commute_rounded, color: colors.primary),
+  'Beslenme ve Tüketim' => (
+    icon: Icons.restaurant_rounded,
+    color: colors.secondary,
+  ),
+  'Ev ve Enerji' => (
+    icon: Icons.energy_savings_leaf_rounded,
+    color: colors.tertiary,
+  ),
+  'Alışveriş ve Atık' => (
+    icon: Icons.recycling_rounded,
+    color: colors.inversePrimary,
+  ),
+  _ => (icon: Icons.devices_rounded, color: colors.primary),
+};
 
 ({IconData icon, Color color, String message}) _tierVisual(
   CarbonFootprintTier tier,
+  ColorScheme colors,
 ) => switch (tier) {
   CarbonFootprintTier.natureGuardian => (
     icon: Icons.eco_rounded,
-    color: const Color(0xFF23834B),
+    color: colors.primary,
     message:
         'Düşük karbonlu alışkanlıkların güçlü. Bu etkiyi koruyup çevrene örnek olabilirsin.',
   ),
   CarbonFootprintTier.openToGrowth => (
     icon: Icons.trending_up_rounded,
-    color: const Color(0xFFE08A18),
+    color: colors.tertiary,
     message:
         'İyi bir başlangıçtasın. Ulaşım ve ev enerjisindeki birkaç değişiklik büyük fark yaratabilir.',
   ),
   CarbonFootprintTier.carbonMonster => (
     icon: Icons.local_fire_department_rounded,
-    color: const Color(0xFFC83F43),
+    color: colors.error,
     message:
         'Yıllık etkin yüksek; ama her güçlü dönüşüm net bir ölçümle başlar. İlk azaltım planın hazır.',
   ),
 };
 
-Color _contrastOn(Color color) =>
-    color.computeLuminance() > 0.48 ? Colors.black : Colors.white;
+Color _onSchemeColor(ColorScheme colors, Color color) {
+  if (color == colors.primary) return colors.onPrimary;
+  if (color == colors.secondary) return colors.onSecondary;
+  if (color == colors.tertiary) return colors.onTertiary;
+  if (color == colors.error) return colors.onError;
+  return colors.onSurface;
+}

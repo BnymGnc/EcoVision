@@ -215,11 +215,23 @@ class _RankTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final medalColor = switch (entry.rank) {
-      1 => const Color(0xFFFFB300),
-      2 => const Color(0xFF78909C),
-      3 => const Color(0xFFB87333),
-      _ => colors.onSurfaceVariant,
+    final medalGradient = switch (entry.rank) {
+      1 => [
+        colors.tertiaryContainer,
+        colors.tertiary,
+        colors.onTertiaryContainer,
+      ],
+      2 => [
+        colors.surfaceContainerHighest,
+        colors.onSurfaceVariant,
+        colors.outline,
+      ],
+      3 => [
+        colors.secondaryContainer,
+        colors.secondary,
+        colors.onSecondaryContainer,
+      ],
+      _ => null,
     };
     return GlassPanel(
       tint: entry.currentUser ? colors.primaryContainer : colors.surface,
@@ -233,13 +245,28 @@ class _RankTile extends StatelessWidget {
             children: [
               SizedBox(
                 width: 30,
-                child: Text(
-                  '#${entry.rank}',
-                  style: TextStyle(
-                    color: medalColor,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+                child: medalGradient == null
+                    ? Text(
+                        '#${entry.rank}',
+                        style: TextStyle(
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      )
+                    : ShaderMask(
+                        blendMode: BlendMode.srcIn,
+                        shaderCallback: (bounds) => LinearGradient(
+                          colors: medalGradient,
+                        ).createShader(bounds),
+                        child: Text(
+                          '#${entry.rank}',
+                          style: TextStyle(
+                            color: colors.onSurface,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
               ),
               CircleAvatar(
                 backgroundImage: entry.profilePictureUrl == null
@@ -302,13 +329,29 @@ class _EmptyLeaderboard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.leaderboard_outlined,
-            size: 58,
-            color: Theme.of(context).colorScheme.primary,
+          Container(
+            width: 104,
+            height: 104,
+            decoration: BoxDecoration(
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.leaderboard_rounded,
+              size: 58,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
-          const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: 20),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+          ),
         ],
       ),
     ),

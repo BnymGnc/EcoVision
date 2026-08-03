@@ -13,11 +13,7 @@ void main() {
 }
 
 class EcoVisionApp extends StatefulWidget {
-  const EcoVisionApp({
-    this.apiService,
-    this.themeController,
-    super.key,
-  });
+  const EcoVisionApp({this.apiService, this.themeController, super.key});
 
   final ApiService? apiService;
   final ThemeController? themeController;

@@ -150,13 +150,18 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                   ),
                 ),
                 if (_group.isFounder)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'delete',
                     child: ListTile(
-                      leading: Icon(Icons.delete_outline, color: Colors.red),
+                      leading: Icon(
+                        Icons.delete_outline,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                       title: Text(
                         'Grubu Sil',
-                        style: TextStyle(color: Colors.red),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                       contentPadding: EdgeInsets.zero,
                     ),
@@ -276,7 +281,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Yaklaşan Etkinlikler',
+                        'Grup Etkinlikleri',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w900,
                         ),
@@ -706,6 +711,44 @@ class _GroupEventCard extends StatelessWidget {
     );
   }
 
+  Future<void> _delete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: Icon(
+          Icons.delete_forever_outlined,
+          color: Theme.of(context).colorScheme.error,
+        ),
+        title: const Text('Etkinlik silinsin mi?'),
+        content: Text('${event.title} kalıcı olarak kaldırılacak.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Etkinliği Sil'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await apiService.deleteGroupEvent(groupId: group.id, eventId: event.id);
+      onChanged();
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -741,17 +784,12 @@ class _GroupEventCard extends StatelessWidget {
                             ?.copyWith(fontWeight: FontWeight.w900),
                       ),
                     ),
-                    if (group.isAdmin)
+                    if (group.isAdmin ||
+                        event.creatorId == apiService.currentUser?.id)
                       IconButton(
                         tooltip: 'Etkinliği sil',
-                        onPressed: () async {
-                          await apiService.deleteGroupEvent(
-                            groupId: group.id,
-                            eventId: event.id,
-                          );
-                          onChanged();
-                        },
-                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => _delete(context),
+                        icon: Icon(Icons.delete_outline, color: colors.error),
                       ),
                   ],
                 ),
@@ -1020,11 +1058,15 @@ class _RoleAwareMembersSheetState extends State<_RoleAwareMembersSheet> {
                                       child: Text('Yöneticiliği Al'),
                                     ),
                                   if (_canRemove(member))
-                                    const PopupMenuItem(
+                                    PopupMenuItem(
                                       value: 'remove',
                                       child: Text(
                                         'Gruptan Çıkar',
-                                        style: TextStyle(color: Colors.red),
+                                        style: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.error,
+                                        ),
                                       ),
                                     ),
                                 ],
@@ -1199,11 +1241,15 @@ class _MembersSheet extends StatelessWidget {
                                     value: 'admin',
                                     child: Text('Yönetici Yap'),
                                   ),
-                                const PopupMenuItem(
+                                PopupMenuItem(
                                   value: 'remove',
                                   child: Text(
                                     'Gruptan Çıkar',
-                                    style: TextStyle(color: Colors.red),
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
+                                    ),
                                   ),
                                 ),
                               ],

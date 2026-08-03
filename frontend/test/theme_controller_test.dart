@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('tema tercihleri kullanıcı hesapları arasında ayrı tutulur', () async {
     SharedPreferences.setMockInitialValues({});
     final controller = ThemeController();
@@ -49,6 +51,32 @@ void main() {
 
     await controller.select(AppThemeKind.darkEco);
     await controller.bindToUser(userId: 101);
+
+    expect(controller.selected, AppThemeKind.darkEco);
+  });
+
+  test('uygulama açılışında son yerel temayı hemen yükler', () async {
+    SharedPreferences.setMockInitialValues({
+      'ecovision.theme.bootstrap': AppThemeKind.sunset.name,
+    });
+    final controller = ThemeController();
+
+    await controller.load();
+
+    expect(controller.selected, AppThemeKind.sunset);
+  });
+
+  test('başka cihazda değişen sunucu teması yerel hesabı günceller', () async {
+    SharedPreferences.setMockInitialValues({
+      'ecovision.theme.101': AppThemeKind.ocean.name,
+      'ecovision.theme.synced.101': AppThemeKind.ocean.name,
+    });
+    final controller = ThemeController();
+
+    await controller.bindToUser(
+      userId: 101,
+      remotePreference: AppThemeKind.darkEco.name,
+    );
 
     expect(controller.selected, AppThemeKind.darkEco);
   });

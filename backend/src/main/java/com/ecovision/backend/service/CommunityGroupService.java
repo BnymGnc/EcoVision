@@ -341,7 +341,11 @@ public class CommunityGroupService {
             }
         }
         if (cover != null && !cover.isEmpty()) {
-            group.setCoverImageUrl(storage.storeImage(cover, "groups"));
+            group.setCoverImageUrl(storage.replaceImage(
+                    cover,
+                    "groups",
+                    group.getCoverImageUrl()
+            ));
         }
         return response(groups.save(group), user);
     }
@@ -454,12 +458,9 @@ public class CommunityGroupService {
     }
 
     @Transactional(readOnly = true)
-    public List<GroupEventResponse> upcomingEvents(AppUser user, Long groupId) {
+    public List<GroupEventResponse> groupEvents(AppUser user, Long groupId) {
         requireMember(user, groupId);
-        return events.findByGroupIdAndEventDateGreaterThanEqualOrderByEventDateAsc(
-                        groupId,
-                        Instant.now()
-                ).stream()
+        return events.findByGroupIdOrderByEventDateDesc(groupId).stream()
                 .map(event -> eventResponse(event, user))
                 .toList();
     }
@@ -607,11 +608,7 @@ public class CommunityGroupService {
     public void deleteGroup(AppUser user, Long groupId) {
         requireFounder(user, groupId);
         CommunityGroup group = findGroup(groupId);
-        for (GroupEvent event : events
-                .findByGroupIdAndEventDateGreaterThanEqualOrderByEventDateAsc(
-                        groupId,
-                        Instant.EPOCH
-                )) {
+        for (GroupEvent event : events.findByGroupIdOrderByEventDateDesc(groupId)) {
             attendance.deleteByEventId(event.getId());
         }
         chatMessages.deleteByGroupId(groupId);

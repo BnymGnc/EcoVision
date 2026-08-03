@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/app_notification.dart';
 import '../services/api_service.dart';
+import '../widgets/premium_ui.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({required this.apiService, super.key});
@@ -55,7 +56,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting)
-          return const Center(child: CircularProgressIndicator());
+          return const EcoShimmerList(itemCount: 6);
         if (snapshot.hasError)
           return _State(
             icon: Icons.cloud_off_outlined,
@@ -92,16 +93,10 @@ class _Tile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final (icon, color) = switch (item.type) {
-      'SOCIAL' => (Icons.favorite_outline, Colors.pink.shade600),
-      'GAMIFICATION' => (
-        Icons.workspace_premium_outlined,
-        Colors.amber.shade800,
-      ),
-      'LOCATION' => (Icons.location_city_outlined, Colors.blue.shade700),
-      'STREAK' => (
-        Icons.local_fire_department_outlined,
-        Colors.deepOrange.shade700,
-      ),
+      'SOCIAL' => (Icons.favorite_outline, colors.secondary),
+      'GAMIFICATION' => (Icons.workspace_premium_outlined, colors.tertiary),
+      'LOCATION' => (Icons.location_city_outlined, colors.primary),
+      'STREAK' => (Icons.local_fire_department_outlined, colors.error),
       _ => (Icons.campaign_outlined, colors.primary),
     };
     return Container(
@@ -109,7 +104,14 @@ class _Tile extends StatelessWidget {
         color: item.read
             ? colors.surface
             : colors.primaryContainer.withAlpha(90),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: colors.shadow.withValues(alpha: 0.04),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
         border: Border.all(
           color: item.read
               ? colors.outlineVariant

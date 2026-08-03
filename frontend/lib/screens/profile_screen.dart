@@ -6,6 +6,7 @@ import '../models/user_profile.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_bell.dart';
 import '../widgets/premium_ui.dart';
+import 'avatar_selection_screen.dart';
 import 'scan_history_screen.dart';
 import 'settings_screen.dart';
 
@@ -61,6 +62,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) await _refresh();
   }
 
+  Future<void> _openAvatarSelection(UserProfile user) async {
+    final updated = await Navigator.push<UserProfile>(
+      context,
+      MaterialPageRoute<UserProfile>(
+        builder: (_) =>
+            AvatarSelectionScreen(apiService: widget.apiService, user: user),
+      ),
+    );
+    if (updated == null || !mounted) return;
+
+    final current = await _future;
+    if (!mounted) return;
+    setState(() {
+      _future = Future.value(
+        _ProfileData(
+          user: updated,
+          scans: current.scans,
+          publicProfile: current.publicProfile,
+        ),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
@@ -98,7 +122,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: [
-              _Persona(user: data.user),
+              _Persona(
+                user: data.user,
+                onEditAvatar: () => _openAvatarSelection(data.user),
+              ),
               const SizedBox(height: 14),
               _EcoImpactDashboard(
                 points: data.user.totalPoints,
@@ -161,38 +188,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 class _Persona extends StatelessWidget {
-  const _Persona({required this.user});
+  const _Persona({required this.user, required this.onEditAvatar});
   final UserProfile user;
+  final VoidCallback onEditAvatar;
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: colors.primary,
-        borderRadius: BorderRadius.circular(8),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [colors.primary, colors.secondary],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: colors.primary.withValues(alpha: 0.24),
+            blurRadius: 30,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Wrap(
         spacing: 18,
         runSpacing: 16,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          CircleAvatar(
-            radius: 48,
-            backgroundColor: colors.surface,
-            backgroundImage: user.profilePictureUrl == null
-                ? null
-                : NetworkImage(user.profilePictureUrl!),
-            child: user.profilePictureUrl == null
-                ? Text(
-                    _initials(user),
-                    style: TextStyle(
-                      color: colors.primary,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 22,
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 50,
+                backgroundColor: colors.surface,
+                child: ClipOval(
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Image.asset(
+                      user.selectedAvatarPath,
+                      width: 92,
+                      height: 92,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => Center(
+                        child: Text(
+                          _initials(user),
+                          style: TextStyle(
+                            color: colors.primary,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 22,
+                          ),
+                        ),
+                      ),
                     ),
-                  )
-                : null,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 7),
+              TextButton.icon(
+                onPressed: onEditAvatar,
+                style: TextButton.styleFrom(
+                  foregroundColor: colors.onPrimary,
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.edit_rounded, size: 16),
+                label: const Text('Avatarı Düzenle'),
+              ),
+            ],
           ),
           ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 210, maxWidth: 520),
@@ -256,7 +318,7 @@ class _Metric extends StatelessWidget {
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surface,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(16),
       border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
     ),
     child: Column(
@@ -298,7 +360,7 @@ class _EcoImpactDashboard extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return GlassPanel(
       tint: colors.surfaceContainerLow,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -309,84 +371,95 @@ class _EcoImpactDashboard extends StatelessWidget {
                 height: 42,
                 decoration: BoxDecoration(
                   color: colors.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(Icons.insights_rounded, color: colors.primary),
               ),
-              const SizedBox(width: 11),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Eco-Etki',
-                      style: TextStyle(
-                        fontSize: 19,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    Row(
-                      children: [
-                        Text(
-                          '$points',
-                          style: const TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                        const SizedBox(width: 4),
-                        const Flexible(
-                          child: Text(
-                            'Eko Puan',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
                     Text(
-                      '$streak günlük seri • $badgeCount rozet',
+                      '$streak günlük seri  •  $badgeCount rozet',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '$points',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: colors.onPrimaryContainer,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      'Eko Puan',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colors.onPrimaryContainer,
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final cards = [
-                _ImpactCard(
+          const SizedBox(height: 18),
+          Divider(color: colors.outlineVariant.withValues(alpha: 0.7)),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _ImpactCard(
                   icon: Icons.cloud_outlined,
                   value: '${co2.toStringAsFixed(1)} kg',
                   label: 'CO₂ önlendi',
-                  color: const Color(0xFF1F8A70),
+                  color: colors.primary,
                 ),
-                _ImpactCard(
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ImpactCard(
                   icon: Icons.water_drop_outlined,
                   value: '${water.toStringAsFixed(1)} L',
                   label: 'Su korundu',
-                  color: const Color(0xFF1976D2),
+                  color: colors.secondary,
                 ),
-                _ImpactCard(
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ImpactCard(
                   icon: Icons.recycling_rounded,
                   value: '$items',
                   label: 'Atık ayrıştırıldı',
-                  color: const Color(0xFFE56B45),
+                  color: colors.tertiary,
                 ),
-              ];
-              const spacing = 8.0;
-              final columns = constraints.maxWidth >= 560 ? 3 : 2;
-              final cardWidth =
-                  (constraints.maxWidth - spacing * (columns - 1)) / columns;
-              return Wrap(
-                spacing: spacing,
-                runSpacing: spacing,
-                children: cards
-                    .map((card) => SizedBox(width: cardWidth, child: card))
-                    .toList(),
-              );
-            },
+              ),
+            ],
           ),
         ],
       ),
@@ -409,28 +482,46 @@ class _ImpactCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    constraints: const BoxConstraints(minHeight: 118),
-    padding: const EdgeInsets.all(12),
+    constraints: const BoxConstraints(minHeight: 126),
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 12),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.11),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(16),
       border: Border.all(color: color.withValues(alpha: 0.24)),
     ),
     child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, color: color),
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.14),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 21),
+        ),
         const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
         ),
         const SizedBox(height: 2),
         Text(
           label,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 11, height: 1.2),
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            height: 1.2,
+          ),
         ),
       ],
     ),
@@ -465,7 +556,12 @@ class _Badges extends StatelessWidget {
               color: Theme.of(
                 context,
               ).colorScheme.secondaryContainer.withAlpha(110),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Theme.of(
+                  context,
+                ).colorScheme.secondary.withValues(alpha: 0.14),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

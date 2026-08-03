@@ -178,6 +178,7 @@ public class ChatService {
         message.setSender(sender);
         message.setMessage("");
         message.setFileName(originalName);
+        message.setFileSizeBytes(file.getSize());
         message.setContentType(image ? contentType : MediaType.APPLICATION_PDF_VALUE);
         String url = fileStorageService.store(file, "chat");
         if (image) {
@@ -249,6 +250,7 @@ public class ChatService {
         message.setMessage("");
         message.setReplyTo(resolveReply(groupId, replyToMessageId));
         message.setFileName(originalName);
+        message.setFileSizeBytes(file.getSize());
         message.setContentType(image ? contentType : MediaType.APPLICATION_PDF_VALUE);
         String url = fileStorageService.store(file, "group-chat");
         if (image) {
@@ -374,6 +376,28 @@ public class ChatService {
     }
 
     @Transactional
+    public ChatMessageResponse deletePoll(
+            AppUser user,
+            Long groupId,
+            Long messageId
+    ) {
+        GroupMember actor = requireGroupMemberRecord(user, groupId);
+        ChatMessage message = findGroupMessage(groupId, messageId);
+        ChatPoll poll = polls.findByMessageId(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("Anket bulunamadı"));
+        boolean creator = message.getSender().getId().equals(user.getId());
+        if (!creator && !isAdmin(actor.getRole())) {
+            throw new AccessDeniedException("Bu anketi silme yetkiniz yok");
+        }
+        pollVotes.deleteByPollId(poll.getId());
+        polls.delete(poll);
+        message.setDeleted(true);
+        message.setDeletedAt(Instant.now());
+        chatMessageRepository.save(message);
+        return publishRich(message);
+    }
+
+    @Transactional
     public ChatMessageResponse deleteGroupMessage(
             AppUser user,
             Long groupId,
@@ -398,6 +422,11 @@ public class ChatService {
     @Transactional(readOnly = true)
     public void requireTypingAccess(AppUser user, Long groupId) {
         requireGroupMember(user, groupId);
+    }
+
+    @Transactional(readOnly = true)
+    public void requireEventTypingAccess(AppUser user, Long eventId) {
+        requireMember(user, eventId);
     }
 
     private ChatMessageResponse saveAndPublish(ChatMessage message) {

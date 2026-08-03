@@ -543,47 +543,47 @@ class _ErrorState extends StatelessWidget {
   return switch (domain) {
     'RECYCLING' => (
       icon: Icons.recycling_rounded,
-      color: const Color(0xFF16865C),
+      color: colors.primary,
       label: 'Geri Dönüşüm',
     ),
     'TRANSPORTATION' => (
       icon: Icons.directions_bus_rounded,
-      color: const Color(0xFF2878C8),
+      color: colors.secondary,
       label: 'Ulaşım',
     ),
     'ENERGY_SAVING' => (
       icon: Icons.bolt_rounded,
-      color: const Color(0xFFE09B18),
+      color: colors.tertiary,
       label: 'Enerji',
     ),
     'WATER_SAVING' => (
       icon: Icons.water_drop_rounded,
-      color: const Color(0xFF1689B0),
+      color: colors.inversePrimary,
       label: 'Su',
     ),
     'COMMUNITY' => (
       icon: Icons.groups_rounded,
-      color: const Color(0xFFB45572),
+      color: colors.secondary,
       label: 'Topluluk',
     ),
     'STREAK' => (
       icon: Icons.local_fire_department_rounded,
-      color: const Color(0xFFE26535),
+      color: colors.error,
       label: 'Seri',
     ),
     'SOCIAL' => (
       icon: Icons.favorite_rounded,
-      color: const Color(0xFFC34D72),
+      color: colors.tertiary,
       label: 'Sosyal',
     ),
     'EDUCATION' => (
       icon: Icons.menu_book_rounded,
-      color: const Color(0xFF6B63B5),
+      color: colors.primary,
       label: 'Eğitim',
     ),
     'ECO_MARKET' => (
       icon: Icons.storefront_rounded,
-      color: const Color(0xFFBD6D24),
+      color: colors.secondary,
       label: 'Eco-Market',
     ),
     _ => (icon: Icons.eco_rounded, color: colors.primary, label: 'Eko Etki'),

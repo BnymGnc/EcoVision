@@ -4,6 +4,7 @@ import '../models/chat_message.dart';
 import '../models/moderation_report.dart';
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
+import '../widgets/premium_ui.dart';
 
 class SuperuserDashboardScreen extends StatefulWidget {
   const SuperuserDashboardScreen({required this.apiService, super.key});
@@ -66,7 +67,7 @@ class _SuperuserDashboardScreenState extends State<SuperuserDashboardScreen>
       future: _reports,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting)
-          return const Center(child: CircularProgressIndicator());
+          return const EcoShimmerList(itemCount: 5);
         if (snapshot.hasError)
           return _Error(message: snapshot.error.toString(), retry: _reload);
         final reports = snapshot.data ?? const [];
@@ -133,7 +134,10 @@ class _SuperuserDashboardScreenState extends State<SuperuserDashboardScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.block, color: Colors.red),
+              leading: Icon(
+                Icons.block,
+                color: Theme.of(context).colorScheme.error,
+              ),
               title: const Text('Kullanıcıyı Yasakla'),
               onTap: () => Navigator.pop(context, 'ban'),
             ),
@@ -216,7 +220,7 @@ class _SuperuserDashboardScreenState extends State<SuperuserDashboardScreen>
       future: _users,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting)
-          return const Center(child: CircularProgressIndicator());
+          return const EcoShimmerList(itemCount: 6, showHeader: true);
         if (snapshot.hasError)
           return _Error(message: snapshot.error.toString(), retry: _reload);
         final users = snapshot.data ?? const [];
@@ -261,11 +265,14 @@ class _SuperuserDashboardScreenState extends State<SuperuserDashboardScreen>
                           onSelected: (action) => _moderateUser(user, action),
                           itemBuilder: (context) => [
                             if (!user.banned)
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'ban',
                                 child: ListTile(
                                   contentPadding: EdgeInsets.zero,
-                                  leading: Icon(Icons.block, color: Colors.red),
+                                  leading: Icon(
+                                    Icons.block,
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
                                   title: Text('Kullanıcıyı Yasakla'),
                                 ),
                               ),
@@ -309,77 +316,99 @@ class _ReportCard extends StatelessWidget {
   final ModerationReport report;
   final VoidCallback onAudit, onAction;
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                report.isGroup
-                    ? Icons.groups_outlined
-                    : Icons.person_off_outlined,
-                color: Theme.of(context).colorScheme.error,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  report.isGroup
-                      ? report.groupTitle ?? 'Bildirilen Grup'
-                      : report.reportedUserName ?? 'Bildirilen Kullanıcı',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-              Chip(label: Text(report.status)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            report.reason,
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          if (report.details?.isNotEmpty ?? false) Text(report.details!),
-          const SizedBox(height: 5),
-          Text(
-            'Bildiren: ${report.reporterName}',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onAudit,
-                  icon: const Icon(Icons.manage_search),
-                  label: const Text('Sohbeti Denetle'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: onAction,
-                  icon: Icon(
-                    report.isGroup
-                        ? Icons.delete_outline
-                        : Icons.gavel_outlined,
-                  ),
-                  label: Text(report.isGroup ? 'Grubu Sil' : 'İşlem Yap'),
-                ),
-              ),
-            ],
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colors.errorContainer.withValues(alpha: 0.72),
+            colors.surface,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colors.error.withValues(alpha: 0.28)),
+        boxShadow: [
+          BoxShadow(
+            color: colors.error.withValues(alpha: 0.10),
+            blurRadius: 26,
+            offset: const Offset(0, 9),
           ),
         ],
       ),
-    ),
-  );
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  report.isGroup
+                      ? Icons.groups_outlined
+                      : Icons.person_off_outlined,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    report.isGroup
+                        ? report.groupTitle ?? 'Bildirilen Grup'
+                        : report.reportedUserName ?? 'Bildirilen Kullanıcı',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                Chip(label: Text(report.status)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              report.reason,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            if (report.details?.isNotEmpty ?? false) Text(report.details!),
+            const SizedBox(height: 5),
+            Text(
+              'Bildiren: ${report.reporterName}',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onAudit,
+                    icon: const Icon(Icons.manage_search),
+                    label: const Text('Sohbeti Denetle'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: onAction,
+                    icon: Icon(
+                      report.isGroup
+                          ? Icons.delete_outline
+                          : Icons.gavel_outlined,
+                    ),
+                    label: Text(report.isGroup ? 'Grubu Sil' : 'İşlem Yap'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _BroadcastForm extends StatefulWidget {
@@ -405,7 +434,11 @@ class _BroadcastFormState extends State<_BroadcastForm> {
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(20),
     children: [
-      const Icon(Icons.campaign_rounded, size: 64, color: Colors.red),
+      Icon(
+        Icons.campaign_rounded,
+        size: 64,
+        color: Theme.of(context).colorScheme.error,
+      ),
       Text(
         'Global Bildirim Yayını',
         textAlign: TextAlign.center,

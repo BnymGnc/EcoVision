@@ -3,6 +3,7 @@ package com.ecovision.backend.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import com.ecovision.backend.dto.ChatMessageRequest;
@@ -99,7 +100,7 @@ class ChatServiceTest {
         membership.setRole(GroupRole.MEMBER);
         when(groupMembers.findByGroupIdAndUserId(10L, 7L))
                 .thenReturn(Optional.of(membership));
-        when(groups.findById(10L)).thenReturn(Optional.of(group));
+        lenient().when(groups.findById(10L)).thenReturn(Optional.of(group));
         when(messages.save(any(ChatMessage.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
     }
@@ -141,5 +142,27 @@ class ChatServiceTest {
                 messageCaptor.getValue().getMessageType()
         );
         verify(polls).save(any(ChatPoll.class));
+    }
+
+    @Test
+    void pollCreatorCanDeletePoll() {
+        ChatMessage message = new ChatMessage();
+        message.setGroup(group);
+        message.setSender(user);
+        message.setMessage("Test anketi");
+        message.setMessageType(ChatMessageType.POLL);
+        ChatPoll poll = new ChatPoll();
+        poll.setMessage(message);
+        poll.setQuestion("Test anketi");
+        poll.setOptions(List.of("Evet", "Hayır"));
+        when(messages.findByIdAndGroupId(22L, 10L))
+                .thenReturn(Optional.of(message));
+        when(polls.findByMessageId(22L)).thenReturn(Optional.of(poll));
+
+        ChatMessageResponse response = service.deletePoll(user, 10L, 22L);
+
+        assertEquals(true, response.deleted());
+        verify(pollVotes).deleteByPollId(poll.getId());
+        verify(polls).delete(poll);
     }
 }

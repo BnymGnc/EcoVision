@@ -42,6 +42,7 @@ class RealtimeChatPublisherTest {
                 null,
                 null,
                 null,
+                null,
                 "USER",
                 Instant.now(),
                 false,

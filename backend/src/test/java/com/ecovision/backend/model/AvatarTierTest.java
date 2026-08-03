@@ -19,4 +19,14 @@ class AvatarTierTest {
     void rejectsLevelsOutsideTheCatalog() {
         assertThrows(IllegalArgumentException.class, () -> AvatarTier.fromLevel(21));
     }
+
+    @Test
+    void userDefaultsToFirstBundledAvatar() {
+        AppUser user = new AppUser();
+
+        assertEquals(
+                "assets/images/avatars/avatar_level_1.png",
+                user.getSelectedAvatarPath()
+        );
+    }
 }

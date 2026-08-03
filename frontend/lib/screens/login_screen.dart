@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../core/auth_validators.dart';
@@ -27,13 +25,11 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _rememberMe = true;
   String _loadingMessage = 'Güvenli giriş yapılıyor...';
-  Timer? _coldStartTimer;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _coldStartTimer?.cancel();
     super.dispose();
   }
 
@@ -48,20 +44,6 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text,
         password: _passwordController.text,
       );
-      if (mounted) await _openApp();
-    } catch (error) {
-      if (mounted) {
-        _endLoading();
-        _showError(error);
-      }
-    }
-  }
-
-  Future<void> _loginWithGoogle() async {
-    widget.apiService.setRememberMe(_rememberMe);
-    _beginLoading();
-    try {
-      await widget.apiService.loginWithGoogle();
       if (mounted) await _openApp();
     } catch (error) {
       if (mounted) {
@@ -93,22 +75,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _beginLoading() {
-    _coldStartTimer?.cancel();
     setState(() {
       _isLoading = true;
       _loadingMessage = 'Güvenli giriş yapılıyor...';
     });
-    _coldStartTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted && _isLoading) {
-        setState(
-          () => _loadingMessage = 'Sunucular uyandırılıyor, lütfen bekleyin...',
-        );
-      }
-    });
   }
 
   void _endLoading() {
-    _coldStartTimer?.cancel();
     if (mounted) setState(() => _isLoading = false);
   }
 
@@ -207,7 +180,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           height: 76,
                           decoration: BoxDecoration(
                             color: colors.primaryContainer,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: colors.primary.withValues(alpha: 0.20),
+                                blurRadius: 28,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
                           ),
                           child: Icon(
                             Icons.eco_rounded,
@@ -286,12 +266,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: _isLoading ? null : _login,
                         icon: const Icon(Icons.login_rounded),
                         label: const Text('Giriş Yap'),
-                      ),
-                      const SizedBox(height: 10),
-                      OutlinedButton.icon(
-                        onPressed: _isLoading ? null : _loginWithGoogle,
-                        icon: const Icon(Icons.g_mobiledata_rounded),
-                        label: const Text('Google ile Devam Et'),
                       ),
                       const SizedBox(height: 10),
                       TextButton(
