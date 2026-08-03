@@ -49,9 +49,17 @@ public class SocialService {
                 throw new IllegalArgumentException("Kullanıcı bulunamadı");
             }
         }
+        String visiblePhoto = target.isAdult() && detailsVisible
+                && target.getProfileImagePreference()
+                == ProfileImagePreference.CUSTOM_PHOTO
+                ? target.getProfilePictureUrl()
+                : null;
         return new PublicProfileResponse(target.getId(), target.getPublicUsername(),
                 target.getName() + " " + target.getSurname(),
-                target.getProfilePictureUrl(), target.getCity(), target.getEquippedAvatarLevel(),
+                visiblePhoto, target.getProfileImagePreference().name(),
+                target.getSelectedAvatarPath(), target.isAdult(),
+                target.getCity(), target.getEquippedAvatarLevel(),
+                AvatarTier.highestUnlocked(target.getLifetimePoints()).level(),
                 detailsVisible ? target.getTotalPoints() : 0,
                 detailsVisible ? target.getLifetimePoints() : 0,
                 detailsVisible ? target.getStreakCount() : 0,
@@ -166,7 +174,13 @@ public class SocialService {
     public List<SocialUserResponse> friends(AppUser current) {
         ageGate.requireAdult(current);
         return friendships.findForUser(current.getId(), FriendshipStatus.ACCEPTED).stream()
-                .map(f -> SocialUserResponse.from(f.getRequester().getId().equals(current.getId()) ? f.getAddressee() : f.getRequester(), f.getId()))
+                .map(f -> SocialUserResponse.from(
+                        f.getRequester().getId().equals(current.getId())
+                                ? f.getAddressee()
+                                : f.getRequester(),
+                        f.getId(),
+                        f.getStatus().name()
+                ))
                 .filter(u -> !blockedEitherWay(current.getId(), u.id())).toList();
     }
 

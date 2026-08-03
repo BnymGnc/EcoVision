@@ -12,6 +12,7 @@ class UserProfile {
     required this.ownedMarketItems,
     this.username = '',
     this.profileVisibility = 'PUBLIC',
+    this.profileImagePreference = 'AVATAR',
     this.themePreference = 'forest',
     this.district = '',
     this.neighborhood = '',
@@ -37,6 +38,7 @@ class UserProfile {
   final int totalPoints;
   final String role;
   final String profileVisibility;
+  final String profileImagePreference;
   final String themePreference;
   final String city;
   final String district;
@@ -71,8 +73,14 @@ class UserProfile {
       totalPoints: (json['totalPoints'] as num? ?? 0).toInt(),
       role: (json['role'] ?? 'USER').toString(),
       profileVisibility: (json['profileVisibility'] ?? 'PUBLIC').toString(),
+      profileImagePreference:
+          (json['profileImagePreference'] ??
+                  (json['profilePictureUrl'] == null
+                      ? 'AVATAR'
+                      : 'CUSTOM_PHOTO'))
+              .toString(),
       themePreference: (json['themePreference'] ?? 'forest').toString(),
-      city: (json['city'] ?? 'Şanlıurfa').toString(),
+      city: (json['city'] ?? '').toString(),
       district: (json['district'] ?? '').toString(),
       neighborhood: (json['neighborhood'] ?? '').toString(),
       ownedMarketItems: json['ownedMarketItems'] is List

@@ -10,6 +10,12 @@ public record GroupJoinRequestResponse(
         String username,
         String fullName,
         String profilePictureUrl,
+        Integer avatarLevel,
+        Integer highestAvatarLevel,
+        String profileImagePreference,
+        String selectedAvatarPath,
+        boolean adult,
+        String profileVisibility,
         String status,
         Instant requestedAt
 ) {
@@ -20,7 +26,15 @@ public record GroupJoinRequestResponse(
                 request.getRequester().getId(),
                 request.getRequester().getPublicUsername(),
                 request.getRequester().getName() + " " + request.getRequester().getSurname(),
-                request.getRequester().getProfilePictureUrl(),
+                ProfileImageDtoPolicy.publicCustomPhoto(request.getRequester()),
+                request.getRequester().getEquippedAvatarLevel(),
+                com.ecovision.backend.model.AvatarTier.highestUnlocked(
+                        request.getRequester().getLifetimePoints()
+                ).level(),
+                request.getRequester().getProfileImagePreference().name(),
+                request.getRequester().getSelectedAvatarPath(),
+                request.getRequester().isAdult(),
+                request.getRequester().getProfileVisibility().name(),
                 request.getStatus().name(),
                 request.getRequestedAt()
         );

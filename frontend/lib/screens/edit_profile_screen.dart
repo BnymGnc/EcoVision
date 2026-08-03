@@ -19,9 +19,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _emailController = TextEditingController();
   final _ageController = TextEditingController();
 
-  String _city = _locations.keys.first;
-  String _district = _locations.values.first.keys.first;
-  String _neighborhood = _locations.values.first.values.first.first;
+  String? _city;
+  String? _district;
+  String? _neighborhood;
 
   bool _loading = true;
   bool _saving = false;
@@ -69,17 +69,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _surnameController.text = user.surname;
     _emailController.text = user.email;
     _ageController.text = user.age?.toString() ?? '';
-    _city = _locations.containsKey(user.city)
-        ? user.city
-        : _locations.keys.first;
-    final districts = _locations[_city]!;
-    _district = districts.containsKey(user.district)
-        ? user.district
-        : districts.keys.first;
-    final neighborhoods = districts[_district]!;
+    _city = _locations.containsKey(user.city) ? user.city : null;
+    final districts = _city == null
+        ? const <String, List<String>>{}
+        : _locations[_city]!;
+    _district = districts.containsKey(user.district) ? user.district : null;
+    final neighborhoods = _district == null
+        ? const <String>[]
+        : districts[_district]!;
     _neighborhood = neighborhoods.contains(user.neighborhood)
         ? user.neighborhood
-        : neighborhoods.first;
+        : null;
   }
 
   Future<void> _save() async {
@@ -94,9 +94,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         age: _ageController.text.trim().isEmpty
             ? null
             : int.parse(_ageController.text.trim()),
-        city: _city,
-        district: _district,
-        neighborhood: _neighborhood,
+        city: _city!,
+        district: _district!,
+        neighborhood: _neighborhood!,
       );
       if (!mounted) {
         return;
@@ -217,6 +217,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         initialValue: _city,
                         decoration: const InputDecoration(
                           labelText: 'İl',
+                          hintText: 'İl seçin',
                           prefixIcon: Icon(Icons.location_city_outlined),
                         ),
                         items: _locations.keys
@@ -231,11 +232,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           if (value == null) return;
                           setState(() {
                             _city = value;
-                            _district = _locations[value]!.keys.first;
-                            _neighborhood =
-                                _locations[value]![_district]!.first;
+                            _district = null;
+                            _neighborhood = null;
                           });
                         },
+                        validator: (value) =>
+                            value == null ? 'Lütfen bir il seçin' : null,
                       ),
                       const SizedBox(height: 14),
                       DropdownButtonFormField<String>(
@@ -243,23 +245,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         initialValue: _district,
                         decoration: const InputDecoration(
                           labelText: 'İlçe',
+                          hintText: 'Önce il, sonra ilçe seçin',
                           prefixIcon: Icon(Icons.map_outlined),
                         ),
-                        items: _locations[_city]!.keys
-                            .map(
-                              (value) => DropdownMenuItem(
-                                value: value,
-                                child: Text(value),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() {
-                            _district = value;
-                            _neighborhood = _locations[_city]![value]!.first;
-                          });
-                        },
+                        items: _city == null
+                            ? const <DropdownMenuItem<String>>[]
+                            : _locations[_city]!.keys
+                                  .map(
+                                    (value) => DropdownMenuItem(
+                                      value: value,
+                                      child: Text(value),
+                                    ),
+                                  )
+                                  .toList(),
+                        onChanged: _city == null
+                            ? null
+                            : (value) => setState(() {
+                                _district = value;
+                                _neighborhood = null;
+                              }),
+                        validator: (value) =>
+                            value == null ? 'Lütfen bir ilçe seçin' : null,
                       ),
                       const SizedBox(height: 14),
                       DropdownButtonFormField<String>(
@@ -267,20 +273,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         initialValue: _neighborhood,
                         decoration: const InputDecoration(
                           labelText: 'Mahalle',
+                          hintText: 'Önce ilçe seçin',
                           prefixIcon: Icon(Icons.home_work_outlined),
                         ),
-                        items: _locations[_city]![_district]!
-                            .map(
-                              (value) => DropdownMenuItem(
-                                value: value,
-                                child: Text(value),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value != null)
-                            setState(() => _neighborhood = value);
-                        },
+                        items: _city == null || _district == null
+                            ? const <DropdownMenuItem<String>>[]
+                            : _locations[_city]![_district]!
+                                  .map(
+                                    (value) => DropdownMenuItem(
+                                      value: value,
+                                      child: Text(value),
+                                    ),
+                                  )
+                                  .toList(),
+                        onChanged: _city == null || _district == null
+                            ? null
+                            : (value) => setState(() => _neighborhood = value),
+                        validator: (value) =>
+                            value == null ? 'Lütfen bir mahalle seçin' : null,
                       ),
                       const SizedBox(height: 22),
                       FilledButton.icon(

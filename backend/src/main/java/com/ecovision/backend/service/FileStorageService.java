@@ -43,6 +43,10 @@ public class FileStorageService {
         return replacement;
     }
 
+    public void deleteManagedFile(String url) {
+        deleteManaged(url);
+    }
+
     private String storeValidated(
             MultipartFile file,
             String folder,

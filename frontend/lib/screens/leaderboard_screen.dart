@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/leaderboard_entry.dart';
 import '../services/api_service.dart';
 import '../widgets/premium_ui.dart';
+import '../widgets/privacy_aware_avatar.dart';
 import 'public_profile_screen.dart';
 
 class LeaderboardScreen extends StatelessWidget {
@@ -268,13 +269,18 @@ class _RankTile extends StatelessWidget {
                         ),
                       ),
               ),
-              CircleAvatar(
-                backgroundImage: entry.profilePictureUrl == null
-                    ? null
-                    : NetworkImage(entry.profilePictureUrl!),
-                child: entry.profilePictureUrl == null
-                    ? Text(_initials(entry.fullName))
-                    : null,
+              PrivacyAwareAvatar(
+                userId: entry.userId,
+                currentUserId: entry.currentUser ? entry.userId : null,
+                radius: 20,
+                profilePictureUrl: entry.profilePictureUrl,
+                profileImagePreference: entry.profileImagePreference,
+                selectedAvatarPath: entry.selectedAvatarPath,
+                avatarLevel: entry.avatarLevel,
+                highestAvatarLevel: entry.highestAvatarLevel,
+                adult: entry.adult,
+                profileVisibility: entry.profileVisibility,
+                friendshipStatus: entry.friendshipStatus,
               ),
             ],
           ),

@@ -35,6 +35,7 @@ class EducationProgressServiceTest {
         GamificationService gamification = new GamificationService(
                 users,
                 actions,
+                null,
                 null
         );
         service = new EducationProgressService(users, progress, gamification);

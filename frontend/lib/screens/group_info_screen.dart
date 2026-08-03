@@ -4,6 +4,7 @@ import '../models/cleanup_event.dart';
 import '../models/event_member.dart';
 import '../models/social_models.dart';
 import '../services/api_service.dart';
+import '../widgets/privacy_aware_avatar.dart';
 import 'public_profile_screen.dart';
 
 class GroupInfoScreen extends StatefulWidget {
@@ -26,9 +27,16 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
     _reload();
   }
 
-  void _reload() => setState(
-    () => _members = widget.apiService.fetchEventMembers(widget.event.id),
-  );
+  void _reload() => setState(() => _members = _loadMembers());
+
+  Future<List<EventMember>> _loadMembers() async {
+    final result = await Future.wait<Object>([
+      widget.apiService.fetchEventMembers(widget.event.id),
+      widget.apiService.fetchFriends(),
+    ]);
+    return result.first as List<EventMember>;
+  }
+
   void _error(Object e) => ScaffoldMessenger.of(
     context,
   ).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -304,56 +312,66 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
       ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
     ),
   );
-  Widget _member(EventMember member) => ListTile(
-    onTap: () => Navigator.push(
-      context,
-      MaterialPageRoute<void>(
-        builder: (_) => PublicProfileScreen(
-          apiService: widget.apiService,
-          userId: member.userId,
+  Widget _member(EventMember member) {
+    final friend = widget.apiService.confirmedFriend(member.userId);
+    return ListTile(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => PublicProfileScreen(
+            apiService: widget.apiService,
+            userId: member.userId,
+          ),
         ),
       ),
-    ),
-    leading: CircleAvatar(
-      backgroundImage: member.profilePictureUrl == null
-          ? null
-          : NetworkImage(member.profilePictureUrl!),
-      child: member.profilePictureUrl == null
-          ? Text('${member.avatarLevel}')
-          : null,
-    ),
-    title: Text(member.fullName),
-    subtitle: Text(member.isAdmin ? 'Yönetici' : 'Üye'),
-    trailing:
-        widget.event.isAdmin &&
-            member.userId != widget.apiService.currentUser?.id
-        ? Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!member.isAdmin)
+      leading: PrivacyAwareAvatar(
+        userId: member.userId,
+        currentUserId: widget.apiService.currentUser?.id,
+        avatarLevel: member.avatarLevel,
+        highestAvatarLevel: member.highestAvatarLevel,
+        profileImagePreference: member.profileImagePreference,
+        adult: member.adult,
+        profileVisibility: member.profileVisibility,
+        profilePictureUrl:
+            member.profilePictureUrl ?? friend?.profilePictureUrl,
+        selectedAvatarPath:
+            member.selectedAvatarPath ?? friend?.selectedAvatarPath,
+        friendshipStatus:
+            member.friendshipStatus ?? (friend == null ? null : 'ACCEPTED'),
+      ),
+      title: Text(member.fullName),
+      subtitle: Text(member.isAdmin ? 'Yönetici' : 'Üye'),
+      trailing:
+          widget.event.isAdmin &&
+              member.userId != widget.apiService.currentUser?.id
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!member.isAdmin)
+                  IconButton(
+                    tooltip: 'Grup yöneticisi yap',
+                    onPressed: () async {
+                      try {
+                        await widget.apiService.promoteEventAdmin(
+                          widget.event.id,
+                          member.userId,
+                        );
+                        _reload();
+                      } catch (error) {
+                        _error(error);
+                      }
+                    },
+                    icon: const Icon(Icons.admin_panel_settings_outlined),
+                  ),
                 IconButton(
-                  tooltip: 'Grup yöneticisi yap',
-                  onPressed: () async {
-                    try {
-                      await widget.apiService.promoteEventAdmin(
-                        widget.event.id,
-                        member.userId,
-                      );
-                      _reload();
-                    } catch (error) {
-                      _error(error);
-                    }
-                  },
-                  icon: const Icon(Icons.admin_panel_settings_outlined),
+                  tooltip: 'Üyeyi gruptan çıkar',
+                  onPressed: () => _removeMember(member),
+                  color: Theme.of(context).colorScheme.error,
+                  icon: const Icon(Icons.person_remove_outlined),
                 ),
-              IconButton(
-                tooltip: 'Üyeyi gruptan çıkar',
-                onPressed: () => _removeMember(member),
-                color: Theme.of(context).colorScheme.error,
-                icon: const Icon(Icons.person_remove_outlined),
-              ),
-            ],
-          )
-        : const Icon(Icons.chevron_right),
-  );
+              ],
+            )
+          : const Icon(Icons.chevron_right),
+    );
+  }
 }

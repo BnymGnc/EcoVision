@@ -10,6 +10,11 @@ class ChatMessage {
     required this.senderName,
     this.senderUsername = '',
     this.senderAvatarLevel = 1,
+    this.senderHighestAvatarLevel = 1,
+    this.senderProfileImagePreference = 'AVATAR',
+    this.senderProfileVisibility = 'FRIENDS_ONLY',
+    this.senderSelectedAvatarPath,
+    this.senderAdult = false,
     required this.message,
     required this.timestamp,
     this.senderProfilePictureUrl,
@@ -36,6 +41,11 @@ class ChatMessage {
   final String senderName;
   final String senderUsername;
   final int senderAvatarLevel;
+  final int senderHighestAvatarLevel;
+  final String senderProfileImagePreference;
+  final String senderProfileVisibility;
+  final String? senderSelectedAvatarPath;
+  final bool senderAdult;
   final String message;
   final DateTime timestamp;
   final String? senderProfilePictureUrl;
@@ -67,6 +77,21 @@ class ChatMessage {
       senderName: (json['senderName'] ?? 'EcoVision Kullanıcısı').toString(),
       senderUsername: (json['senderUsername'] ?? '').toString(),
       senderAvatarLevel: (json['senderAvatarLevel'] as num? ?? 1).toInt(),
+      senderHighestAvatarLevel:
+          (json['senderHighestAvatarLevel'] as num? ??
+                  json['senderAvatarLevel'] as num? ??
+                  1)
+              .toInt(),
+      senderProfileImagePreference:
+          (json['senderProfileImagePreference'] ??
+                  (json['senderProfilePictureUrl'] == null
+                      ? 'AVATAR'
+                      : 'CUSTOM_PHOTO'))
+              .toString(),
+      senderProfileVisibility:
+          (json['senderProfileVisibility'] ?? 'FRIENDS_ONLY').toString(),
+      senderSelectedAvatarPath: json['senderSelectedAvatarPath']?.toString(),
+      senderAdult: json['senderAdult'] as bool? ?? false,
       message: (json['message'] ?? '').toString(),
       timestamp:
           DateTime.tryParse((json['timestamp'] ?? '').toString()) ??

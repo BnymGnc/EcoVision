@@ -159,17 +159,48 @@ class GroupEventAttendee {
   const GroupEventAttendee({
     required this.userId,
     required this.fullName,
+    this.avatarLevel = 1,
+    this.highestAvatarLevel = 1,
+    this.profileImagePreference = 'AVATAR',
+    this.profileVisibility = 'FRIENDS_ONLY',
+    this.selectedAvatarPath,
+    this.adult = false,
+    this.friendshipStatus,
     this.profilePictureUrl,
   });
 
   final int userId;
   final String fullName;
+  final int avatarLevel;
+  final int highestAvatarLevel;
+  final String profileImagePreference;
+  final String profileVisibility;
+  final String? selectedAvatarPath;
+  final bool adult;
+  final String? friendshipStatus;
   final String? profilePictureUrl;
 
   factory GroupEventAttendee.fromJson(Map<String, dynamic> json) {
     return GroupEventAttendee(
       userId: (json['userId'] as num? ?? 0).toInt(),
       fullName: (json['fullName'] ?? 'EcoVision kullanıcısı').toString(),
+      avatarLevel: (json['avatarLevel'] as num? ?? 1).toInt(),
+      highestAvatarLevel:
+          (json['highestAvatarLevel'] as num? ??
+                  json['avatarLevel'] as num? ??
+                  1)
+              .toInt(),
+      profileImagePreference:
+          (json['profileImagePreference'] ??
+                  (json['profilePictureUrl'] == null
+                      ? 'AVATAR'
+                      : 'CUSTOM_PHOTO'))
+              .toString(),
+      profileVisibility: (json['profileVisibility'] ?? 'FRIENDS_ONLY')
+          .toString(),
+      selectedAvatarPath: json['selectedAvatarPath']?.toString(),
+      adult: json['adult'] as bool? ?? false,
+      friendshipStatus: json['friendshipStatus']?.toString(),
       profilePictureUrl: MediaUrl.resolve(json['profilePictureUrl']),
     );
   }

@@ -13,6 +13,7 @@ import 'group_chat_screen.dart';
 import 'public_profile_screen.dart';
 import '../widgets/notification_bell.dart';
 import '../widgets/premium_ui.dart';
+import '../widgets/privacy_aware_avatar.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({
@@ -47,10 +48,6 @@ class _CommunityScreenState extends State<CommunityScreen>
   void initState() {
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
-    final userCity = widget.apiService.currentUser?.city;
-    if (TurkishLocations.provinces.containsKey(userCity)) {
-      _selectedCities.add(userCity!);
-    }
     _reload();
   }
 
@@ -786,27 +783,13 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
   final _neighborhood = TextEditingController();
   final _exactAddress = TextEditingController();
   final _imagePicker = ImagePicker();
-  late String _city;
-  late String _district;
+  String? _city;
+  String? _district;
   DateTime _date = DateTime.now().add(const Duration(days: 2));
   int _limit = 20;
   bool _saving = false;
   Uint8List? _coverBytes;
   String? _coverFileName;
-  @override
-  void initState() {
-    super.initState();
-    final userCity = widget.apiService.currentUser?.city;
-    _city = TurkishLocations.provinces.containsKey(userCity)
-        ? userCity!
-        : 'Şanlıurfa';
-    _resetDistrict();
-  }
-
-  void _resetDistrict() {
-    _district = TurkishLocations.districtsFor(_city).first;
-  }
-
   @override
   void dispose() {
     _title.dispose();
@@ -872,8 +855,8 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
       await widget.apiService.createCleanupEvent(
         title: _title.text.trim(),
         description: _description.text.trim(),
-        city: _city,
-        district: _district,
+        city: _city!,
+        district: _district!,
         neighborhood: _neighborhood.text.trim(),
         eventDate: _date,
         exactAddress: _exactAddress.text.trim(),
@@ -973,26 +956,38 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: _city,
-              decoration: const InputDecoration(labelText: 'İl'),
+              decoration: const InputDecoration(
+                labelText: 'İl',
+                hintText: 'İl seçin',
+              ),
               items: TurkishLocations.provinceNames
                   .map((v) => DropdownMenuItem(value: v, child: Text(v)))
                   .toList(),
               onChanged: (v) => setState(() {
-                _city = v!;
-                _resetDistrict();
+                _city = v;
+                _district = null;
               }),
+              validator: (value) =>
+                  value == null ? 'Lütfen bir il seçin' : null,
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: _district,
               key: ValueKey('d$_city'),
-              decoration: const InputDecoration(labelText: 'İlçe'),
-              items: TurkishLocations.districtsFor(
-                _city,
-              ).map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-              onChanged: (v) => setState(() {
-                _district = v!;
-              }),
+              decoration: const InputDecoration(
+                labelText: 'İlçe',
+                hintText: 'Önce il, sonra ilçe seçin',
+              ),
+              items: _city == null
+                  ? const <DropdownMenuItem<String>>[]
+                  : TurkishLocations.districtsFor(_city!)
+                        .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                        .toList(),
+              onChanged: _city == null
+                  ? null
+                  : (v) => setState(() => _district = v),
+              validator: (value) =>
+                  value == null ? 'Lütfen bir ilçe seçin' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -1158,13 +1153,17 @@ class _Avatar extends StatelessWidget {
   const _Avatar({required this.user});
   final SocialUser user;
   @override
-  Widget build(BuildContext context) => CircleAvatar(
-    backgroundImage: user.profilePictureUrl == null
-        ? null
-        : NetworkImage(user.profilePictureUrl!),
-    child: user.profilePictureUrl == null
-        ? Text(user.fullName.isEmpty ? 'E' : user.fullName[0])
-        : null,
+  Widget build(BuildContext context) => PrivacyAwareAvatar(
+    userId: user.id,
+    currentUserId: null,
+    avatarLevel: user.avatarLevel,
+    highestAvatarLevel: user.highestAvatarLevel,
+    profileImagePreference: user.profileImagePreference,
+    adult: user.adult,
+    profileVisibility: user.profileVisibility,
+    profilePictureUrl: user.profilePictureUrl,
+    selectedAvatarPath: user.selectedAvatarPath,
+    friendshipStatus: user.friendshipStatus,
   );
 }
 
@@ -1184,13 +1183,17 @@ class _DiscoveryCard extends StatelessWidget {
     child: ListTile(
       contentPadding: EdgeInsets.zero,
       onTap: onTap,
-      leading: CircleAvatar(
-        backgroundImage: user.profilePictureUrl == null
-            ? null
-            : NetworkImage(user.profilePictureUrl!),
-        child: user.profilePictureUrl == null
-            ? Text(user.fullName.isEmpty ? 'E' : user.fullName[0])
-            : null,
+      leading: PrivacyAwareAvatar(
+        userId: user.id,
+        currentUserId: null,
+        avatarLevel: user.avatarLevel,
+        highestAvatarLevel: user.highestAvatarLevel,
+        profileImagePreference: user.profileImagePreference,
+        adult: user.adult,
+        profileVisibility: user.profileVisibility,
+        profilePictureUrl: user.profilePictureUrl,
+        selectedAvatarPath: user.selectedAvatarPath,
+        friendshipStatus: user.friendshipStatus,
       ),
       title: Text(
         user.fullName,

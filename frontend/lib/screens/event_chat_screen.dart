@@ -12,8 +12,10 @@ import '../models/chat_message.dart';
 import '../models/cleanup_event.dart';
 import '../models/group_mission.dart';
 import '../models/event_member.dart';
+import '../models/social_models.dart';
 import '../services/api_service.dart';
 import '../widgets/premium_ui.dart';
+import '../widgets/privacy_aware_avatar.dart';
 import 'group_info_screen.dart';
 import 'public_profile_screen.dart';
 
@@ -37,6 +39,8 @@ class _EventChatScreenState extends State<EventChatScreen> {
   final _scrollController = ScrollController();
   final List<ChatMessage> _messages = [];
   final List<GroupMission> _missions = [];
+  List<EventMember> _members = const [];
+  Set<int> _friendIds = const {};
 
   StompClient? _stompClient;
   StompUnsubscribe? _messageUnsubscribe;
@@ -59,6 +63,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
     _currentAttendance = widget.event.currentUserAttendance;
     _attendeeCount = widget.event.attendeeCount;
     _loadMessages();
+    _loadMembers();
     _loadMissions();
     _connectRealtime();
     _messageController.addListener(_onComposingChanged);
@@ -134,13 +139,33 @@ class _EventChatScreenState extends State<EventChatScreen> {
                       itemBuilder: (context, index) {
                         final attendee = attendees[index];
                         return ListTile(
-                          leading: CircleAvatar(
-                            backgroundImage: attendee.profilePictureUrl == null
-                                ? null
-                                : NetworkImage(attendee.profilePictureUrl!),
-                            child: attendee.profilePictureUrl == null
-                                ? Text('${attendee.avatarLevel}')
-                                : null,
+                          leading: PrivacyAwareAvatar(
+                            userId: attendee.userId,
+                            currentUserId: widget.apiService.currentUser?.id,
+                            avatarLevel: attendee.avatarLevel,
+                            highestAvatarLevel: attendee.highestAvatarLevel,
+                            profileImagePreference:
+                                attendee.profileImagePreference,
+                            adult: attendee.adult,
+                            profileVisibility: attendee.profileVisibility,
+                            profilePictureUrl:
+                                attendee.profilePictureUrl ??
+                                widget.apiService
+                                    .confirmedFriend(attendee.userId)
+                                    ?.profilePictureUrl,
+                            selectedAvatarPath:
+                                attendee.selectedAvatarPath ??
+                                widget.apiService
+                                    .confirmedFriend(attendee.userId)
+                                    ?.selectedAvatarPath,
+                            friendshipStatus:
+                                attendee.friendshipStatus ??
+                                (widget.apiService.confirmedFriend(
+                                          attendee.userId,
+                                        ) ==
+                                        null
+                                    ? null
+                                    : 'ACCEPTED'),
                           ),
                           title: Text(attendee.fullName),
                         );
@@ -290,6 +315,85 @@ class _EventChatScreenState extends State<EventChatScreen> {
       _messages[index] = incoming;
     }
     _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  }
+
+  Future<void> _loadMembers() async {
+    try {
+      final result = await Future.wait<Object>([
+        widget.apiService.fetchEventMembers(widget.event.id),
+        widget.apiService.fetchFriends(),
+      ]);
+      if (mounted) {
+        setState(() {
+          _members = result[0] as List<EventMember>;
+          _friendIds = (result[1] as List<SocialUser>)
+              .map((friend) => friend.id)
+              .toSet();
+        });
+      }
+    } catch (_) {
+      // Compact message metadata still provides a privacy-safe avatar fallback.
+    }
+  }
+
+  EventMember? _memberFor(int userId) {
+    for (final member in _members) {
+      if (member.userId == userId) return member;
+    }
+    return null;
+  }
+
+  Widget _messageAvatar(ChatMessage message) {
+    final member = _memberFor(message.senderId);
+    final friend = widget.apiService.confirmedFriend(message.senderId);
+    final current = widget.apiService.currentUser;
+    final isCurrentUser = message.senderId == current?.id;
+    return PrivacyAwareAvatar(
+      userId: message.senderId,
+      currentUserId: current?.id,
+      radius: 18,
+      profilePictureUrl:
+          member?.profilePictureUrl ??
+          friend?.profilePictureUrl ??
+          (isCurrentUser
+              ? current?.profilePictureUrl
+              : message.senderProfilePictureUrl),
+      selectedAvatarPath:
+          member?.selectedAvatarPath ??
+          friend?.selectedAvatarPath ??
+          (isCurrentUser
+              ? current?.selectedAvatarPath
+              : message.senderSelectedAvatarPath),
+      avatarLevel:
+          member?.avatarLevel ??
+          friend?.avatarLevel ??
+          message.senderAvatarLevel,
+      highestAvatarLevel:
+          member?.highestAvatarLevel ??
+          friend?.highestAvatarLevel ??
+          message.senderHighestAvatarLevel,
+      profileImagePreference:
+          member?.profileImagePreference ??
+          friend?.profileImagePreference ??
+          (isCurrentUser
+              ? current?.profileImagePreference
+              : message.senderProfileImagePreference),
+      adult:
+          member?.adult ??
+          friend?.adult ??
+          (isCurrentUser ? current?.adult ?? false : message.senderAdult),
+      profileVisibility:
+          member?.profileVisibility ??
+          friend?.profileVisibility ??
+          (isCurrentUser
+              ? current?.profileVisibility ?? 'FRIENDS_ONLY'
+              : message.senderProfileVisibility),
+      friendshipStatus:
+          member?.friendshipStatus ??
+          (friend != null || _friendIds.contains(message.senderId)
+              ? 'ACCEPTED'
+              : null),
+    );
   }
 
   Future<void> _loadMessages({bool silent = false}) async {
@@ -673,6 +777,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
         widget.event.id,
       );
       if (!mounted) return;
+      setState(() => _members = members);
       await showEcoGlassSheet<void>(
         context: context,
         builder: (context) => SafeArea(
@@ -690,7 +795,31 @@ class _EventChatScreenState extends State<EventChatScreen> {
               const SizedBox(height: 10),
               for (final member in members)
                 ListTile(
-                  leading: CircleAvatar(child: Text('${member.avatarLevel}')),
+                  leading: PrivacyAwareAvatar(
+                    userId: member.userId,
+                    currentUserId: widget.apiService.currentUser?.id,
+                    avatarLevel: member.avatarLevel,
+                    highestAvatarLevel: member.highestAvatarLevel,
+                    profileImagePreference: member.profileImagePreference,
+                    adult: member.adult,
+                    profileVisibility: member.profileVisibility,
+                    profilePictureUrl:
+                        member.profilePictureUrl ??
+                        widget.apiService
+                            .confirmedFriend(member.userId)
+                            ?.profilePictureUrl,
+                    selectedAvatarPath:
+                        member.selectedAvatarPath ??
+                        widget.apiService
+                            .confirmedFriend(member.userId)
+                            ?.selectedAvatarPath,
+                    friendshipStatus:
+                        member.friendshipStatus ??
+                        (widget.apiService.confirmedFriend(member.userId) ==
+                                null
+                            ? null
+                            : 'ACCEPTED'),
+                  ),
                   title: Text(member.fullName),
                   subtitle: Text(member.isAdmin ? 'Yönetici' : 'Üye'),
                   trailing:
@@ -1156,6 +1285,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
             _MessageRow(
               message: message,
               isMine: isMine,
+              avatar: _messageAvatar(message),
               onAvatar: () => _openPublicProfile(message.senderId),
               onLongPress: message.poll == null
                   ? null
@@ -1327,24 +1457,20 @@ class _MessageRow extends StatelessWidget {
     required this.message,
     required this.isMine,
     required this.onAvatar,
+    required this.avatar,
     this.onLongPress,
   });
 
   final ChatMessage message;
   final bool isMine;
   final VoidCallback onAvatar;
+  final Widget avatar;
   final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final bubbleColor = isMine ? colors.primaryContainer : colors.surface;
-    final avatar = _EcoChatAvatar(
-      level: message.senderAvatarLevel,
-      isMine: isMine,
-      pictureUrl: message.senderProfilePictureUrl,
-    );
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -1701,74 +1827,6 @@ class _MissionRail extends StatelessWidget {
           );
         },
       ),
-    );
-  }
-}
-
-class _EcoChatAvatar extends StatelessWidget {
-  const _EcoChatAvatar({
-    required this.level,
-    required this.isMine,
-    this.pictureUrl,
-  });
-
-  final int level;
-  final bool isMine;
-  final String? pictureUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final background = isMine
-        ? colors.secondaryContainer
-        : colors.tertiaryContainer;
-    final foreground = isMine
-        ? colors.onSecondaryContainer
-        : colors.onTertiaryContainer;
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: background,
-        shape: BoxShape.circle,
-        border: Border.all(color: foreground.withAlpha(80), width: 2),
-      ),
-      child: pictureUrl != null
-          ? ClipOval(
-              child: Image.network(
-                pictureUrl!,
-                width: 36,
-                height: 36,
-                fit: BoxFit.cover,
-              ),
-            )
-          : Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(Icons.eco_rounded, color: foreground, size: 20),
-                Positioned(
-                  right: 1,
-                  bottom: 1,
-                  child: Container(
-                    width: 14,
-                    height: 14,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: foreground,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '$level',
-                      style: TextStyle(
-                        color: background,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
     );
   }
 }

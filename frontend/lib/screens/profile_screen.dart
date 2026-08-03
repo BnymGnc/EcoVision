@@ -6,6 +6,7 @@ import '../models/user_profile.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_bell.dart';
 import '../widgets/premium_ui.dart';
+import '../widgets/privacy_aware_avatar.dart';
 import 'avatar_selection_screen.dart';
 import 'scan_history_screen.dart';
 import 'settings_screen.dart';
@@ -219,30 +220,19 @@ class _Persona extends StatelessWidget {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircleAvatar(
+              PrivacyAwareAvatar(
+                userId: user.id,
+                currentUserId: user.id,
                 radius: 50,
                 backgroundColor: colors.surface,
-                child: ClipOval(
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Image.asset(
-                      user.selectedAvatarPath,
-                      width: 92,
-                      height: 92,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => Center(
-                        child: Text(
-                          _initials(user),
-                          style: TextStyle(
-                            color: colors.primary,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 22,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                borderColor: colors.onPrimary.withValues(alpha: 0.35),
+                profilePictureUrl: user.profilePictureUrl,
+                profileImagePreference: user.profileImagePreference,
+                selectedAvatarPath: user.selectedAvatarPath,
+                avatarLevel: user.equippedAvatarLevel,
+                highestAvatarLevel: user.currentAvatarLevel,
+                adult: user.adult,
+                profileVisibility: user.profileVisibility,
               ),
               const SizedBox(height: 7),
               TextButton.icon(

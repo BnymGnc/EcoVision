@@ -6,6 +6,7 @@ import com.ecovision.backend.dto.UserResponse;
 import com.ecovision.backend.model.AppUser;
 import com.ecovision.backend.model.AvatarTier;
 import com.ecovision.backend.model.GamificationAction;
+import com.ecovision.backend.model.ProfileImagePreference;
 import com.ecovision.backend.repository.AppUserRepository;
 import com.ecovision.backend.repository.GamificationActionRepository;
 import java.util.LinkedHashMap;
@@ -27,15 +28,18 @@ public class GamificationService {
     private final AppUserRepository userRepository;
     private final GamificationActionRepository actionRepository;
     private final GroupActivityMessageService groupActivityMessages;
+    private final FileStorageService fileStorageService;
 
     public GamificationService(
             AppUserRepository userRepository,
             GamificationActionRepository actionRepository,
-            GroupActivityMessageService groupActivityMessages
+            GroupActivityMessageService groupActivityMessages,
+            FileStorageService fileStorageService
     ) {
         this.userRepository = userRepository;
         this.actionRepository = actionRepository;
         this.groupActivityMessages = groupActivityMessages;
+        this.fileStorageService = fileStorageService;
     }
 
     @Transactional(readOnly = true)
@@ -65,7 +69,14 @@ public class GamificationService {
         }
         user.setEquippedAvatarLevel(level);
         user.setSelectedAvatarPath(AppUser.avatarPathForLevel(level));
-        return UserResponse.from(userRepository.save(user));
+        String previousPhoto = user.getProfilePictureUrl();
+        user.setProfilePictureUrl(null);
+        user.setProfileImagePreference(ProfileImagePreference.AVATAR);
+        UserResponse response = UserResponse.from(userRepository.save(user));
+        if (fileStorageService != null) {
+            fileStorageService.deleteManagedFile(previousPhoto);
+        }
+        return response;
     }
 
     @Transactional

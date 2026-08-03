@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.ecovision.backend.dto.UserResponse;
 import com.ecovision.backend.model.AppUser;
+import com.ecovision.backend.model.ProfileImagePreference;
 import com.ecovision.backend.repository.AppUserRepository;
 import com.ecovision.backend.repository.GamificationActionRepository;
 import java.util.Optional;
@@ -26,13 +27,15 @@ class GamificationServiceAvatarTest {
 
     @BeforeEach
     void setUp() {
-        service = new GamificationService(users, actions, null);
+        service = new GamificationService(users, actions, null, null);
         user = new AppUser();
         user.setId(9L);
         user.setName("Avatar");
         user.setSurname("Kullanıcısı");
         user.setEmail("avatar@ecovision.test");
         user.setLifetimePoints(600);
+        user.setProfilePictureUrl("/api/media/00000000-0000-0000-0000-000000000001");
+        user.setProfileImagePreference(ProfileImagePreference.CUSTOM_PHOTO);
         when(users.findByIdForUpdate(9L)).thenReturn(Optional.of(user));
     }
 
@@ -48,6 +51,8 @@ class GamificationServiceAvatarTest {
                 "assets/images/avatars/avatar_level_5.png",
                 response.selectedAvatarPath()
         );
+        assertEquals(null, response.profilePictureUrl());
+        assertEquals("AVATAR", response.profileImagePreference());
     }
 
     @Test

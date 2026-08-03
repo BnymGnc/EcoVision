@@ -9,8 +9,16 @@ public record FriendRequestResponse(
 ) {
     public static FriendRequestResponse from(Friendship friendship) {
         return new FriendRequestResponse(friendship.getId(),
-                SocialUserResponse.from(friendship.getRequester(), friendship.getId()),
-                SocialUserResponse.from(friendship.getAddressee(), friendship.getId()),
+                SocialUserResponse.from(
+                        friendship.getRequester(),
+                        friendship.getId(),
+                        friendship.getStatus().name()
+                ),
+                SocialUserResponse.from(
+                        friendship.getAddressee(),
+                        friendship.getId(),
+                        friendship.getStatus().name()
+                ),
                 friendship.getStatus().name(), friendship.getCreatedAt());
     }
 }

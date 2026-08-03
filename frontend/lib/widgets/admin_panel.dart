@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
+import 'privacy_aware_avatar.dart';
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({required this.apiService, super.key});
@@ -153,13 +154,16 @@ class _AdminPanelState extends State<AdminPanel> {
                     for (final user in users.take(8))
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(
-                          backgroundImage: user.profilePictureUrl == null
-                              ? null
-                              : NetworkImage(user.profilePictureUrl!),
-                          child: user.profilePictureUrl == null
-                              ? Text(user.name.isEmpty ? '?' : user.name[0])
-                              : null,
+                        leading: PrivacyAwareAvatar(
+                          userId: user.id,
+                          currentUserId: widget.apiService.currentUser?.id,
+                          avatarLevel: user.equippedAvatarLevel,
+                          highestAvatarLevel: user.currentAvatarLevel,
+                          profileImagePreference: user.profileImagePreference,
+                          adult: user.adult,
+                          profileVisibility: user.profileVisibility,
+                          profilePictureUrl: user.profilePictureUrl,
+                          selectedAvatarPath: user.selectedAvatarPath,
                         ),
                         title: Text(user.fullName),
                         subtitle: Text(user.email),

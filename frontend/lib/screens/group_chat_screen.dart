@@ -15,6 +15,7 @@ import '../models/event_member.dart';
 import '../models/social_models.dart';
 import '../services/api_service.dart';
 import '../widgets/premium_ui.dart';
+import '../widgets/privacy_aware_avatar.dart';
 import 'group_details_screen.dart';
 import 'public_profile_screen.dart';
 
@@ -50,6 +51,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   final Map<int, Timer> _typingExpiry = {};
   final Map<int, String> _typingUsers = {};
   List<EventMember> _members = const [];
+  Set<int> _friendIds = const {};
   ChatMessage? _replyingTo;
   bool _realtimeConnected = false;
   bool _loading = true;
@@ -213,6 +215,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         widget.apiService.fetchCommunityGroup(_group.id),
         widget.apiService.fetchGroupMessages(_group.id, limit: _pageSize),
         widget.apiService.fetchCommunityGroupMembers(_group.id),
+        widget.apiService.fetchFriends(),
       ]);
       if (!mounted) return;
       final messages = result[1] as List<ChatMessage>;
@@ -221,6 +224,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         _messages = messages;
         _historyOffset = messages.length;
         _members = result[2] as List<EventMember>;
+        _friendIds = (result[3] as List<SocialUser>)
+            .map((friend) => friend.id)
+            .toSet();
         _hasMore = messages.length == _pageSize;
         _loading = false;
       });
@@ -683,6 +689,66 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         .toList();
   }
 
+  EventMember? _memberFor(int userId) {
+    for (final member in _members) {
+      if (member.userId == userId) return member;
+    }
+    return null;
+  }
+
+  Widget _messageAvatar(ChatMessage message) {
+    final member = _memberFor(message.senderId);
+    final friend = widget.apiService.confirmedFriend(message.senderId);
+    final current = widget.apiService.currentUser;
+    final isCurrentUser = message.senderId == current?.id;
+    return PrivacyAwareAvatar(
+      userId: message.senderId,
+      currentUserId: current?.id,
+      radius: 17,
+      profilePictureUrl:
+          member?.profilePictureUrl ??
+          friend?.profilePictureUrl ??
+          (isCurrentUser
+              ? current?.profilePictureUrl
+              : message.senderProfilePictureUrl),
+      selectedAvatarPath:
+          member?.selectedAvatarPath ??
+          friend?.selectedAvatarPath ??
+          (isCurrentUser
+              ? current?.selectedAvatarPath
+              : message.senderSelectedAvatarPath),
+      avatarLevel:
+          member?.avatarLevel ??
+          friend?.avatarLevel ??
+          message.senderAvatarLevel,
+      highestAvatarLevel:
+          member?.highestAvatarLevel ??
+          friend?.highestAvatarLevel ??
+          message.senderHighestAvatarLevel,
+      profileImagePreference:
+          member?.profileImagePreference ??
+          friend?.profileImagePreference ??
+          (isCurrentUser
+              ? current?.profileImagePreference
+              : message.senderProfileImagePreference),
+      adult:
+          member?.adult ??
+          friend?.adult ??
+          (isCurrentUser ? current?.adult ?? false : message.senderAdult),
+      profileVisibility:
+          member?.profileVisibility ??
+          friend?.profileVisibility ??
+          (isCurrentUser
+              ? current?.profileVisibility ?? 'FRIENDS_ONLY'
+              : message.senderProfileVisibility),
+      friendshipStatus:
+          member?.friendshipStatus ??
+          (friend != null || _friendIds.contains(message.senderId)
+              ? 'ACCEPTED'
+              : null),
+    );
+  }
+
   void _insertMention(EventMember member) {
     final text = _message.text;
     final match = RegExp(
@@ -748,14 +814,18 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const EcoSheetHandle(),
-                CircleAvatar(
+                PrivacyAwareAvatar(
+                  userId: profile.id,
+                  currentUserId: widget.apiService.currentUser?.id,
                   radius: 46,
-                  backgroundImage: profile.profilePictureUrl == null
-                      ? null
-                      : NetworkImage(profile.profilePictureUrl!),
-                  child: profile.profilePictureUrl == null
-                      ? const Icon(Icons.person_rounded, size: 42)
-                      : null,
+                  profilePictureUrl: profile.profilePictureUrl,
+                  profileImagePreference: profile.profileImagePreference,
+                  selectedAvatarPath: profile.selectedAvatarPath,
+                  avatarLevel: profile.avatarLevel,
+                  highestAvatarLevel: profile.highestAvatarLevel,
+                  adult: profile.adult,
+                  profileVisibility: profile.profileVisibility,
+                  friendshipStatus: profile.friendshipStatus,
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -928,6 +998,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         child: _MessageBubble(
                           message: item,
                           mine: item.senderId == currentUserId,
+                          avatar: _messageAvatar(item),
                           currentUsername:
                               widget.apiService.currentUser?.username ?? '',
                           onAvatarTap: item.senderId <= 0
@@ -955,13 +1026,33 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     .map(
                       (member) => ListTile(
                         dense: true,
-                        leading: CircleAvatar(
-                          backgroundImage: member.profilePictureUrl == null
-                              ? null
-                              : NetworkImage(member.profilePictureUrl!),
-                          child: member.profilePictureUrl == null
-                              ? Text(member.fullName.characters.first)
-                              : null,
+                        leading: PrivacyAwareAvatar(
+                          userId: member.userId,
+                          currentUserId: widget.apiService.currentUser?.id,
+                          avatarLevel: member.avatarLevel,
+                          highestAvatarLevel: member.highestAvatarLevel,
+                          profileImagePreference: member.profileImagePreference,
+                          adult: member.adult,
+                          profileVisibility: member.profileVisibility,
+                          profilePictureUrl:
+                              member.profilePictureUrl ??
+                              widget.apiService
+                                  .confirmedFriend(member.userId)
+                                  ?.profilePictureUrl,
+                          selectedAvatarPath:
+                              member.selectedAvatarPath ??
+                              widget.apiService
+                                  .confirmedFriend(member.userId)
+                                  ?.selectedAvatarPath,
+                          friendshipStatus:
+                              member.friendshipStatus ??
+                              (widget.apiService.confirmedFriend(
+                                            member.userId,
+                                          ) !=
+                                          null ||
+                                      _friendIds.contains(member.userId)
+                                  ? 'ACCEPTED'
+                                  : null),
                         ),
                         title: Text(member.fullName),
                         subtitle: Text('@${member.username}'),
@@ -1197,7 +1288,10 @@ class _ChatEventCard extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final attendee = event.attendees[index];
                     return ListTile(
-                      leading: _AttendeeAvatar(attendee: attendee),
+                      leading: _AttendeeAvatar(
+                        attendee: attendee,
+                        apiService: apiService,
+                      ),
                       title: Text(attendee.fullName),
                     );
                   },
@@ -1287,6 +1381,7 @@ class _ChatEventCard extends StatelessWidget {
                         separatorBuilder: (_, _) => const SizedBox(width: 5),
                         itemBuilder: (_, index) => _AttendeeAvatar(
                           attendee: event.attendees[index],
+                          apiService: apiService,
                           radius: 18,
                         ),
                       ),
@@ -1329,21 +1424,36 @@ class _ChatEventCard extends StatelessWidget {
 }
 
 class _AttendeeAvatar extends StatelessWidget {
-  const _AttendeeAvatar({required this.attendee, this.radius = 20});
+  const _AttendeeAvatar({
+    required this.attendee,
+    required this.apiService,
+    this.radius = 20,
+  });
 
   final GroupEventAttendee attendee;
+  final ApiService apiService;
   final double radius;
 
   @override
-  Widget build(BuildContext context) => CircleAvatar(
-    radius: radius,
-    backgroundImage: attendee.profilePictureUrl == null
-        ? null
-        : NetworkImage(attendee.profilePictureUrl!),
-    child: attendee.profilePictureUrl == null
-        ? Text(attendee.fullName.isEmpty ? 'E' : attendee.fullName[0])
-        : null,
-  );
+  Widget build(BuildContext context) {
+    final friend = apiService.confirmedFriend(attendee.userId);
+    return PrivacyAwareAvatar(
+      userId: attendee.userId,
+      currentUserId: apiService.currentUser?.id,
+      radius: radius,
+      profilePictureUrl:
+          attendee.profilePictureUrl ?? friend?.profilePictureUrl,
+      selectedAvatarPath:
+          attendee.selectedAvatarPath ?? friend?.selectedAvatarPath,
+      avatarLevel: attendee.avatarLevel,
+      highestAvatarLevel: attendee.highestAvatarLevel,
+      profileImagePreference: attendee.profileImagePreference,
+      adult: attendee.adult,
+      profileVisibility: attendee.profileVisibility,
+      friendshipStatus:
+          attendee.friendshipStatus ?? (friend == null ? null : 'ACCEPTED'),
+    );
+  }
 }
 
 class _EventLine extends StatelessWidget {
@@ -1407,6 +1517,7 @@ class _MessageBubble extends StatelessWidget {
     required this.message,
     required this.mine,
     required this.currentUsername,
+    required this.avatar,
     this.onAvatarTap,
     this.onLongPress,
   });
@@ -1414,6 +1525,7 @@ class _MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final bool mine;
   final String currentUsername;
+  final Widget avatar;
   final VoidCallback? onAvatarTap;
   final VoidCallback? onLongPress;
 
@@ -1454,22 +1566,7 @@ class _MessageBubble extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (!mine) ...[
-                GestureDetector(
-                  onTap: onAvatarTap,
-                  child: CircleAvatar(
-                    radius: 17,
-                    backgroundImage: message.senderProfilePictureUrl == null
-                        ? null
-                        : NetworkImage(message.senderProfilePictureUrl!),
-                    child: message.senderProfilePictureUrl == null
-                        ? Text(
-                            message.senderName.isEmpty
-                                ? 'E'
-                                : message.senderName[0],
-                          )
-                        : null,
-                  ),
-                ),
+                GestureDetector(onTap: onAvatarTap, child: avatar),
                 const SizedBox(width: 7),
               ],
               Flexible(
@@ -2230,13 +2327,29 @@ class _GroupInfoSheetState extends State<_GroupInfoSheet> {
         final member = _members[index];
         return ListTile(
           onTap: () => _openMemberProfile(member),
-          leading: CircleAvatar(
-            backgroundImage: member.profilePictureUrl == null
-                ? null
-                : NetworkImage(member.profilePictureUrl!),
-            child: member.profilePictureUrl == null
-                ? Text(member.fullName.isEmpty ? 'E' : member.fullName[0])
-                : null,
+          leading: PrivacyAwareAvatar(
+            userId: member.userId,
+            currentUserId: widget.apiService.currentUser?.id,
+            avatarLevel: member.avatarLevel,
+            highestAvatarLevel: member.highestAvatarLevel,
+            profileImagePreference: member.profileImagePreference,
+            adult: member.adult,
+            profileVisibility: member.profileVisibility,
+            profilePictureUrl:
+                member.profilePictureUrl ??
+                widget.apiService
+                    .confirmedFriend(member.userId)
+                    ?.profilePictureUrl,
+            selectedAvatarPath:
+                member.selectedAvatarPath ??
+                widget.apiService
+                    .confirmedFriend(member.userId)
+                    ?.selectedAvatarPath,
+            friendshipStatus:
+                member.friendshipStatus ??
+                (widget.apiService.confirmedFriend(member.userId) == null
+                    ? null
+                    : 'ACCEPTED'),
           ),
           title: Text(member.fullName),
           subtitle: Text(

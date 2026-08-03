@@ -31,12 +31,21 @@ public class LeaderboardService {
         String city = normalizeCity(currentUser.getCity());
         List<AppUser> users = userRepository
                 .findByCityIgnoreCaseOrderByTotalPointsDescNameAsc(city);
+        var acceptedFriendIds = friendshipRepository.findForUser(
+                currentUser.getId(),
+                FriendshipStatus.ACCEPTED
+        ).stream().map(friendship ->
+                friendship.getRequester().getId().equals(currentUser.getId())
+                        ? friendship.getAddressee().getId()
+                        : friendship.getRequester().getId()
+        ).collect(java.util.stream.Collectors.toSet());
         List<CityLeaderboardEntry> entries = new ArrayList<>(users.size());
         for (int index = 0; index < users.size(); index++) {
             entries.add(CityLeaderboardEntry.from(
                     users.get(index),
                     index + 1,
-                    currentUser.getId()
+                    currentUser.getId(),
+                    acceptedFriendIds.contains(users.get(index).getId())
             ));
         }
         return entries;
@@ -69,13 +78,14 @@ public class LeaderboardService {
             entries.add(CityLeaderboardEntry.from(
                     ranked.get(index),
                     index + 1,
-                    currentUser.getId()
+                    currentUser.getId(),
+                    !ranked.get(index).getId().equals(currentUser.getId())
             ));
         }
         return entries;
     }
 
     private String normalizeCity(String city) {
-        return city == null || city.isBlank() ? AppUser.DEFAULT_CITY : city.trim();
+        return city == null ? "" : city.trim();
     }
 }

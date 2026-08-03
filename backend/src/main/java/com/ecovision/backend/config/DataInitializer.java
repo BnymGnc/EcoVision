@@ -34,10 +34,6 @@ public class DataInitializer {
         return args -> {
             for (AppUser user : userRepository.findAll()) {
                 boolean changed = false;
-                if (user.getCity() == null || user.getCity().isBlank()) {
-                    user.setCity(AppUser.DEFAULT_CITY);
-                    changed = true;
-                }
                 if (user.getEquippedAvatarLevel() == null) {
                     user.setEquippedAvatarLevel(1);
                     changed = true;
@@ -101,7 +97,6 @@ public class DataInitializer {
                 superuser.setTotalPoints(0);
             }
             superuser.setAge(30);
-            superuser.setCity(AppUser.DEFAULT_CITY);
             superuser.setRole(Role.SUPERUSER);
             userRepository.save(superuser);
         };
@@ -133,7 +128,12 @@ public class DataInitializer {
                         ? "Merkez"
                         : legacy.getDistrict());
                 group.setNeighborhood(legacy.getNeighborhood());
-                group.setCoverImageUrl(legacy.getCoverImageUrl());
+                if ((group.getCoverImageUrl() == null
+                        || group.getCoverImageUrl().isBlank())
+                        && legacy.getCoverImageUrl() != null
+                        && !legacy.getCoverImageUrl().isBlank()) {
+                    group.setCoverImageUrl(legacy.getCoverImageUrl());
+                }
                 group.setMemberLimit(legacy.getMemberLimit());
                 group.setJoinCodeHash(legacy.getJoinCodeHash());
                 group = groups.save(group);

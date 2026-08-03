@@ -22,25 +22,48 @@ class SocialUser {
     required this.fullName,
     required this.city,
     required this.avatarLevel,
+    this.highestAvatarLevel = 1,
+    this.profileImagePreference = 'AVATAR',
     this.username = '',
+    this.profileVisibility = 'FRIENDS_ONLY',
+    this.selectedAvatarPath,
+    this.adult = false,
     this.profilePictureUrl,
     this.friendshipId,
+    this.friendshipStatus,
   });
   final int id;
   final String fullName;
   final String username;
   final String city;
   final int avatarLevel;
+  final int highestAvatarLevel;
+  final String profileImagePreference;
+  final String profileVisibility;
+  final String? selectedAvatarPath;
+  final bool adult;
   final String? profilePictureUrl;
   final int? friendshipId;
+  final String? friendshipStatus;
   factory SocialUser.fromJson(Map<String, dynamic> json) => SocialUser(
     id: (json['id'] as num).toInt(),
     username: (json['username'] ?? '').toString(),
     fullName: (json['fullName'] ?? '').toString(),
     city: (json['city'] ?? '').toString(),
     avatarLevel: (json['avatarLevel'] as num? ?? 1).toInt(),
+    highestAvatarLevel:
+        (json['highestAvatarLevel'] as num? ?? json['avatarLevel'] as num? ?? 1)
+            .toInt(),
+    profileImagePreference:
+        (json['profileImagePreference'] ??
+                (json['profilePictureUrl'] == null ? 'AVATAR' : 'CUSTOM_PHOTO'))
+            .toString(),
+    profileVisibility: (json['profileVisibility'] ?? 'FRIENDS_ONLY').toString(),
+    selectedAvatarPath: json['selectedAvatarPath']?.toString(),
+    adult: json['adult'] as bool? ?? false,
     profilePictureUrl: MediaUrl.resolve(json['profilePictureUrl']),
     friendshipId: (json['friendshipId'] as num?)?.toInt(),
+    friendshipStatus: json['friendshipStatus']?.toString(),
   );
 }
 
@@ -50,6 +73,7 @@ class PublicProfile {
     required this.fullName,
     required this.city,
     required this.avatarLevel,
+    this.highestAvatarLevel = 1,
     required this.totalPoints,
     required this.streakCount,
     required this.likeCount,
@@ -58,6 +82,9 @@ class PublicProfile {
     required this.badges,
     this.username = '',
     this.profileVisibility = 'PUBLIC',
+    this.profileImagePreference = 'AVATAR',
+    this.selectedAvatarPath,
+    this.adult = false,
     this.detailsVisible = true,
     this.profilePictureUrl,
     this.friendshipStatus,
@@ -68,6 +95,7 @@ class PublicProfile {
   final String username;
   final String city;
   final int avatarLevel;
+  final int highestAvatarLevel;
   final int totalPoints;
   final int streakCount;
   final int likeCount;
@@ -78,6 +106,9 @@ class PublicProfile {
   final int? friendshipId;
   final List<EcoBadge> badges;
   final String profileVisibility;
+  final String profileImagePreference;
+  final String? selectedAvatarPath;
+  final bool adult;
   final bool detailsVisible;
   factory PublicProfile.fromJson(Map<String, dynamic> json) => PublicProfile(
     id: (json['id'] as num).toInt(),
@@ -85,12 +116,21 @@ class PublicProfile {
     fullName: (json['fullName'] ?? '').toString(),
     city: (json['city'] ?? '').toString(),
     avatarLevel: (json['avatarLevel'] as num? ?? 1).toInt(),
+    highestAvatarLevel:
+        (json['highestAvatarLevel'] as num? ?? json['avatarLevel'] as num? ?? 1)
+            .toInt(),
     totalPoints: (json['totalPoints'] as num? ?? 0).toInt(),
     streakCount: (json['streakCount'] as num? ?? 0).toInt(),
     likeCount: (json['likeCount'] as num? ?? 0).toInt(),
     liked: json['likedByCurrentUser'] as bool? ?? false,
     blocked: json['blockedByCurrentUser'] as bool? ?? false,
     profileVisibility: (json['profileVisibility'] ?? 'PUBLIC').toString(),
+    profileImagePreference:
+        (json['profileImagePreference'] ??
+                (json['profilePictureUrl'] == null ? 'AVATAR' : 'CUSTOM_PHOTO'))
+            .toString(),
+    selectedAvatarPath: json['selectedAvatarPath']?.toString(),
+    adult: json['adult'] as bool? ?? false,
     detailsVisible: json['detailsVisible'] as bool? ?? true,
     profilePictureUrl: MediaUrl.resolve(json['profilePictureUrl']),
     friendshipStatus: json['friendshipStatus']?.toString(),
@@ -108,7 +148,11 @@ class UserDiscovery {
     required this.fullName,
     required this.city,
     required this.avatarLevel,
+    this.highestAvatarLevel = 1,
     required this.profileVisibility,
+    this.profileImagePreference = 'AVATAR',
+    this.selectedAvatarPath,
+    this.adult = false,
     this.profilePictureUrl,
     this.friendshipId,
     this.friendshipStatus,
@@ -119,7 +163,11 @@ class UserDiscovery {
   final String fullName;
   final String city;
   final int avatarLevel;
+  final int highestAvatarLevel;
   final String profileVisibility;
+  final String profileImagePreference;
+  final String? selectedAvatarPath;
+  final bool adult;
   final String? profilePictureUrl;
   final int? friendshipId;
   final String? friendshipStatus;
@@ -130,7 +178,16 @@ class UserDiscovery {
     fullName: (json['fullName'] ?? '').toString(),
     city: (json['city'] ?? '').toString(),
     avatarLevel: (json['avatarLevel'] as num? ?? 1).toInt(),
+    highestAvatarLevel:
+        (json['highestAvatarLevel'] as num? ?? json['avatarLevel'] as num? ?? 1)
+            .toInt(),
     profileVisibility: (json['profileVisibility'] ?? 'PUBLIC').toString(),
+    profileImagePreference:
+        (json['profileImagePreference'] ??
+                (json['profilePictureUrl'] == null ? 'AVATAR' : 'CUSTOM_PHOTO'))
+            .toString(),
+    selectedAvatarPath: json['selectedAvatarPath']?.toString(),
+    adult: json['adult'] as bool? ?? false,
     profilePictureUrl: MediaUrl.resolve(json['profilePictureUrl']),
     friendshipId: (json['friendshipId'] as num?)?.toInt(),
     friendshipStatus: json['friendshipStatus']?.toString(),

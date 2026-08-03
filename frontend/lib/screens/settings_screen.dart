@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/user_profile.dart';
 import '../services/api_service.dart';
 import '../theme/theme_controller.dart';
 import '../widgets/premium_ui.dart';
+import '../widgets/privacy_aware_avatar.dart';
 import 'change_password_screen.dart';
 import 'edit_profile_screen.dart';
 import 'login_screen.dart';
@@ -66,6 +68,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _upload() async {
+    if (widget.apiService.currentUser?.adult != true) return;
     await EcoHaptics.light();
     final file = await ImagePicker().pickImage(
       source: ImageSource.gallery,
@@ -96,14 +99,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final user = widget.apiService.currentUser;
+    final canUploadCustomPhoto = user?.adult == true;
     final content = ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       children: [
-        _Header(
-          name: user?.fullName ?? 'EcoVision Kullanıcısı',
-          email: user?.email ?? '',
-          picture: user?.profilePictureUrl,
-        ),
+        _Header(user: user),
         const SizedBox(height: 22),
         const _Label('Hesap'),
         _Group(
@@ -126,8 +126,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _Item(
               icon: Icons.photo_camera_outlined,
               title: 'Profil Fotoğrafı',
-              subtitle: _uploading ? 'Yükleniyor...' : 'Yeni fotoğraf seç',
-              onTap: _uploading ? null : _upload,
+              subtitle: canUploadCustomPhoto
+                  ? (_uploading ? 'Yükleniyor...' : 'Yeni fotoğraf seç')
+                  : 'Sadece 18 yaş üstü kullanıcılar özel fotoğraf '
+                        'yükleyebilir. Lütfen avatarınızı kullanın.',
+              trailing: canUploadCustomPhoto
+                  ? null
+                  : const Icon(Icons.lock_outline),
+              onTap: canUploadCustomPhoto && !_uploading ? _upload : null,
             ),
             _Item(
               icon: Icons.lock_outline,
@@ -391,16 +397,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.name, required this.email, this.picture});
-  final String name, email;
-  final String? picture;
+  const _Header({required this.user});
+  final UserProfile? user;
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      CircleAvatar(
+      PrivacyAwareAvatar(
+        userId: user?.id ?? -1,
+        currentUserId: user?.id,
         radius: 30,
-        backgroundImage: picture == null ? null : NetworkImage(picture!),
-        child: picture == null ? const Icon(Icons.person_outline) : null,
+        profilePictureUrl: user?.profilePictureUrl,
+        profileImagePreference: user?.profileImagePreference,
+        selectedAvatarPath: user?.selectedAvatarPath,
+        avatarLevel: user?.equippedAvatarLevel ?? 1,
+        highestAvatarLevel: user?.currentAvatarLevel,
+        adult: user?.adult ?? false,
+        profileVisibility: user?.profileVisibility ?? 'FRIENDS_ONLY',
       ),
       const SizedBox(width: 12),
       Expanded(
@@ -408,12 +420,12 @@ class _Header extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              name,
+              user?.fullName ?? 'EcoVision Kullanıcısı',
               style: Theme.of(
                 context,
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
             ),
-            Text(email, overflow: TextOverflow.ellipsis),
+            Text(user?.email ?? '', overflow: TextOverflow.ellipsis),
           ],
         ),
       ),
@@ -466,28 +478,35 @@ class _Item extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     this.destructive = false,
+    this.trailing,
   });
   final IconData icon;
   final String title, subtitle;
   final VoidCallback? onTap;
   final bool destructive;
+  final Widget? trailing;
   @override
   Widget build(BuildContext context) {
     final color = destructive ? Theme.of(context).colorScheme.error : null;
-    return ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(
-        title,
-        style: TextStyle(fontWeight: FontWeight.w800, color: color),
+    return Opacity(
+      opacity: onTap == null && !destructive ? 0.58 : 1,
+      child: ListTile(
+        leading: Icon(icon, color: color),
+        title: Text(
+          title,
+          style: TextStyle(fontWeight: FontWeight.w800, color: color),
+        ),
+        subtitle: Text(subtitle),
+        trailing: destructive
+            ? null
+            : (trailing ?? const Icon(Icons.chevron_right)),
+        onTap: onTap == null
+            ? null
+            : () {
+                EcoHaptics.light();
+                onTap!();
+              },
       ),
-      subtitle: Text(subtitle),
-      trailing: destructive ? null : const Icon(Icons.chevron_right),
-      onTap: onTap == null
-          ? null
-          : () {
-              EcoHaptics.light();
-              onTap!();
-            },
     );
   }
 }

@@ -10,6 +10,7 @@ import '../models/group_join_request.dart';
 import '../services/api_service.dart';
 import '../services/location_service.dart';
 import '../widgets/premium_ui.dart';
+import '../widgets/privacy_aware_avatar.dart';
 import 'group_chat_screen.dart';
 import 'public_profile_screen.dart';
 
@@ -42,8 +43,16 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   void _reload() {
     setState(() {
       _events = widget.apiService.fetchGroupEvents(_group.id);
-      _members = widget.apiService.fetchCommunityGroupMembers(_group.id);
+      _members = _loadMembersWithFriendContext();
     });
+  }
+
+  Future<List<EventMember>> _loadMembersWithFriendContext() async {
+    final result = await Future.wait<Object>([
+      widget.apiService.fetchCommunityGroupMembers(_group.id),
+      widget.apiService.fetchFriends(),
+    ]);
+    return result.first as List<EventMember>;
   }
 
   Future<void> _openCreateEvent() async {
@@ -366,8 +375,8 @@ class _EditGroupSheetState extends State<_EditGroupSheet> {
   late final TextEditingController _neighborhood;
   late final TextEditingController _memberLimit;
   late final TextEditingController _password;
-  late String _city;
-  late String _district;
+  String? _city;
+  String? _district;
   Uint8List? _cover;
   String? _coverName;
   bool _saving = false;
@@ -385,11 +394,13 @@ class _EditGroupSheetState extends State<_EditGroupSheet> {
     _password = TextEditingController();
     _city = TurkishLocations.provinces.containsKey(widget.group.city)
         ? widget.group.city
-        : TurkishLocations.provinceNames.first;
-    final districts = TurkishLocations.districtsFor(_city);
+        : null;
+    final districts = _city == null
+        ? const <String>[]
+        : TurkishLocations.districtsFor(_city!);
     _district = districts.contains(widget.group.district)
         ? widget.group.district
-        : districts.first;
+        : null;
     _privateGroup = widget.group.privateGroup;
   }
 
@@ -435,8 +446,8 @@ class _EditGroupSheetState extends State<_EditGroupSheet> {
         groupId: widget.group.id,
         name: _name.text,
         description: _description.text,
-        city: _city,
-        district: _district,
+        city: _city!,
+        district: _district!,
         neighborhood: _neighborhood.text,
         memberLimit: int.parse(_memberLimit.text),
         privateGroup: _privateGroup,
@@ -561,7 +572,10 @@ class _EditGroupSheetState extends State<_EditGroupSheet> {
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: _city,
-                decoration: const InputDecoration(labelText: 'İl'),
+                decoration: const InputDecoration(
+                  labelText: 'İl',
+                  hintText: 'İl seçin',
+                ),
                 items: TurkishLocations.provinceNames
                     .map(
                       (city) =>
@@ -569,24 +583,35 @@ class _EditGroupSheetState extends State<_EditGroupSheet> {
                     )
                     .toList(),
                 onChanged: (value) => setState(() {
-                  _city = value!;
-                  _district = TurkishLocations.districtsFor(_city).first;
+                  _city = value;
+                  _district = null;
                 }),
+                validator: (value) =>
+                    value == null ? 'Lütfen bir il seçin' : null,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 key: ValueKey(_city),
                 initialValue: _district,
-                decoration: const InputDecoration(labelText: 'İlçe'),
-                items: TurkishLocations.districtsFor(_city)
-                    .map(
-                      (district) => DropdownMenuItem(
-                        value: district,
-                        child: Text(district),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) => setState(() => _district = value!),
+                decoration: const InputDecoration(
+                  labelText: 'İlçe',
+                  hintText: 'Önce il, sonra ilçe seçin',
+                ),
+                items: _city == null
+                    ? const <DropdownMenuItem<String>>[]
+                    : TurkishLocations.districtsFor(_city!)
+                          .map(
+                            (district) => DropdownMenuItem(
+                              value: district,
+                              child: Text(district),
+                            ),
+                          )
+                          .toList(),
+                onChanged: _city == null
+                    ? null
+                    : (value) => setState(() => _district = value),
+                validator: (value) =>
+                    value == null ? 'Lütfen bir ilçe seçin' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -689,20 +714,30 @@ class _GroupEventCard extends StatelessWidget {
                     child: Text('Henüz katılımcı yok.'),
                   )
                 else
-                  ...users.map(
-                    (user) => ListTile(
+                  ...users.map((user) {
+                    final friend = apiService.confirmedFriend(user.userId);
+                    return ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        backgroundImage: user.profilePictureUrl == null
-                            ? null
-                            : NetworkImage(user.profilePictureUrl!),
-                        child: user.profilePictureUrl == null
-                            ? Text(user.fullName[0])
-                            : null,
+                      leading: PrivacyAwareAvatar(
+                        userId: user.userId,
+                        currentUserId: apiService.currentUser?.id,
+                        avatarLevel: user.avatarLevel,
+                        highestAvatarLevel: user.highestAvatarLevel,
+                        profileImagePreference: user.profileImagePreference,
+                        adult: user.adult,
+                        profileVisibility: user.profileVisibility,
+                        profilePictureUrl:
+                            user.profilePictureUrl ?? friend?.profilePictureUrl,
+                        selectedAvatarPath:
+                            user.selectedAvatarPath ??
+                            friend?.selectedAvatarPath,
+                        friendshipStatus:
+                            user.friendshipStatus ??
+                            (friend == null ? null : 'ACCEPTED'),
                       ),
                       title: Text(user.fullName),
-                    ),
-                  ),
+                    );
+                  }),
               ],
             ),
           );
@@ -1019,17 +1054,32 @@ class _RoleAwareMembersSheetState extends State<_RoleAwareMembersSheet> {
                             ),
                           ),
                         ),
-                        leading: CircleAvatar(
-                          backgroundImage: member.profilePictureUrl == null
-                              ? null
-                              : NetworkImage(member.profilePictureUrl!),
-                          child: member.profilePictureUrl == null
-                              ? Text(
-                                  member.fullName.isEmpty
-                                      ? 'E'
-                                      : member.fullName[0],
-                                )
-                              : null,
+                        leading: PrivacyAwareAvatar(
+                          userId: member.userId,
+                          currentUserId: widget.apiService.currentUser?.id,
+                          avatarLevel: member.avatarLevel,
+                          highestAvatarLevel: member.highestAvatarLevel,
+                          profileImagePreference: member.profileImagePreference,
+                          adult: member.adult,
+                          profileVisibility: member.profileVisibility,
+                          profilePictureUrl:
+                              member.profilePictureUrl ??
+                              widget.apiService
+                                  .confirmedFriend(member.userId)
+                                  ?.profilePictureUrl,
+                          selectedAvatarPath:
+                              member.selectedAvatarPath ??
+                              widget.apiService
+                                  .confirmedFriend(member.userId)
+                                  ?.selectedAvatarPath,
+                          friendshipStatus:
+                              member.friendshipStatus ??
+                              (widget.apiService.confirmedFriend(
+                                        member.userId,
+                                      ) ==
+                                      null
+                                  ? null
+                                  : 'ACCEPTED'),
                         ),
                         title: Text(member.fullName),
                         subtitle: Text(
@@ -1111,17 +1161,32 @@ class _RoleAwareMembersSheetState extends State<_RoleAwareMembersSheet> {
                     itemBuilder: (context, index) {
                       final request = requests[index];
                       return ListTile(
-                        leading: CircleAvatar(
-                          backgroundImage: request.profilePictureUrl == null
+                        leading: PrivacyAwareAvatar(
+                          userId: request.userId,
+                          currentUserId: widget.apiService.currentUser?.id,
+                          avatarLevel: request.avatarLevel,
+                          highestAvatarLevel: request.highestAvatarLevel,
+                          profileImagePreference:
+                              request.profileImagePreference,
+                          adult: request.adult,
+                          profileVisibility: request.profileVisibility,
+                          profilePictureUrl:
+                              request.profilePictureUrl ??
+                              widget.apiService
+                                  .confirmedFriend(request.userId)
+                                  ?.profilePictureUrl,
+                          selectedAvatarPath:
+                              request.selectedAvatarPath ??
+                              widget.apiService
+                                  .confirmedFriend(request.userId)
+                                  ?.selectedAvatarPath,
+                          friendshipStatus:
+                              widget.apiService.confirmedFriend(
+                                    request.userId,
+                                  ) ==
+                                  null
                               ? null
-                              : NetworkImage(request.profilePictureUrl!),
-                          child: request.profilePictureUrl == null
-                              ? Text(
-                                  request.fullName.isEmpty
-                                      ? 'E'
-                                      : request.fullName[0],
-                                )
-                              : null,
+                              : 'ACCEPTED',
                         ),
                         title: Text(request.fullName),
                         subtitle: Text('@${request.username}'),
@@ -1193,6 +1258,7 @@ class _MembersSheet extends StatelessWidget {
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final user = users[index];
+                    final friend = apiService.confirmedFriend(user.userId);
                     return ListTile(
                       onTap: () => Navigator.push(
                         context,
@@ -1203,15 +1269,22 @@ class _MembersSheet extends StatelessWidget {
                           ),
                         ),
                       ),
-                      leading: CircleAvatar(
-                        backgroundImage: user.profilePictureUrl == null
-                            ? null
-                            : NetworkImage(user.profilePictureUrl!),
-                        child: user.profilePictureUrl == null
-                            ? Text(
-                                user.fullName.isEmpty ? 'E' : user.fullName[0],
-                              )
-                            : null,
+                      leading: PrivacyAwareAvatar(
+                        userId: user.userId,
+                        currentUserId: currentUserId,
+                        avatarLevel: user.avatarLevel,
+                        highestAvatarLevel: user.highestAvatarLevel,
+                        profileImagePreference: user.profileImagePreference,
+                        adult: user.adult,
+                        profileVisibility: user.profileVisibility,
+                        profilePictureUrl:
+                            user.profilePictureUrl ?? friend?.profilePictureUrl,
+                        selectedAvatarPath:
+                            user.selectedAvatarPath ??
+                            friend?.selectedAvatarPath,
+                        friendshipStatus:
+                            user.friendshipStatus ??
+                            (friend == null ? null : 'ACCEPTED'),
                       ),
                       title: Text(user.fullName),
                       subtitle: Text(user.isAdmin ? 'Grup yöneticisi' : 'Üye'),
@@ -1291,25 +1364,13 @@ class _CreateGroupEventSheetState extends State<CreateGroupEventSheet> {
   final _address = TextEditingController();
   final _capacity = TextEditingController(text: '20');
   final _picker = ImagePicker();
-  late String _city;
-  late String _district;
+  String? _city;
+  String? _district;
   DateTime _date = DateTime.now().add(const Duration(days: 2));
   Uint8List? _cover;
   String? _coverName;
   bool _saving = false;
   bool _locating = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _city = TurkishLocations.provinces.containsKey(widget.group.city)
-        ? widget.group.city
-        : 'Şanlıurfa';
-    final districts = TurkishLocations.districtsFor(_city);
-    _district = districts.contains(widget.group.district)
-        ? widget.group.district
-        : districts.first;
-  }
 
   @override
   void dispose() {
@@ -1378,7 +1439,7 @@ class _CreateGroupEventSheetState extends State<CreateGroupEventSheet> {
             break;
           }
         }
-        _district = district ?? districts.first;
+        _district = district;
       }
       _address.text = location.address;
       setState(() {});
@@ -1411,8 +1472,8 @@ class _CreateGroupEventSheetState extends State<CreateGroupEventSheet> {
         title: _title.text,
         description: _description.text,
         eventDate: _date,
-        city: _city,
-        district: _district,
+        city: _city!,
+        district: _district!,
         exactAddress: _address.text,
         capacity: int.tryParse(_capacity.text) ?? 20,
         coverBytes: _cover,
@@ -1512,7 +1573,10 @@ class _CreateGroupEventSheetState extends State<CreateGroupEventSheet> {
             DropdownButtonFormField<String>(
               initialValue: _city,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'İl'),
+              decoration: const InputDecoration(
+                labelText: 'İl',
+                hintText: 'İl seçin',
+              ),
               items: TurkishLocations.provinceNames
                   .map(
                     (value) =>
@@ -1520,26 +1584,36 @@ class _CreateGroupEventSheetState extends State<CreateGroupEventSheet> {
                   )
                   .toList(),
               onChanged: (value) => setState(() {
-                _city = value!;
-                _district = TurkishLocations.districtsFor(_city).first;
+                _city = value;
+                _district = null;
               }),
+              validator: (value) =>
+                  value == null ? 'Lütfen bir il seçin' : null,
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               key: ValueKey(_city),
-              initialValue:
-                  TurkishLocations.districtsFor(_city).contains(_district)
-                  ? _district
-                  : TurkishLocations.districtsFor(_city).first,
+              initialValue: _district,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'İlçe'),
-              items: TurkishLocations.districtsFor(_city)
-                  .map(
-                    (value) =>
-                        DropdownMenuItem(value: value, child: Text(value)),
-                  )
-                  .toList(),
-              onChanged: (value) => setState(() => _district = value!),
+              decoration: const InputDecoration(
+                labelText: 'İlçe',
+                hintText: 'Önce il, sonra ilçe seçin',
+              ),
+              items: _city == null
+                  ? const <DropdownMenuItem<String>>[]
+                  : TurkishLocations.districtsFor(_city!)
+                        .map(
+                          (value) => DropdownMenuItem(
+                            value: value,
+                            child: Text(value),
+                          ),
+                        )
+                        .toList(),
+              onChanged: _city == null
+                  ? null
+                  : (value) => setState(() => _district = value),
+              validator: (value) =>
+                  value == null ? 'Lütfen bir ilçe seçin' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(

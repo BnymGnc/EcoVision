@@ -29,23 +29,13 @@ class _CreateCommunityGroupSheetState extends State<CreateCommunityGroupSheet> {
   final _neighborhood = TextEditingController();
   final _joinCode = TextEditingController();
   final _picker = ImagePicker();
-  late String _city;
-  late String _district;
+  String? _city;
+  String? _district;
   int _memberLimit = 20;
   bool _saving = false;
   bool _passwordProtected = false;
   Uint8List? _coverBytes;
   String? _coverName;
-
-  @override
-  void initState() {
-    super.initState();
-    final profileCity = widget.apiService.currentUser?.city;
-    _city = TurkishLocations.provinces.containsKey(profileCity)
-        ? profileCity!
-        : 'Şanlıurfa';
-    _district = TurkishLocations.districtsFor(_city).first;
-  }
 
   @override
   void dispose() {
@@ -85,8 +75,8 @@ class _CreateCommunityGroupSheetState extends State<CreateCommunityGroupSheet> {
       await widget.apiService.createCommunityGroup(
         name: _name.text,
         description: _description.text,
-        city: _city,
-        district: _district,
+        city: _city!,
+        district: _district!,
         neighborhood: _neighborhood.text,
         memberLimit: _memberLimit,
         joinCode: _passwordProtected ? _joinCode.text : null,
@@ -192,7 +182,10 @@ class _CreateCommunityGroupSheetState extends State<CreateCommunityGroupSheet> {
               DropdownButtonFormField<String>(
                 initialValue: _city,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'İl'),
+                decoration: const InputDecoration(
+                  labelText: 'İl',
+                  hintText: 'İl seçin',
+                ),
                 items: TurkishLocations.provinceNames
                     .map(
                       (value) =>
@@ -200,23 +193,36 @@ class _CreateCommunityGroupSheetState extends State<CreateCommunityGroupSheet> {
                     )
                     .toList(),
                 onChanged: (value) => setState(() {
-                  _city = value!;
-                  _district = TurkishLocations.districtsFor(_city).first;
+                  _city = value;
+                  _district = null;
                 }),
+                validator: (value) =>
+                    value == null ? 'Lütfen bir il seçin' : null,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 key: ValueKey(_city),
                 initialValue: _district,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'İlçe'),
-                items: TurkishLocations.districtsFor(_city)
-                    .map(
-                      (value) =>
-                          DropdownMenuItem(value: value, child: Text(value)),
-                    )
-                    .toList(),
-                onChanged: (value) => setState(() => _district = value!),
+                decoration: const InputDecoration(
+                  labelText: 'İlçe',
+                  hintText: 'Önce il, sonra ilçe seçin',
+                ),
+                items: _city == null
+                    ? const <DropdownMenuItem<String>>[]
+                    : TurkishLocations.districtsFor(_city!)
+                          .map(
+                            (value) => DropdownMenuItem(
+                              value: value,
+                              child: Text(value),
+                            ),
+                          )
+                          .toList(),
+                onChanged: _city == null
+                    ? null
+                    : (value) => setState(() => _district = value),
+                validator: (value) =>
+                    value == null ? 'Lütfen bir ilçe seçin' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(

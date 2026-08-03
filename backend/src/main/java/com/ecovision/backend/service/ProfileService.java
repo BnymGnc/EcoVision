@@ -6,6 +6,7 @@ import com.ecovision.backend.dto.ProfileVisibilityRequest;
 import com.ecovision.backend.dto.ThemePreferenceRequest;
 import com.ecovision.backend.dto.UserResponse;
 import com.ecovision.backend.model.AppUser;
+import com.ecovision.backend.model.ProfileImagePreference;
 import com.ecovision.backend.repository.AppUserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,13 +36,20 @@ public class ProfileService {
     }
 
     @Transactional
-    public UserResponse updateProfilePicture(AppUser user, MultipartFile image) {
+    public UserResponse updateProfilePicture(AppUser currentUser, MultipartFile image) {
+        AppUser user = lockUser(currentUser.getId());
+        if (!user.isAdult()) {
+            throw new IllegalArgumentException(
+                    "Sadece 18 yaş üstü kullanıcılar özel fotoğraf yükleyebilir"
+            );
+        }
         String url = fileStorageService.replaceImage(
                 image,
                 "profiles",
                 user.getProfilePictureUrl()
         );
         user.setProfilePictureUrl(url);
+        user.setProfileImagePreference(ProfileImagePreference.CUSTOM_PHOTO);
         return UserResponse.from(userRepository.save(user));
     }
 

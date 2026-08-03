@@ -26,20 +26,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmPasswordController = TextEditingController();
 
   DateTime? _dateOfBirth;
-  String _province = 'Şanlıurfa';
-  late String _district;
+  String? _province;
+  String? _district;
   String _password = '';
   bool _termsAccepted = false;
   bool _privacyAccepted = false;
   bool _obscurePassword = true;
   bool _obscureConfirmation = true;
   bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _district = TurkishLocations.districtsFor(_province).first;
-  }
 
   @override
   void dispose() {
@@ -89,8 +83,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: _emailController.text,
         password: _passwordController.text,
         dateOfBirth: _dateOfBirth,
-        city: _province,
-        district: _district,
+        city: _province!,
+        district: _district!,
         termsAccepted: _termsAccepted,
         privacyAccepted: _privacyAccepted,
       );
@@ -308,6 +302,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'İl',
+                    hintText: 'İl seçin',
                     prefixIcon: Icon(Icons.location_city_outlined),
                   ),
                   items: TurkishLocations.provinceNames
@@ -322,9 +317,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     if (value == null) return;
                     setState(() {
                       _province = value;
-                      _district = TurkishLocations.districtsFor(value).first;
+                      _district = null;
                     });
                   },
+                  validator: (value) =>
+                      value == null ? 'Lütfen bir il seçin' : null,
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
@@ -333,18 +330,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'İlçe',
+                    hintText: 'Önce il, sonra ilçe seçin',
                     prefixIcon: Icon(Icons.map_outlined),
                   ),
-                  items: TurkishLocations.districtsFor(_province)
-                      .map(
-                        (district) => DropdownMenuItem(
-                          value: district,
-                          child: Text(district),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) =>
-                      setState(() => _district = value ?? _district),
+                  items: _province == null
+                      ? const <DropdownMenuItem<String>>[]
+                      : TurkishLocations.districtsFor(_province!)
+                            .map(
+                              (district) => DropdownMenuItem(
+                                value: district,
+                                child: Text(district),
+                              ),
+                            )
+                            .toList(),
+                  onChanged: _province == null
+                      ? null
+                      : (value) => setState(() => _district = value),
+                  validator: (value) =>
+                      value == null ? 'Lütfen bir ilçe seçin' : null,
                 ),
                 const SizedBox(height: 12),
                 CheckboxListTile(

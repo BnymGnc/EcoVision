@@ -56,6 +56,11 @@ public class AppUser implements UserDetails {
 
     private String profilePictureUrl;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "profile_image_preference", length = 20)
+    private ProfileImagePreference profileImagePreference =
+            ProfileImagePreference.AVATAR;
+
     @Column(
             nullable = false,
             length = 100,
@@ -63,7 +68,7 @@ public class AppUser implements UserDetails {
     )
     private String selectedAvatarPath = DEFAULT_AVATAR_PATH;
 
-    private String city = DEFAULT_CITY;
+    private String city;
 
     private String district;
 
@@ -139,6 +144,12 @@ public class AppUser implements UserDetails {
         }
         if (selectedAvatarPath == null || selectedAvatarPath.isBlank()) {
             selectedAvatarPath = DEFAULT_AVATAR_PATH;
+        }
+        if (profileImagePreference == null) {
+            profileImagePreference = profilePictureUrl == null
+                    || profilePictureUrl.isBlank()
+                    ? ProfileImagePreference.AVATAR
+                    : ProfileImagePreference.CUSTOM_PHOTO;
         }
     }
 
@@ -219,6 +230,21 @@ public class AppUser implements UserDetails {
 
     public void setProfilePictureUrl(String profilePictureUrl) {
         this.profilePictureUrl = profilePictureUrl;
+    }
+
+    public ProfileImagePreference getProfileImagePreference() {
+        if (profileImagePreference == null) {
+            return profilePictureUrl == null || profilePictureUrl.isBlank()
+                    ? ProfileImagePreference.AVATAR
+                    : ProfileImagePreference.CUSTOM_PHOTO;
+        }
+        return profileImagePreference;
+    }
+
+    public void setProfileImagePreference(
+            ProfileImagePreference profileImagePreference
+    ) {
+        this.profileImagePreference = profileImagePreference;
     }
 
     public String getSelectedAvatarPath() {

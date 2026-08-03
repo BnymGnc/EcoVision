@@ -44,6 +44,7 @@ class ApiService {
   String? _refreshToken;
   bool _rememberMe = true;
   UserProfile? _currentUser;
+  final Map<int, SocialUser> _confirmedFriends = <int, SocialUser>{};
 
   ApiService({http.Client? client, FlutterSecureStorage? secureStorage})
     : _client = client ?? http.Client(),
@@ -51,6 +52,7 @@ class ApiService {
 
   ValueListenable<int> get pointsListenable => _pointsNotifier;
   UserProfile? get currentUser => _currentUser;
+  SocialUser? confirmedFriend(int userId) => _confirmedFriends[userId];
   bool get isAuthenticated => _accessToken != null;
   String? get authorizationHeader =>
       _accessToken == null ? null : 'Bearer $_accessToken';
@@ -137,6 +139,7 @@ class ApiService {
     _accessToken = null;
     _refreshToken = null;
     _currentUser = null;
+    _confirmedFriends.clear();
     _pointsNotifier.value = 0;
   }
 
@@ -1237,9 +1240,16 @@ class ApiService {
     return json.map(UserDiscovery.fromJson).toList();
   }
 
-  Future<List<SocialUser>> fetchFriends() async => (await _getJsonList(
-    '/api/social/friends',
-  )).map(SocialUser.fromJson).toList();
+  Future<List<SocialUser>> fetchFriends() async {
+    final friends = (await _getJsonList(
+      '/api/social/friends',
+    )).map(SocialUser.fromJson).toList();
+    _confirmedFriends
+      ..clear()
+      ..addEntries(friends.map((friend) => MapEntry(friend.id, friend)));
+    return friends;
+  }
+
   Future<List<FriendRequest>> fetchFriendRequests() async =>
       (await _getJsonList(
         '/api/social/friends/requests',
@@ -1248,8 +1258,11 @@ class ApiService {
       _postJson('/api/social/friends/requests/$id/accept', const {});
   Future<void> rejectFriendRequest(int id) async =>
       _postJson('/api/social/friends/requests/$id/reject', const {});
-  Future<void> removeFriend(int userId) async =>
-      _deleteJson('/api/social/friends/$userId');
+  Future<void> removeFriend(int userId) async {
+    await _deleteJson('/api/social/friends/$userId');
+    _confirmedFriends.remove(userId);
+  }
+
   Future<List<GroupInviteModel>> fetchGroupInvites() async =>
       (await _getJsonList(
         '/api/social/group-invites',

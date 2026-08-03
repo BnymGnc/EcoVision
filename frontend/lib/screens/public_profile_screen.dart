@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/social_models.dart';
 import '../services/api_service.dart';
 import '../widgets/premium_ui.dart';
+import '../widgets/privacy_aware_avatar.dart';
 
 class PublicProfileScreen extends StatefulWidget {
   const PublicProfileScreen({
@@ -202,15 +203,19 @@ class _ProfileBody extends StatelessWidget {
           padding: const EdgeInsets.all(22),
           child: Column(
             children: [
-              CircleAvatar(
+              PrivacyAwareAvatar(
+                userId: profile.id,
+                currentUserId: isOwnProfile ? profile.id : null,
                 radius: 52,
                 backgroundColor: colors.surface,
-                backgroundImage: profile.profilePictureUrl == null
-                    ? null
-                    : NetworkImage(profile.profilePictureUrl!),
-                child: profile.profilePictureUrl == null
-                    ? const Icon(Icons.person_rounded, size: 48)
-                    : null,
+                profilePictureUrl: profile.profilePictureUrl,
+                profileImagePreference: profile.profileImagePreference,
+                selectedAvatarPath: profile.selectedAvatarPath,
+                avatarLevel: profile.avatarLevel,
+                highestAvatarLevel: profile.highestAvatarLevel,
+                adult: profile.adult,
+                profileVisibility: profile.profileVisibility,
+                friendshipStatus: profile.friendshipStatus,
               ),
               const SizedBox(height: 13),
               Text(

@@ -76,7 +76,7 @@ public class AuthService {
         user.setPublicUsername(usernameService.createUnique(request.username(), email));
         user.setPassword(passwordEncoder.encode(request.password()));
         user.setDateOfBirth(request.dateOfBirth());
-        user.setCity(normalizeCity(request.city()));
+        user.setCity(inputSanitizer.plainText(request.city(), "İl", 60));
         user.setDistrict(inputSanitizer.plainText(request.district(), "İlçe", 60));
         user.setTermsAcceptedAt(Instant.now());
         user.setPrivacyAcceptedAt(Instant.now());
@@ -140,7 +140,6 @@ public class AuthService {
                     ));
                     newUser.setProfilePictureUrl(identity.pictureUrl());
                     newUser.setDateOfBirth(today().minusYears(18));
-                    newUser.setCity(AppUser.DEFAULT_CITY);
                     newUser.setTotalPoints(0);
                     newUser.setRole(Role.USER);
                     updateLoginStreak(newUser);
@@ -205,12 +204,6 @@ public class AuthService {
                 || Period.between(dateOfBirth, today).getYears() < 13) {
             throw new IllegalArgumentException("EcoVision için en az 13 yaşında olmalısınız");
         }
-    }
-
-    private String normalizeCity(String city) {
-        return city == null || city.isBlank()
-                ? AppUser.DEFAULT_CITY
-                : inputSanitizer.plainText(city, "İl", 60);
     }
 
     private String defaultText(String value, String fallback) {

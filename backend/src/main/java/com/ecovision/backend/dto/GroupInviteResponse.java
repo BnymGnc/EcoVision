@@ -10,7 +10,7 @@ public record GroupInviteResponse(
     public static GroupInviteResponse from(GroupInvite invite) {
         return new GroupInviteResponse(invite.getId(), invite.getEvent().getId(),
                 invite.getEvent().getTitle(), invite.getEvent().getLocation(),
-                SocialUserResponse.from(invite.getInviter(), null),
+                SocialUserResponse.from(invite.getInviter(), null, "ACCEPTED"),
                 invite.getStatus().name(), invite.getCreatedAt());
     }
 }

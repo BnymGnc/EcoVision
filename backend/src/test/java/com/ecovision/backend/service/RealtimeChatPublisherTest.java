@@ -3,6 +3,7 @@ package com.ecovision.backend.service;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.ecovision.backend.dto.ChatMessageResponse;
+import com.ecovision.backend.model.AppUser;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -36,7 +37,12 @@ class RealtimeChatPublisherTest {
                 "test8",
                 "Test Kullanıcı",
                 1,
+                1,
                 null,
+                "AVATAR",
+                AppUser.DEFAULT_AVATAR_PATH,
+                true,
+                "PUBLIC",
                 "Merhaba",
                 null,
                 null,

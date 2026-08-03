@@ -5,6 +5,7 @@ import '../models/moderation_report.dart';
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
 import '../widgets/premium_ui.dart';
+import '../widgets/privacy_aware_avatar.dart';
 
 class SuperuserDashboardScreen extends StatefulWidget {
   const SuperuserDashboardScreen({required this.apiService, super.key});
@@ -239,13 +240,16 @@ class _SuperuserDashboardScreenState extends State<SuperuserDashboardScreen>
             ...users.map(
               (user) => Card(
                 child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: user.profilePictureUrl == null
-                        ? null
-                        : NetworkImage(user.profilePictureUrl!),
-                    child: user.profilePictureUrl == null
-                        ? Text(user.name.isEmpty ? 'E' : user.name[0])
-                        : null,
+                  leading: PrivacyAwareAvatar(
+                    userId: user.id,
+                    currentUserId: widget.apiService.currentUser?.id,
+                    avatarLevel: user.equippedAvatarLevel,
+                    highestAvatarLevel: user.currentAvatarLevel,
+                    profileImagePreference: user.profileImagePreference,
+                    adult: user.adult,
+                    profileVisibility: user.profileVisibility,
+                    profilePictureUrl: user.profilePictureUrl,
+                    selectedAvatarPath: user.selectedAvatarPath,
                   ),
                   title: Text(user.fullName),
                   subtitle: Text(

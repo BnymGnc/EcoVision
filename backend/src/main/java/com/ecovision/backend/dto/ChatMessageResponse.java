@@ -1,6 +1,7 @@
 package com.ecovision.backend.dto;
 
 import com.ecovision.backend.model.ChatMessage;
+import com.ecovision.backend.model.AvatarTier;
 import java.time.Instant;
 import java.util.List;
 
@@ -13,7 +14,12 @@ public record ChatMessageResponse(
         String senderUsername,
         String senderName,
         Integer senderAvatarLevel,
+        Integer senderHighestAvatarLevel,
         String senderProfilePictureUrl,
+        String senderProfileImagePreference,
+        String senderSelectedAvatarPath,
+        boolean senderAdult,
+        String senderProfileVisibility,
         String message,
         String imageUrl,
         String fileUrl,
@@ -40,7 +46,14 @@ public record ChatMessageResponse(
                 message.getSender().getPublicUsername(),
                 message.getSender().getName() + " " + message.getSender().getSurname(),
                 message.getSender().getEquippedAvatarLevel(),
-                message.getSender().getProfilePictureUrl(),
+                AvatarTier.highestUnlocked(
+                        message.getSender().getLifetimePoints()
+                ).level(),
+                ProfileImageDtoPolicy.publicCustomPhoto(message.getSender()),
+                message.getSender().getProfileImagePreference().name(),
+                message.getSender().getSelectedAvatarPath(),
+                message.getSender().isAdult(),
+                message.getSender().getProfileVisibility().name(),
                 message.getMessage(),
                 message.getImageUrl(),
                 message.getFileUrl(),
@@ -69,7 +82,9 @@ public record ChatMessageResponse(
     ) {
         return new ChatMessageResponse(
                 id, eventId, groupId, groupEventId, senderId, senderUsername,
-                senderName, senderAvatarLevel, senderProfilePictureUrl,
+                senderName, senderAvatarLevel, senderHighestAvatarLevel,
+                senderProfilePictureUrl, senderProfileImagePreference,
+                senderSelectedAvatarPath, senderAdult, senderProfileVisibility,
                 deleted ? "Bu mesaj silindi" : message,
                 deleted ? null : imageUrl,
                 deleted ? null : fileUrl,
