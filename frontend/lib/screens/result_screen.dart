@@ -62,7 +62,6 @@ class _ResultScreenState extends State<ResultScreen> {
       final pins = await widget.apiService.fetchNearestMapPins(
         latitude: location.latitude,
         longitude: location.longitude,
-        radiusKm: 10,
         limit: 1,
         materials: {material},
       );
@@ -75,7 +74,7 @@ class _ResultScreenState extends State<ResultScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              '10 km içinde bu malzemeyi aktif kabul eden DOA makinesi bulunamadı.',
+              'Bu malzemeyi aktif kabul eden bir DOA makinesi bulunamadı.',
             ),
             behavior: SnackBarBehavior.floating,
           ),

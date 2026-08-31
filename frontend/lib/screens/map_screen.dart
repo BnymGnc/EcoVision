@@ -48,6 +48,7 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     if (widget.requestedMaterial != null) {
       _selectedMaterials = {widget.requestedMaterial!};
+      _radiusKm = null;
     }
     _loadMap();
   }
@@ -58,6 +59,7 @@ class _MapScreenState extends State<MapScreen> {
     if (widget.requestedMaterial != null &&
         widget.requestedMaterial != oldWidget.requestedMaterial) {
       _selectedMaterials = {widget.requestedMaterial!};
+      _radiusKm = null;
       _loadMap();
     }
   }

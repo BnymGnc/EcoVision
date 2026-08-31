@@ -21,15 +21,18 @@ public class AdminService {
     private final AppUserRepository userRepository;
     private final MapPinRepository mapPinRepository;
     private final OverpassMapPinService overpassMapPinService;
+    private final RvmCatalogService rvmCatalogService;
 
     public AdminService(
             AppUserRepository userRepository,
             MapPinRepository mapPinRepository,
-            OverpassMapPinService overpassMapPinService
+            OverpassMapPinService overpassMapPinService,
+            RvmCatalogService rvmCatalogService
     ) {
         this.userRepository = userRepository;
         this.mapPinRepository = mapPinRepository;
         this.overpassMapPinService = overpassMapPinService;
+        this.rvmCatalogService = rvmCatalogService;
     }
 
     public List<UserResponse> getUsers() {
@@ -58,15 +61,14 @@ public class AdminService {
         return MapPinResponse.from(mapPinRepository.save(pin));
     }
 
-    @Transactional(readOnly = true)
     public List<MapPinResponse> getMapPins() {
+        rvmCatalogService.ensureCatalogAvailable();
         return mapPinRepository.findAllByOrderByCreatedAtDesc()
                 .stream()
                 .map(MapPinResponse::from)
                 .toList();
     }
 
-    @Transactional(readOnly = true)
     public List<MapPinResponse> getNearestMapPins(
             double latitude,
             double longitude,
@@ -82,7 +84,6 @@ public class AdminService {
         );
     }
 
-    @Transactional(readOnly = true)
     public List<MapPinResponse> getNearestMapPins(
             double latitude,
             double longitude,
@@ -90,6 +91,7 @@ public class AdminService {
             Integer limit,
             Set<String> materials
     ) {
+        rvmCatalogService.ensureCatalogAvailable();
         Set<String> normalizedMaterials = materials.stream()
                 .map(this::normalizeMaterial)
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());

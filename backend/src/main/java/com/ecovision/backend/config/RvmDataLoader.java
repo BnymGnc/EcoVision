@@ -28,7 +28,7 @@ import org.springframework.core.io.ClassPathResource;
 @Configuration(proxyBeanMethods = false)
 public class RvmDataLoader {
     static final String DATA_PATH = "data/rvm-machines-additional.json";
-    static final int EXPECTED_MACHINE_COUNT = 130;
+    public static final int EXPECTED_MACHINE_COUNT = 130;
     private static final Set<String> SUPPORTED_CONTENT_TYPES =
             Set.of("pet", "glass", "aluminum");
     private static final Logger LOGGER =
@@ -94,7 +94,7 @@ public class RvmDataLoader {
         };
     }
 
-    static List<RvmSeed> loadAndValidate(ObjectMapper objectMapper)
+    public static List<RvmSeed> loadAndValidate(ObjectMapper objectMapper)
             throws Exception {
         ClassPathResource resource = new ClassPathResource(DATA_PATH);
         List<RvmSeed> machines;
@@ -164,7 +164,7 @@ public class RvmDataLoader {
         }
     }
 
-    private static void apply(
+    public static void apply(
             RvmSeed machine,
             MapPin pin,
             AppUser owner
@@ -199,15 +199,15 @@ public class RvmDataLoader {
         }
     }
 
-    private static String normalizeName(String name) {
+    public static String normalizeName(String name) {
         return name.trim().toLowerCase(Locale.ROOT);
     }
 
-    private static String coordinateKey(double latitude, double longitude) {
+    public static String coordinateKey(double latitude, double longitude) {
         return Double.toString(latitude) + "|" + Double.toString(longitude);
     }
 
-    record RvmSeed(
+    public record RvmSeed(
             String name,
             double latitude,
             double longitude,
@@ -216,7 +216,7 @@ public class RvmDataLoader {
     ) {
     }
 
-    record RvmBinSeed(
+    public record RvmBinSeed(
             String contentType,
             int level,
             boolean state
