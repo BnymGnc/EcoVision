@@ -94,12 +94,13 @@ public class AdminService {
         rvmCatalogService.ensureCatalogAvailable();
         Set<String> normalizedMaterials = materials.stream()
                 .map(this::normalizeMaterial)
+                .filter(material -> !material.isBlank())
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
         List<MapPinResponse> localPins = mapPinRepository.findAll()
                 .stream()
                 .filter(MapPin::isActive)
                 .filter(pin -> normalizedMaterials.isEmpty()
-                        || normalizedMaterials.stream().allMatch(pin::acceptsMaterial))
+                        || normalizedMaterials.stream().anyMatch(pin::acceptsMaterial))
                 .map(pin -> new PinDistance(pin, haversineKm(
                         latitude,
                         longitude,
@@ -120,12 +121,19 @@ public class AdminService {
     }
 
     private String normalizeMaterial(String material) {
-        return material == null
-                ? ""
-                : material.trim()
-                .toUpperCase(Locale.forLanguageTag("tr-TR"))
-                .replace("GLASS", "CAM")
-                .replace("ALUMINUM", "ALÜMİNYUM");
+        if (material == null) {
+            return "";
+        }
+        String normalized = material.trim().toLowerCase(
+                Locale.forLanguageTag("tr-TR")
+        );
+        return switch (normalized) {
+            case "plastic", "plastik", "pet" -> "pet";
+            case "glass", "cam" -> "glass";
+            case "aluminum", "aluminium", "alüminyum", "aluminyum", "metal" ->
+                    "aluminum";
+            default -> normalized;
+        };
     }
 
     private double haversineKm(double lat1, double lon1, double lat2, double lon2) {
