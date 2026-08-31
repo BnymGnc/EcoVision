@@ -1,0 +1,156 @@
+[
+  {
+    "name": "MİGROS MJET ŞANLIURFA POLDEM",
+    "latitude": 37.169498,
+    "longitude": 38.801101,
+    "address": "Selahaddin Eyyübi Mah. 218 Sokak No:14/1 Şanlıurfa/Haliliye",
+    "binList": [
+      {"contentType": "pet", "level": 0, "state": true},
+      {"contentType": "glass", "level": 0, "state": true},
+      {"contentType": "aluminum", "level": 0, "state": true}
+    ]
+  },
+  {
+    "name": "A101 I678 İSTİKLAL",
+    "latitude": 37.173198,
+    "longitude": 38.814094,
+    "address": "Veysel Karani Mah. 361. Sokak No:1/0 Şanlıurfa/Haliliye",
+    "binList": [
+      {"contentType": "pet", "level": 0, "state": true},
+      {"contentType": "glass", "level": 0, "state": true},
+      {"contentType": "aluminum", "level": 0, "state": true}
+    ]
+  },
+  {
+    "name": "BİM-SELÇUKLU/HALİLİYE",
+    "latitude": 37.170852,
+    "longitude": 38.765319,
+    "address": "Devteyşti Mah. 9629 Sok. No:18/1 Şanlıurfa/Haliliye",
+    "binList": [
+      {"contentType": "pet", "level": 0, "state": true},
+      {"contentType": "glass", "level": 0, "state": true},
+      {"contentType": "aluminum", "level": 0, "state": true}
+    ]
+  },
+  {
+    "name": "MİGROS GÜZELŞEHİR KARAKÖPRÜ",
+    "latitude": 37.201103,
+    "longitude": 38.817825,
+    "address": "Doğukent Mah. Fatih Sultan Mehmet Blv. No:3/A-B Şanlıurfa/Karaköprü",
+    "binList": [
+      {"contentType": "pet", "level": 0, "state": true},
+      {"contentType": "glass", "level": 0, "state": true},
+      {"contentType": "aluminum", "level": 0, "state": true}
+    ]
+  },
+  {
+    "name": "A101 C348 EVREN",
+    "latitude": 37.138927,
+    "longitude": 38.739139,
+    "address": "Batıkent Mah. 4168 Sokak No:2/0 Şanlıurfa/Eyyübiye",
+    "binList": [
+      {"contentType": "pet", "level": 0, "state": true},
+      {"contentType": "glass", "level": 0, "state": true},
+      {"contentType": "aluminum", "level": 0, "state": true}
+    ]
+  },
+  {
+    "name": "BİM-ZİRAAT FAK./EYYÜBİYE",
+    "latitude": 37.119987,
+    "longitude": 38.815246,
+    "address": "Hayati Harrani Mah. Akçakale Cad. No:408/1 Şanlıurfa/Eyyübiye",
+    "binList": [
+      {"contentType": "pet", "level": 0, "state": true},
+      {"contentType": "glass", "level": 0, "state": true},
+      {"contentType": "aluminum", "level": 0, "state": true}
+    ]
+  },
+  {
+    "name": "A101 6526 11 NİSAN",
+    "latitude": 36.977809,
+    "longitude": 38.425064,
+    "address": "Cumhuriyet Mah. 11 Nisan Caddesi No:14/0 Şanlıurfa/Suruç",
+    "binList": [
+      {"contentType": "pet", "level": 0, "state": true},
+      {"contentType": "glass", "level": 0, "state": true},
+      {"contentType": "aluminum", "level": 0, "state": true}
+    ]
+  },
+  {
+    "name": "BİM-ALİGÖR/SURUÇ",
+    "latitude": 36.975120,
+    "longitude": 38.424285,
+    "address": "Aligör Mah. Cumhuriyet Caddesi No:9/1 Şanlıurfa/Suruç",
+    "binList": [
+      {"contentType": "pet", "level": 0, "state": true},
+      {"contentType": "glass", "level": 0, "state": true},
+      {"contentType": "aluminum", "level": 0, "state": true}
+    ]
+  },
+  {
+    "name": "BİM-15 TEMMUZ/AKÇAKALE",
+    "latitude": 36.713348,
+    "longitude": 38.948440,
+    "address": "Fevzi Çakmak Mah. Abdullah Gül Bulvarı No:52/1 Şanlıurfa/Akçakale",
+    "binList": [
+      {"contentType": "pet", "level": 0, "state": true},
+      {"contentType": "glass", "level": 0, "state": true},
+      {"contentType": "aluminum", "level": 0, "state": true}
+    ]
+  },
+  {
+    "name": "A101 C819 FEVZİ ÇAKMAK",
+    "latitude": 36.713348,
+    "longitude": 38.948440,
+    "address": "Fevzi Çakmak Mah. Abdullah Gül Bulvarı No:52/0 Şanlıurfa/Akçakale",
+    "binList": [
+      {"contentType": "pet", "level": 0, "state": true},
+      {"contentType": "glass", "level": 0, "state": true},
+      {"contentType": "aluminum", "level": 0, "state": true}
+    ]
+  },
+  {
+    "name": "A101 J401 KERVAN",
+    "latitude": 36.862697,
+    "longitude": 39.017734,
+    "address": "Cumhuriyet Mah. Necmettin Cevheri Mah. No:1/1 Şanlıurfa/Harran",
+    "binList": [
+      {"contentType": "pet", "level": 0, "state": true},
+      {"contentType": "glass", "level": 0, "state": true},
+      {"contentType": "aluminum", "level": 0, "state": true}
+    ]
+  },
+  {
+    "name": "BİM-BORSA/HARRAN",
+    "latitude": 36.863132,
+    "longitude": 39.024276,
+    "address": "Hz. Yakup Mah. Yatılı Bölge Okulu Cad. No:15/A/1 Şanlıurfa/Harran",
+    "binList": [
+      {"contentType": "pet", "level": 0, "state": true},
+      {"contentType": "glass", "level": 0, "state": true},
+      {"contentType": "aluminum", "level": 0, "state": true}
+    ]
+  },
+  {
+    "name": "A101 - 3903 15 TEMMUZ",
+    "latitude": 36.853008,
+    "longitude": 40.046833,
+    "address": "Cumhuriyet Mah. 1009 Sokak No:-/- Şanlıurfa/Ceylanpınar",
+    "binList": [
+      {"contentType": "pet", "level": 0, "state": true},
+      {"contentType": "glass", "level": 0, "state": true},
+      {"contentType": "aluminum", "level": 0, "state": true}
+    ]
+  },
+  {
+    "name": "BİM-YILDIZ/CEYLANPINAR",
+    "latitude": 36.853057,
+    "longitude": 40.047397,
+    "address": "15 Temmuz Mah. 429.Sok. No:8/1 Şanlıurfa/Ceylanpınar",
+    "binList": [
+      {"contentType": "pet", "level": 0, "state": true},
+      {"contentType": "glass", "level": 0, "state": true},
+      {"contentType": "aluminum", "level": 0, "state": true}
+    ]
+  }
+]

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.ecovision.backend.model.AppUser;
 import com.ecovision.backend.model.MapPin;
 import com.ecovision.backend.model.MapPinType;
+import com.ecovision.backend.config.RvmDataLoader;
 import com.ecovision.backend.repository.AppUserRepository;
 import com.ecovision.backend.repository.MapPinRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -38,7 +39,10 @@ class RvmCatalogServiceTest {
         ArgumentCaptor<List<MapPin>> captor =
                 ArgumentCaptor.forClass(List.class);
         verify(pins).saveAllAndFlush(captor.capture());
-        assertEquals(130, captor.getValue().size());
+        assertEquals(
+                RvmDataLoader.EXPECTED_MACHINE_COUNT,
+                captor.getValue().size()
+        );
     }
 
     @Test
@@ -46,7 +50,10 @@ class RvmCatalogServiceTest {
         AppUserRepository users = mock(AppUserRepository.class);
         MapPinRepository pins = mock(MapPinRepository.class);
         when(pins.countByType(MapPinType.OFFICIAL_RECYCLING_BIN))
-                .thenReturn(130L);
+                .thenReturn((long) RvmDataLoader.EXPECTED_MACHINE_COUNT);
+        when(pins.findFirstByTitleIgnoreCase(
+                "MİGROS MJET ŞANLIURFA POLDEM"
+        )).thenReturn(Optional.of(new MapPin()));
 
         RvmCatalogService service = new RvmCatalogService(
                 users,

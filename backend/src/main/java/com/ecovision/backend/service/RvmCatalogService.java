@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class RvmCatalogService {
+    private static final String SANLIURFA_CATALOG_SENTINEL =
+            "MİGROS MJET ŞANLIURFA POLDEM";
     private static final Logger LOGGER =
             LoggerFactory.getLogger(RvmCatalogService.class);
 
@@ -41,7 +43,10 @@ public class RvmCatalogService {
         }
         if (mapPinRepository.countByType(
                 MapPinType.OFFICIAL_RECYCLING_BIN
-        ) >= RvmDataLoader.EXPECTED_MACHINE_COUNT) {
+        ) >= RvmDataLoader.EXPECTED_MACHINE_COUNT
+                && mapPinRepository.findFirstByTitleIgnoreCase(
+                        SANLIURFA_CATALOG_SENTINEL
+                ).isPresent()) {
             synchronizedForCurrentProcess = true;
             return;
         }

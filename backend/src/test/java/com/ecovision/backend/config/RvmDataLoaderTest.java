@@ -31,13 +31,13 @@ class RvmDataLoaderTest {
         List<RvmDataLoader.RvmSeed> machines =
                 RvmDataLoader.loadAndValidate(objectMapper);
 
-        assertEquals(130, machines.size());
+        assertEquals(RvmDataLoader.EXPECTED_MACHINE_COUNT, machines.size());
         assertEquals(
-                390,
+                RvmDataLoader.EXPECTED_MACHINE_COUNT * 3,
                 machines.stream().mapToInt(machine -> machine.binList().size()).sum()
         );
         assertEquals(
-                130,
+                RvmDataLoader.EXPECTED_MACHINE_COUNT,
                 machines.stream()
                         .map(RvmDataLoader.RvmSeed::name)
                         .collect(java.util.stream.Collectors.toSet())
@@ -50,6 +50,12 @@ class RvmDataLoaderTest {
         assertEquals("pet", first.binList().get(0).contentType());
         assertEquals(100, first.binList().get(0).level());
         assertFalse(first.binList().get(0).state());
+        assertEquals(
+                14,
+                machines.stream()
+                        .filter(machine -> machine.address().contains("Şanlıurfa/"))
+                        .count()
+        );
 
         var levelAboveOneHundred = machines.stream()
                 .flatMap(machine -> machine.binList().stream())
@@ -104,7 +110,7 @@ class RvmDataLoaderTest {
         List<MapPin> saved = new ArrayList<>();
         captor.getValue().forEach(saved::add);
 
-        assertEquals(130, saved.size());
+        assertEquals(RvmDataLoader.EXPECTED_MACHINE_COUNT, saved.size());
         assertSame(nameMatch, saved.get(0));
         assertSame(coordinateMatch, saved.get(1));
         assertEquals(catalog.get(0).latitude(), nameMatch.getLatitude());

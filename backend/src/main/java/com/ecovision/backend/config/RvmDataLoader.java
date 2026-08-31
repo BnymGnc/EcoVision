@@ -28,7 +28,9 @@ import org.springframework.core.io.ClassPathResource;
 @Configuration(proxyBeanMethods = false)
 public class RvmDataLoader {
     static final String DATA_PATH = "data/rvm-machines-additional.json";
-    public static final int EXPECTED_MACHINE_COUNT = 130;
+    static final String SANLIURFA_DATA_PATH =
+            "data/rvm-machines-sanliurfa.json";
+    public static final int EXPECTED_MACHINE_COUNT = 144;
     private static final Set<String> SUPPORTED_CONTENT_TYPES =
             Set.of("pet", "glass", "aluminum");
     private static final Logger LOGGER =
@@ -105,6 +107,18 @@ public class RvmDataLoader {
                     }
             );
         }
+
+        ClassPathResource sanliurfaResource =
+                new ClassPathResource(SANLIURFA_DATA_PATH);
+        List<RvmSeed> mergedMachines = new ArrayList<>(machines);
+        try (InputStream input = sanliurfaResource.getInputStream()) {
+            mergedMachines.addAll(objectMapper.readValue(
+                    input,
+                    new TypeReference<List<RvmSeed>>() {
+                    }
+            ));
+        }
+        machines = mergedMachines;
 
         if (machines.size() != EXPECTED_MACHINE_COUNT) {
             throw new IllegalStateException(
