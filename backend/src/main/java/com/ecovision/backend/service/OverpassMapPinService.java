@@ -3,12 +3,15 @@ package com.ecovision.backend.service;
 import com.ecovision.backend.dto.MapPinResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -20,8 +23,17 @@ public class OverpassMapPinService {
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
 
-    public OverpassMapPinService(ObjectMapper objectMapper) {
+    public OverpassMapPinService(
+            ObjectMapper objectMapper,
+            @Value("${overpass.connect-timeout-ms:10000}") int connectTimeoutMs,
+            @Value("${overpass.read-timeout-ms:60000}") int readTimeoutMs
+    ) {
+        SimpleClientHttpRequestFactory requestFactory =
+                new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
+        requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
         this.restClient = RestClient.builder()
+                .requestFactory(requestFactory)
                 .defaultHeader("User-Agent", "EcoVision-MVP/1.0")
                 .build();
         this.objectMapper = objectMapper;

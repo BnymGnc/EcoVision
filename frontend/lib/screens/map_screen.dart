@@ -63,7 +63,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _loadMap() async {
-    setState(() => _isLoading = true);
+    if (mounted) setState(() => _isLoading = true);
     try {
       final location = await _locationService.getCurrentOrFallbackLocation();
       final pins = await widget.apiService.fetchNearestMapPins(
@@ -75,7 +75,7 @@ class _MapScreenState extends State<MapScreen> {
       if (!mounted) return;
       setState(() {
         _currentLocation = location;
-        _pins = pins;
+        _pins = List<MapPin>.unmodifiable(pins);
         _isLoading = false;
       });
       _moveTo(location);

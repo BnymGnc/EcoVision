@@ -66,8 +66,8 @@ public class GeminiWasteAnalysisService {
             ObjectMapper objectMapper,
             @Value("${GEMINI_API_KEY:}") String apiKey,
             @Value("${gemini.model:gemini-3.6-flash}") String model,
-            @Value("${gemini.connect-timeout-ms:5000}") int connectTimeoutMs,
-            @Value("${gemini.read-timeout-ms:30000}") int readTimeoutMs
+            @Value("${gemini.connect-timeout-ms:10000}") int connectTimeoutMs,
+            @Value("${gemini.read-timeout-ms:60000}") int readTimeoutMs
     ) {
         SimpleClientHttpRequestFactory requestFactory =
                 new SimpleClientHttpRequestFactory();

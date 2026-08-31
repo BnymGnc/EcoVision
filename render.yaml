@@ -19,7 +19,20 @@ services:
         sync: false
       - key: GEMINI_MODEL
         value: gemini-2.5-flash-lite
+      - key: GEMINI_CONNECT_TIMEOUT_MS
+        value: 10000
+      - key: GEMINI_READ_TIMEOUT_MS
+        value: 60000
+      - key: OVERPASS_CONNECT_TIMEOUT_MS
+        value: 10000
+      - key: OVERPASS_READ_TIMEOUT_MS
+        value: 60000
       - key: PUBLIC_BASE_URL
         value: https://ecovision-backend-wdr0.onrender.com
       - key: UPLOAD_DIR
         value: /tmp/uploads
+      # Keep Java heap, direct buffers, and native memory below a small Render
+      # instance's cgroup limit. Render can override this value if its plan
+      # provides a different memory limit.
+      - key: JAVA_TOOL_OPTIONS
+        value: -XX:MaxRAMPercentage=50.0 -XX:MaxMetaspaceSize=128m -XX:MaxDirectMemorySize=64m -XX:+UseSerialGC

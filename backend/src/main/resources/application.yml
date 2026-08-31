@@ -20,7 +20,11 @@ spring:
       max-lifetime: 1200000
   jpa:
     hibernate:
-      ddl-auto: update
+      # Flyway owns production schema changes. "update" remains the default
+      # temporarily for existing development databases and can be overridden
+      # with JPA_HIBERNATE_DDL_AUTO=validate in production after the schema is
+      # fully baselined.
+      ddl-auto: ${JPA_HIBERNATE_DDL_AUTO:update}
     open-in-view: false
     properties:
       hibernate:
@@ -33,6 +37,23 @@ spring:
     multipart:
       max-file-size: 8MB
       max-request-size: 10MB
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    validate-on-migrate: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
 app:
   jwt:
@@ -52,8 +73,12 @@ jwt:
 
 gemini:
   model: ${GEMINI_MODEL:gemini-3.6-flash}
-  connect-timeout-ms: ${GEMINI_CONNECT_TIMEOUT_MS:5000}
-  read-timeout-ms: ${GEMINI_READ_TIMEOUT_MS:30000}
+  connect-timeout-ms: ${GEMINI_CONNECT_TIMEOUT_MS:10000}
+  read-timeout-ms: ${GEMINI_READ_TIMEOUT_MS:60000}
+
+overpass:
+  connect-timeout-ms: ${OVERPASS_CONNECT_TIMEOUT_MS:10000}
+  read-timeout-ms: ${OVERPASS_READ_TIMEOUT_MS:60000}
 
 logging:
   level:

@@ -38,10 +38,10 @@ class MapPin {
 
   factory MapPin.fromJson(Map<String, dynamic> json) {
     return MapPin(
-      id: (json['id'] as num).toInt(),
+      id: _parseInt(json['id'], field: 'id'),
       title: (json['title'] ?? 'Official Recycling Bin').toString(),
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
+      latitude: _parseDouble(json['latitude'], field: 'latitude'),
+      longitude: _parseDouble(json['longitude'], field: 'longitude'),
       type: (json['type'] ?? 'OFFICIAL_RECYCLING_BIN').toString(),
       createdById: (json['createdById'] as num? ?? 0).toInt(),
       createdByName: (json['createdByName'] ?? 'EcoVision Admin').toString(),
@@ -69,5 +69,23 @@ class MapPin {
       return 'aluminum';
     }
     return normalized;
+  }
+
+  static double _parseDouble(Object? value, {required String field}) {
+    if (value is num) return value.toDouble();
+    final parsed = double.tryParse(value?.toString().trim() ?? '');
+    if (parsed == null || !parsed.isFinite) {
+      throw FormatException('Invalid $field value for map pin: $value');
+    }
+    return parsed;
+  }
+
+  static int _parseInt(Object? value, {required String field}) {
+    if (value is num) return value.toInt();
+    final parsed = int.tryParse(value?.toString().trim() ?? '');
+    if (parsed == null) {
+      throw FormatException('Invalid $field value for map pin: $value');
+    }
+    return parsed;
   }
 }
