@@ -1,0 +1,18 @@
+{
+  "backend": "isolated local PostgreSQL test environment",
+  "viewports": [
+    390,
+    768,
+    1440
+  ],
+  "api_checks": [
+    "register",
+    "quests_200",
+    "map_DIM_OR_material",
+    "eligibility",
+    "local_photo_inference"
+  ],
+  "local_photo_endpoint_ms": 3490.5429999998887,
+  "provider": "ONNX_CPU",
+  "browser_errors": []
+}

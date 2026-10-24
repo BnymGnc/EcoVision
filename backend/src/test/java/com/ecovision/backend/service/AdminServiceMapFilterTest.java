@@ -20,7 +20,7 @@ class AdminServiceMapFilterTest {
     void returnsPinsAcceptingAnySelectedMaterial() {
         MapPinRepository pins = mock(MapPinRepository.class);
         AdminService service = service(pins);
-        when(pins.findAll()).thenReturn(List.of(
+        summaries(pins, List.of(
                 pin("PET noktasi", "pet", true),
                 pin("Cam noktasi", "glass", true),
                 pin("Aluminyum noktasi", "aluminum", true),
@@ -42,7 +42,7 @@ class AdminServiceMapFilterTest {
     void mapsMetalFilterToActiveAluminumBins() {
         MapPinRepository pins = mock(MapPinRepository.class);
         AdminService service = service(pins);
-        when(pins.findAll()).thenReturn(List.of(
+        summaries(pins, List.of(
                 pin("Aluminyum noktasi", "aluminum", true),
                 pin("PET noktasi", "pet", true)
         ));
@@ -75,8 +75,27 @@ class AdminServiceMapFilterTest {
                 mock(AppUserRepository.class),
                 pins,
                 new OverpassMapPinService(objectMapper, 1000, 1000),
-                catalog
+                catalog,
+                new DoaMapService(pins, objectMapper)
         );
+    }
+
+    private void summaries(MapPinRepository repository, List<MapPin> pins) {
+        var summaries = pins.stream().map(pin -> {
+            var value = mock(MapPinRepository.PointSummary.class);
+            when(value.getTitle()).thenReturn(pin.getTitle());
+            when(value.getLatitude()).thenReturn(pin.getLatitude());
+            when(value.getLongitude()).thenReturn(pin.getLongitude());
+            when(value.getPointType()).thenReturn("DIM");
+            when(value.getId()).thenReturn((long)pins.indexOf(pin) + 1);
+            var bin = pin.getBinList().get(0);
+            when(value.getRawBinsJson()).thenReturn("[{\"contentType\":\"" + bin.getContentType()
+                    + "\",\"level\":10,\"state\":" + bin.isState() + "}]");
+            return value;
+        }).toList();
+        when(repository.findPointSummaries(org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble())).thenReturn(summaries);
     }
 
     private MapPin pin(String title, String material, boolean accepting) {

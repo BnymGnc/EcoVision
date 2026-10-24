@@ -1,0 +1,118 @@
+{
+  "model_version": "ecovision-mobilenetv2-trashnet-20261024-v2",
+  "data_count": 2524,
+  "train_count": 1754,
+  "validation_count": 375,
+  "test_count": 395,
+  "macro_f1": 0.7881190832969058,
+  "majority_baseline_macro_f1": 0.062414266117969824,
+  "classification_report": {
+    "cardboard": {
+      "precision": 0.9411764705882353,
+      "recall": 0.8888888888888888,
+      "f1-score": 0.9142857142857143,
+      "support": 72.0
+    },
+    "glass": {
+      "precision": 0.8333333333333334,
+      "recall": 0.7746478873239436,
+      "f1-score": 0.8029197080291971,
+      "support": 71.0
+    },
+    "metal": {
+      "precision": 0.8157894736842105,
+      "recall": 0.8611111111111112,
+      "f1-score": 0.8378378378378378,
+      "support": 72.0
+    },
+    "paper": {
+      "precision": 0.8350515463917526,
+      "recall": 0.8901098901098901,
+      "f1-score": 0.8617021276595744,
+      "support": 91.0
+    },
+    "plastic": {
+      "precision": 0.75,
+      "recall": 0.7941176470588235,
+      "f1-score": 0.7714285714285715,
+      "support": 68.0
+    },
+    "trash": {
+      "precision": 0.625,
+      "recall": 0.47619047619047616,
+      "f1-score": 0.5405405405405406,
+      "support": 21.0
+    },
+    "accuracy": 0.8253164556962025,
+    "macro avg": {
+      "precision": 0.8000584706662552,
+      "recall": 0.7808443167805222,
+      "f1-score": 0.7881190832969058,
+      "support": 395.0
+    },
+    "weighted avg": {
+      "precision": 0.8247668490529931,
+      "recall": 0.8253164556962025,
+      "f1-score": 0.8237559059455296,
+      "support": 395.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      64,
+      0,
+      0,
+      6,
+      1,
+      1
+    ],
+    [
+      0,
+      55,
+      7,
+      0,
+      8,
+      1
+    ],
+    [
+      0,
+      1,
+      62,
+      3,
+      4,
+      2
+    ],
+    [
+      4,
+      0,
+      3,
+      81,
+      2,
+      1
+    ],
+    [
+      0,
+      9,
+      2,
+      2,
+      54,
+      1
+    ],
+    [
+      0,
+      1,
+      2,
+      5,
+      3,
+      10
+    ]
+  ],
+  "rejection_threshold": 0.65,
+  "rejection_rate": 0.2050632911392405,
+  "accepted_accuracy": 0.9140127388535032,
+  "ood_multiple_object_low_light_evaluation": "not available; no field accuracy claim",
+  "object_identity_leakage": "exact duplicates removed; source dataset has no object IDs, so near-duplicate object leakage cannot be excluded",
+  "artifact_sha256": "007e3177b6a014607267e975364e45dab9d4aa87b3195870cf24399c7ca377db",
+  "backbone_sha256": "c0c3f76d93fa3fd6580652a45618618a220fced18babf65774ed169de0432ad5",
+  "local_python_cpu_p95_ms": 9.270490000290009
+}

@@ -413,6 +413,14 @@ class _QuestCard extends StatelessWidget {
               quest.description,
               style: TextStyle(color: colors.onSurfaceVariant, height: 1.4),
             ),
+            if (quest.details.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                '${quest.details['verification'] == 'USER_DECLARED' ? 'Kullanıcı beyanı' : 'Uygulama içi etkinlik'}'
+                ' · Yaklaşık ${quest.details['estimatedMinutes'] ?? 10} dk',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
             const SizedBox(height: 15),
             ClipRRect(
               borderRadius: BorderRadius.circular(8),

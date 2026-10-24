@@ -58,14 +58,23 @@ public class ScanService {
         return ScanAnalysisResponse.from(analyzeAndPersist(user.getId(), request.detectedClass()));
     }
 
+    @Transactional
+    public ScanAnalysisResponse analyzeAndSave(AppUser user, ScanAnalysisRequest request, boolean acceptedPrediction) {
+        return ScanAnalysisResponse.from(analyzeAndPersist(user.getId(), request.detectedClass(), acceptedPrediction));
+    }
+
     private ScanHistory analyzeAndPersist(Long userId, String detectedClass) {
+        return analyzeAndPersist(userId, detectedClass, true);
+    }
+
+    private ScanHistory analyzeAndPersist(Long userId, String detectedClass, boolean acceptedPrediction) {
         AppUser user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Kullanıcı bulunamadı"));
         Instant now = Instant.now();
 
         String prediction = detectedClass == null ? "" : detectedClass.trim();
         WasteMaterial material = WasteMaterial.detect(prediction);
-        int points = material.points();
+        int points = acceptedPrediction ? material.points() : 0;
         AvatarTier previousTier = AvatarTier.highestUnlocked(user.getLifetimePoints());
 
         ScanHistory scan = new ScanHistory();
@@ -79,16 +88,16 @@ public class ScanService {
 
         user.setTotalPoints(user.getTotalPoints() + points);
         user.setLifetimePoints(user.getLifetimePoints() + points);
-        updateStreak(user);
+        if (points > 0) updateStreak(user);
         userRepository.save(user);
         ScanHistory saved = scanHistoryRepository.save(scan);
         scanHistoryRepository.flush();
-        badgeService.evaluateAfterScan(user);
+        if (points > 0) badgeService.evaluateAfterScan(user);
         AvatarTier currentTier = AvatarTier.highestUnlocked(user.getLifetimePoints());
         if (currentTier.level() > previousTier.level()) {
             groupActivityMessages.publishLevel(user, currentTier);
         }
-        publishQuestEvents(user, material);
+        if (points > 0) publishQuestEvents(user, material);
         return saved;
     }
 

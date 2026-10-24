@@ -33,6 +33,8 @@ public class DatabaseCompatibilityInitializer implements CommandLineRunner {
             return;
         }
 
+        normalizeProfileVisibilityColumn();
+
         Boolean tableExists = jdbcTemplate.queryForObject(
                 "select to_regclass('public.group_members') is not null",
                 Boolean.class
@@ -47,6 +49,85 @@ public class DatabaseCompatibilityInitializer implements CommandLineRunner {
         );
         if (Boolean.TRUE.equals(chatTableExists)) {
             updateChatMessageTypeConstraint();
+        }
+    }
+
+    /**
+     * Keeps fresh Hibernate-created schemas aligned with the versioned Flyway
+     * migration. This deliberately uses PostgreSQL's separate TYPE and
+     * DEFAULT statements; Hibernate must never combine them for this column.
+     */
+    private void normalizeProfileVisibilityColumn() {
+        Boolean columnExists = jdbcTemplate.queryForObject(
+                """
+                select exists (
+                    select 1
+                    from information_schema.columns
+                    where table_schema = 'public'
+                      and table_name = 'users'
+                      and column_name = 'profile_visibility'
+                )
+                """,
+                Boolean.class
+        );
+        if (!Boolean.TRUE.equals(columnExists)) {
+            return;
+        }
+
+        ProfileVisibilityColumn column = jdbcTemplate.queryForObject(
+                """
+                select data_type, character_maximum_length, column_default, is_nullable
+                from information_schema.columns
+                where table_schema = 'public'
+                  and table_name = 'users'
+                  and column_name = 'profile_visibility'
+                """,
+                (resultSet, rowNumber) -> new ProfileVisibilityColumn(
+                        resultSet.getString("data_type"),
+                        resultSet.getObject("character_maximum_length", Integer.class),
+                        resultSet.getString("column_default"),
+                        resultSet.getString("is_nullable")
+                )
+        );
+        if (column == null) {
+            return;
+        }
+
+        boolean typeNeedsUpdate = !"character varying".equals(column.dataType())
+                || !Integer.valueOf(20).equals(column.maximumLength());
+        boolean hasPublicDefault = column.defaultValue() != null
+                && column.defaultValue().toUpperCase().contains("'PUBLIC'");
+        boolean needsNotNull = "YES".equalsIgnoreCase(column.nullable());
+        if (!typeNeedsUpdate && hasPublicDefault && !needsNotNull) {
+            return;
+        }
+
+        // Existing values are intentionally preserved. Only legacy null/blank
+        // rows are normalized before enforcing the non-null contract.
+        jdbcTemplate.execute(
+                "update public.users set profile_visibility = 'PUBLIC' "
+                        + "where profile_visibility is null "
+                        + "or btrim(profile_visibility::text) = ''"
+        );
+        if (typeNeedsUpdate) {
+            jdbcTemplate.execute(
+                    "alter table public.users alter column profile_visibility drop default"
+            );
+            jdbcTemplate.execute(
+                    "alter table public.users alter column profile_visibility "
+                            + "type varchar(20) using profile_visibility::text"
+            );
+        }
+        if (!hasPublicDefault || typeNeedsUpdate) {
+            jdbcTemplate.execute(
+                    "alter table public.users alter column profile_visibility "
+                            + "set default 'PUBLIC'"
+            );
+        }
+        if (needsNotNull) {
+            jdbcTemplate.execute(
+                    "alter table public.users alter column profile_visibility set not null"
+            );
         }
     }
 
@@ -154,5 +235,13 @@ public class DatabaseCompatibilityInitializer implements CommandLineRunner {
     }
 
     private record RoleConstraint(String name, String definition) {
+    }
+
+    private record ProfileVisibilityColumn(
+            String dataType,
+            Integer maximumLength,
+            String defaultValue,
+            String nullable
+    ) {
     }
 }

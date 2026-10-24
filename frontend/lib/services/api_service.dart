@@ -154,6 +154,29 @@ class ApiService {
     return _applyUser(json);
   }
 
+  Future<Map<String, dynamic>> fetchLoginStreak() =>
+      _getJson('/api/users/login-streak');
+
+  Future<Map<String, dynamic>> assessCarbon(Map<String, dynamic> inputs) async {
+    final result = await _postJson('/api/carbon/assessments', inputs);
+    if (result['gamification'] is Map<String, dynamic>) {
+      _applyGamificationState(result['gamification'] as Map<String, dynamic>);
+    }
+    return result;
+  }
+
+  Future<Map<String, dynamic>> fetchCarbonSummary() =>
+      _getJson('/api/carbon/summary');
+  Future<List<Map<String, dynamic>>> fetchWasteActions() =>
+      _getJsonList('/api/carbon/actions');
+  Future<Map<String, dynamic>> saveWasteAction(Map<String, dynamic> action) =>
+      _postJson('/api/carbon/actions', action);
+  Future<Map<String, dynamic>> updateWasteAction(int id, double massKg) =>
+      _putJson('/api/carbon/actions/$id', {'massKg': massKg});
+  Future<void> deleteWasteAction(int id) async {
+    await _deleteJson('/api/carbon/actions/$id');
+  }
+
   Future<UserProfile> updateProfile({
     required String name,
     required String surname,
@@ -890,6 +913,13 @@ class ApiService {
     double? radiusKm,
     int? limit,
     Set<String> materials = const {},
+    Set<String> pointTypes = const {'DIM'},
+    bool openOnly = false,
+    double? south,
+    double? north,
+    double? west,
+    double? east,
+    Future<void>? abortTrigger,
   }) async {
     final query = <String, String>{
       'lat': latitude.toString(),
@@ -897,9 +927,22 @@ class ApiService {
       if (radiusKm != null) 'radiusKm': radiusKm.toString(),
       if (limit != null) 'limit': limit.toString(),
       if (materials.isNotEmpty) 'materials': materials.join(','),
+      'pointTypes': pointTypes.join(','),
+      'openOnly': openOnly.toString(),
+      if (south != null) 'south': south.toString(),
+      if (north != null) 'north': north.toString(),
+      if (west != null) 'west': west.toString(),
+      if (east != null) 'east': east.toString(),
     };
-    final uri = _uri('/api/map-pins/nearest').replace(queryParameters: query);
-    final response = await _client.get(uri, headers: _authHeaders());
+    final uri = _uri('/api/map-pins/nearby').replace(queryParameters: query);
+    final response = await _authorizedRequest((headers) async {
+      final request = http.AbortableRequest(
+        'GET',
+        uri,
+        abortTrigger: abortTrigger,
+      )..headers.addAll(headers);
+      return http.Response.fromStream(await _client.send(request));
+    }).timeout(const Duration(seconds: 30));
     final decoded = _decodeAnyResponse(response);
     if (decoded is List) {
       return decoded
@@ -909,6 +952,13 @@ class ApiService {
     }
     throw ApiException('Expected a list response from nearest pins.');
   }
+
+  Future<Map<String, dynamic>> fetchMapPinDetail(int id) =>
+      _getJson('/api/map-pins/$id');
+
+  Future<Map<String, dynamic>> checkPackagingEligibility(
+    Map<String, dynamic> answers,
+  ) => _postJson('/api/scans/eligibility', answers);
 
   Future<MapPin> addOfficialMapPin({
     required String title,

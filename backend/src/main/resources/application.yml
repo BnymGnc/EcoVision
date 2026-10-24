@@ -1,6 +1,10 @@
 server:
   port: ${PORT:8080}
   address: 0.0.0.0
+  tomcat:
+    threads:
+      max: ${HTTP_MAX_THREADS:30}
+      min-spare: 4
   error:
     include-message: never
     include-stacktrace: never
@@ -72,9 +76,22 @@ jwt:
   secret: ${JWT_SECRET}
 
 gemini:
+  api-key: ${GEMINI_API_KEY:}
   model: ${GEMINI_MODEL:gemini-3.6-flash}
   connect-timeout-ms: ${GEMINI_CONNECT_TIMEOUT_MS:10000}
   read-timeout-ms: ${GEMINI_READ_TIMEOUT_MS:60000}
+
+ai:
+  provider: ${AI_PROVIDER:gemini}
+  gemini-on-uncertain: ${GEMINI_ON_UNCERTAIN_ENABLED:false}
+
+ml:
+  enabled: ${ML_ENABLED:false}
+  model-path: ${ML_MODEL_PATH:ml/waste-mobilenet-v1.onnx}
+
+rvm:
+  import:
+    dry-run: ${RVM_IMPORT_DRY_RUN:false}
 
 overpass:
   connect-timeout-ms: ${OVERPASS_CONNECT_TIMEOUT_MS:10000}

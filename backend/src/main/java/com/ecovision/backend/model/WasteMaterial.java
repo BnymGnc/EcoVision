@@ -11,7 +11,7 @@ public enum WasteMaterial {
     ELECTRONICS("Elektronik Atık", 20, true, "20-1000 yıl", "geri kazanılmış metaller ve elektronik parçalar", "electronic", "electronics", "elektronik", "e-waste", "battery", "pil"),
     ORGANIC("Organik Atık", 5, false, "2-8 hafta", "kompost veya biyogaz", "organic", "organik", "bio_waste", "food", "gıda"),
     OIL("Bitkisel Atık Yağ", 12, false, "Özel işlem gerekir", "endüstriyel geri kazanım veya biyodizel", "oil", "yağ"),
-    MEDICAL("Tıbbi Atık", 20, false, "Özel işlem gerekir", "lisanslı tıbbi atık bertarafı", "hospital_waste", "medical", "tıbbi"),
+    MEDICAL("Tıbbi Atık", 0, false, "Özel işlem gerekir", "lisanslı tıbbi atık bertarafı", "hospital_waste", "medical", "tıbbi"),
     GENERAL("Karışık Atık", 5, false, "Atık türüne göre değişir", "belediye atık ayrıştırma tesisi", "open_litter", "dustbin_waste"),
     UNKNOWN("Bilinmeyen Atık", 0, false, "Bilinmiyor", "uzman atık işleme tesisi");
 

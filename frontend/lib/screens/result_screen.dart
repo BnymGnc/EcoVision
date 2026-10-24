@@ -30,15 +30,141 @@ class _ResultScreenState extends State<ResultScreen> {
   final LocationService _locationService = LocationService();
   bool _checkingBins = true;
   bool _hasCompatibleBins = false;
+  String? _confirmedMaterial;
+  bool? _beverage;
+  bool? _doaMark;
+  bool? _emptyIntact;
+  double? _volume;
+  String _eligibility = 'UNKNOWN';
+  bool _savingAction = false;
+  late final String _actionKey =
+      'scan_${widget.result.scannedAt.toUtc().microsecondsSinceEpoch}';
+
+  Future<void> _recordAction() async {
+    final amount = TextEditingController();
+    String material = _machineMaterial ?? 'other';
+    String route = 'RECYCLING';
+    final answers = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) => AlertDialog(
+          title: const Text('Gerçekleştirdiğin eylemi kaydet'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Yalnız gerçekleştirdiğin ayrıştırmayı beyan et. Tarama veya yol tarifi iade teyidi değildir.',
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: material,
+                  decoration: const InputDecoration(labelText: 'Malzeme'),
+                  items: const [
+                    DropdownMenuItem(value: 'pet', child: Text('PET')),
+                    DropdownMenuItem(value: 'glass', child: Text('Cam')),
+                    DropdownMenuItem(
+                      value: 'aluminum',
+                      child: Text('Alüminyum kutu'),
+                    ),
+                    DropdownMenuItem(value: 'other', child: Text('Diğer')),
+                  ],
+                  onChanged: (value) =>
+                      update(() => material = value ?? 'other'),
+                ),
+                TextField(
+                  controller: amount,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Tarttığın kütle (gram)',
+                  ),
+                ),
+                DropdownButtonFormField<String>(
+                  initialValue: route,
+                  decoration: const InputDecoration(
+                    labelText: 'Uyguladığın yönetim yolu',
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'RECYCLING',
+                      child: Text('Geri dönüşüme teslim'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'LANDFILL',
+                      child: Text('Karışık atık'),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      update(() => route = value ?? 'RECYCLING'),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Karşılaştırma: düzenli depolama. Tahmini fark ABD WARM v13 modeline dayanır; Türkiye ölçümü değildir.',
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final grams = double.tryParse(amount.text.replaceAll(',', '.'));
+                if (grams == null || !grams.isFinite || grams <= 0) return;
+                Navigator.pop(context, <String, dynamic>{
+                  'actionKey': _actionKey,
+                  'material': material,
+                  'massKg': grams / 1000,
+                  'baseline': 'LANDFILL',
+                  'selected': route,
+                });
+              },
+              child: const Text('Beyanımı Kaydet'),
+            ),
+          ],
+        ),
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    amount.dispose();
+    if (answers == null || !mounted) return;
+    setState(() => _savingAction = true);
+    try {
+      final result = await widget.apiService.saveWasteAction(answers);
+      if (!mounted) return;
+      final difference = result['estimatedDifferenceKg'] as num?;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            difference == null
+                ? 'Eylemin kaydedildi. Bu malzeme için etki hesaplanamadı.'
+                : 'Beyanın kaydedildi. Tahmini fark: ${difference.toStringAsFixed(3)} kg CO₂e.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$error')));
+    } finally {
+      if (mounted) setState(() => _savingAction = false);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _showCelebration());
-    _checkCompatibleBins();
+    _checkingBins = false;
   }
 
   String? get _machineMaterial {
+    if (_confirmedMaterial != null) return _confirmedMaterial;
     for (final detection in widget.result.detections) {
       if (!detection.machineEligible) continue;
       return switch (detection.type.toUpperCase()) {
@@ -49,6 +175,34 @@ class _ResultScreenState extends State<ResultScreen> {
       };
     }
     return null;
+  }
+
+  Future<void> _confirmPackaging() async {
+    setState(() => _checkingBins = true);
+    try {
+      final result = await widget.apiService.checkPackagingEligibility({
+        'material': _machineMaterial,
+        'singleUseNonDairyBeverage': _beverage,
+        'doaMark': _doaMark,
+        'emptyAndIntact': _emptyIntact,
+        'volumeLitres': _volume,
+      });
+      if (!mounted) return;
+      setState(() => _eligibility = result['eligibilityStatus'].toString());
+      if (_eligibility == 'ELIGIBLE')
+        await _checkCompatibleBins();
+      else if (mounted)
+        setState(() {
+          _checkingBins = false;
+          _hasCompatibleBins = false;
+        });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _checkingBins = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$error')));
+    }
   }
 
   Future<void> _checkCompatibleBins() async {
@@ -68,13 +222,13 @@ class _ResultScreenState extends State<ResultScreen> {
       if (!mounted) return;
       setState(() {
         _checkingBins = false;
-        _hasCompatibleBins = pins.any((pin) => pin.accepts(material));
+        _hasCompatibleBins = pins.any((pin) => pin.supports(material));
       });
       if (!_hasCompatibleBins) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Bu malzemeyi aktif kabul eden bir DOA makinesi bulunamadı.',
+              'Bu malzemeyi destekleyen bir DOA makinesi bulunamadı.',
             ),
             behavior: SnackBarBehavior.floating,
           ),
@@ -86,7 +240,7 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   Future<void> _showCelebration() async {
-    if (!mounted) {
+    if (!mounted || widget.result.pointsAwarded <= 0) {
       return;
     }
 
@@ -123,7 +277,7 @@ class _ResultScreenState extends State<ResultScreen> {
               Text(
                 widget.result.pointsAwarded > 0
                     ? 'Harika tarama! Rozet ilerlemen yükseldi.'
-                    : 'Tanınmayan malzeme için puan verilmedi.',
+                    : 'Bu tarama için puan verilmedi. Sonucu kontrol edip yeniden deneyebilirsin.',
                 textAlign: TextAlign.center,
               ),
             ],
@@ -155,6 +309,113 @@ class _ResultScreenState extends State<ResultScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            if (widget.result.inferenceMode == 'CACHE')
+              const ListTile(
+                leading: Icon(Icons.history),
+                title: Text('Bu görselin son analizinden alındı'),
+              ),
+            if (widget.result.needsConfirmation)
+              const ListTile(
+                leading: Icon(Icons.help_outline),
+                title: Text('Sonucu kontrol et'),
+                subtitle: Text(
+                  'Birden fazla nesne veya belirsiz tahmin var. Nesneleri ayrı ayrı ve iyi ışıkta yeniden tarayabilirsin.',
+                ),
+              ),
+            if (widget.result.detections.any((d) => d.machineEligible))
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Ambalajı kontrol et',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const Text(
+                        'Malzeme tahmini tek başına depozito uygunluğu göstermez.',
+                      ),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          for (final item in const [
+                            ('pet', 'PET şişe'),
+                            ('glass', 'Cam şişe'),
+                            ('aluminum', 'Alüminyum kutu'),
+                          ])
+                            ChoiceChip(
+                              label: Text(item.$2),
+                              selected: _machineMaterial == item.$1,
+                              onSelected: (_) => setState(() {
+                                _confirmedMaterial = item.$1;
+                                _hasCompatibleBins = false;
+                              }),
+                            ),
+                        ],
+                      ),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        tristate: true,
+                        value: _beverage,
+                        title: const Text(
+                          'Tek kullanımlık, süt ürünü olmayan içecek ambalajı',
+                        ),
+                        onChanged: (v) => setState(() {
+                          _beverage = v;
+                          _hasCompatibleBins = false;
+                        }),
+                      ),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        tristate: true,
+                        value: _doaMark,
+                        title: const Text('Üzerinde DOA işareti var'),
+                        onChanged: (v) => setState(() {
+                          _doaMark = v;
+                          _hasCompatibleBins = false;
+                        }),
+                      ),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        tristate: true,
+                        value: _emptyIntact,
+                        title: const Text(
+                          'Boş, deforme olmamış ve bütünlüğü korunmuş',
+                        ),
+                        onChanged: (v) => setState(() {
+                          _emptyIntact = v;
+                          _hasCompatibleBins = false;
+                        }),
+                      ),
+                      TextFormField(
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Ambalaj hacmi (litre)',
+                        ),
+                        onChanged: (v) => setState(() {
+                          _volume = double.tryParse(v.replaceAll(',', '.'));
+                          _hasCompatibleBins = false;
+                        }),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        onPressed: _checkingBins ? null : _confirmPackaging,
+                        child: const Text('Uygunluğu kontrol et'),
+                      ),
+                      Text(switch (_eligibility) {
+                        'ELIGIBLE' =>
+                          'Beyanına göre uygun. Son kabulü iade noktası belirler.',
+                        'INELIGIBLE' =>
+                          'Bu ambalaj DOA koşullarını karşılamıyor.',
+                        _ => 'İşaret ve ambalaj bilgilerini tamamla.',
+                      }),
+                    ],
+                  ),
+                ),
+              ),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -229,7 +490,7 @@ class _ResultScreenState extends State<ResultScreen> {
                           ),
                           title: Text(detection.material),
                           subtitle: Text(
-                            'Güven: %${(detection.confidence * 100).round()}',
+                            'Model skoru: %${(detection.confidence * 100).round()} · doğruluk garantisi değildir',
                           ),
                           trailing: Text(
                             detection.eligibilityLabel,
@@ -272,6 +533,16 @@ class _ResultScreenState extends State<ResultScreen> {
                 label: const Text('Uygun DOA Makinesini Haritada Göster'),
               ),
             if (_checkingBins || _hasCompatibleBins) const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _savingAction ? null : _recordAction,
+              icon: const Icon(Icons.task_alt),
+              label: Text(
+                _savingAction
+                    ? 'Kaydediliyor...'
+                    : 'Gerçekleştirdiğim Eylemi Kaydet',
+              ),
+            ),
+            const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: EcoShareService.shareEcoUpgrade,
               icon: const Icon(Icons.share_outlined),

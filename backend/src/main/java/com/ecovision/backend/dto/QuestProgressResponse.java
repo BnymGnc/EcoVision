@@ -16,6 +16,7 @@ public record QuestProgressResponse(
         boolean completed,
         boolean claimed,
         boolean checkInAvailable,
-        Instant expiresAt
+        Instant expiresAt,
+        java.util.Map<String, Object> details
 ) {
 }

@@ -5,7 +5,9 @@ import 'package:latlong2/latlong.dart';
 import '../core/constants.dart';
 
 class LocationService {
+  bool lastLookupUsedFallback = true;
   Future<LatLng> getCurrentOrFallbackLocation() async {
+    lastLookupUsedFallback = true;
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
@@ -29,6 +31,7 @@ class LocationService {
         ),
       );
 
+      lastLookupUsedFallback = false;
       return LatLng(position.latitude, position.longitude);
     } catch (_) {
       return AppConstants.sanliurfaFallback;

@@ -55,7 +55,7 @@ public class ChatMessage {
     @JoinColumn(name = "reply_to_message_id")
     private ChatMessage replyTo;
 
-    @Column(nullable = false, columnDefinition = "boolean default false")
+    @Column(nullable = false)
     private boolean deleted;
 
     private Instant deletedAt;
@@ -64,7 +64,7 @@ public class ChatMessage {
     @Column(
             name = "message_type",
             nullable = false,
-            columnDefinition = "varchar(30) default 'USER'"
+            length = 30
     )
     private ChatMessageType messageType = ChatMessageType.USER;
 

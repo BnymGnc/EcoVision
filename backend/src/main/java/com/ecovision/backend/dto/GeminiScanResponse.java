@@ -7,6 +7,10 @@ public record GeminiScanResponse(
         List<DetectedWasteResponse> detections,
         ScanAnalysisResponse scan,
         @JsonProperty("updated_user_points")
-        int updatedUserPoints
+        int updatedUserPoints,
+        String provider,
+        String modelVersion,
+        String inferenceMode,
+        boolean needsConfirmation
 ) {
 }

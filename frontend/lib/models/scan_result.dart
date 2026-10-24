@@ -7,6 +7,10 @@ class ScanResult {
     required this.scannedAt,
     this.pointsAwarded = 0,
     this.detections = const [],
+    this.provider = '',
+    this.modelVersion = '',
+    this.inferenceMode = '',
+    this.needsConfirmation = false,
   });
 
   final String material;
@@ -16,6 +20,10 @@ class ScanResult {
   final DateTime scannedAt;
   final int pointsAwarded;
   final List<WasteDetection> detections;
+  final String provider;
+  final String modelVersion;
+  final String inferenceMode;
+  final bool needsConfirmation;
 
   factory ScanResult.fromGeminiJson(Map<String, dynamic> json) {
     final scan = json['scan'] is Map<String, dynamic>
@@ -34,6 +42,10 @@ class ScanResult {
       scannedAt: parsed.scannedAt,
       pointsAwarded: parsed.pointsAwarded,
       detections: detections,
+      provider: (json['provider'] ?? '').toString(),
+      modelVersion: (json['modelVersion'] ?? '').toString(),
+      inferenceMode: (json['inferenceMode'] ?? '').toString(),
+      needsConfirmation: json['needsConfirmation'] == true,
     );
   }
 

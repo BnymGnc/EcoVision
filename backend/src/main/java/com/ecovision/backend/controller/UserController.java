@@ -17,15 +17,23 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
+    private final com.ecovision.backend.service.LoginActivityService loginActivity;
     private final ProfileService profileService;
     private final CurrentUserService currentUserService;
 
     public UserController(
             ProfileService profileService,
+            com.ecovision.backend.service.LoginActivityService loginActivity,
             CurrentUserService currentUserService
     ) {
         this.profileService = profileService;
+        this.loginActivity = loginActivity;
         this.currentUserService = currentUserService;
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/login-streak")
+    public com.ecovision.backend.service.LoginActivityService.Status loginStreak() {
+        return loginActivity.record(currentUserService.currentUser().getId());
     }
 
     @PutMapping("/profile")

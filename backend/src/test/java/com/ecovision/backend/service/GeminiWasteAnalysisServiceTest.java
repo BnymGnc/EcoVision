@@ -39,10 +39,7 @@ class GeminiWasteAnalysisServiceTest {
     void usesCurrentVisionModelByDefault() {
         assertEquals(
                 List.of(
-                        "gemini-3.6-flash",
-                        "gemini-3.5-flash",
-                        "gemini-2.5-flash",
-                        "gemini-2.5-flash-lite"
+                        "gemini-3.6-flash"
                 ),
                 GeminiWasteAnalysisService.resolveModelCandidates("")
         );
@@ -52,11 +49,7 @@ class GeminiWasteAnalysisServiceTest {
     void normalizesConfiguredModelAndKeepsStableFallbacks() {
         assertEquals(
                 List.of(
-                        "legacy-render-model",
-                        "gemini-3.6-flash",
-                        "gemini-3.5-flash",
-                        "gemini-2.5-flash",
-                        "gemini-2.5-flash-lite"
+                        "legacy-render-model"
                 ),
                 GeminiWasteAnalysisService.resolveModelCandidates(
                         " models/legacy-render-model "

@@ -1,146 +1,73 @@
 package com.ecovision.backend.config;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import com.ecovision.backend.model.AppUser;
 import com.ecovision.backend.model.MapPin;
 import com.ecovision.backend.repository.AppUserRepository;
 import com.ecovision.backend.repository.MapPinRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.ArrayList;
-import java.util.HashSet;
+import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class RvmDataLoaderTest {
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
-    @Test
-    void parsesAllMachinesAndPreservesEveryBinValue() throws Exception {
-        List<RvmDataLoader.RvmSeed> machines =
-                RvmDataLoader.loadAndValidate(objectMapper);
-
-        assertEquals(RvmDataLoader.EXPECTED_MACHINE_COUNT, machines.size());
-        assertEquals(
-                RvmDataLoader.EXPECTED_MACHINE_COUNT * 3,
-                machines.stream().mapToInt(machine -> machine.binList().size()).sum()
-        );
-        assertEquals(
-                RvmDataLoader.EXPECTED_MACHINE_COUNT,
-                machines.stream()
-                        .map(RvmDataLoader.RvmSeed::name)
-                        .collect(java.util.stream.Collectors.toSet())
-                        .size()
-        );
-
-        var first = machines.get(0);
-        assertEquals("A101 H896 HASAN GAZİ", first.name());
-        assertEquals(3, first.binList().size());
-        assertEquals("pet", first.binList().get(0).contentType());
-        assertEquals(100, first.binList().get(0).level());
-        assertFalse(first.binList().get(0).state());
-        assertEquals(
-                14,
-                machines.stream()
-                        .filter(machine -> machine.address().contains("Şanlıurfa/"))
-                        .count()
-        );
-
-        var levelAboveOneHundred = machines.stream()
-                .flatMap(machine -> machine.binList().stream())
-                .filter(bin -> bin.level() == 130)
-                .findFirst()
-                .orElseThrow();
-        assertEquals("pet", levelAboveOneHundred.contentType());
-        assertFalse(levelAboveOneHundred.state());
-
-        machines.forEach(machine -> {
-            Set<String> types = new HashSet<>();
-            machine.binList().forEach(bin -> types.add(bin.contentType()));
-            assertEquals(Set.of("pet", "glass", "aluminum"), types);
-            assertFalse(hasMojibake(machine.name()));
-            assertFalse(hasMojibake(machine.address()));
-        });
+    private final ObjectMapper mapper = new ObjectMapper();
+    @Test void readsFullSnapshotWithStableIdsAndTypes() throws Exception {
+        var catalog = RvmDataLoader.loadCatalog(mapper);
+        assertEquals(4037, catalog.points().size());
+        assertEquals(0, catalog.quarantineIds().size());
+        assertEquals(2162, catalog.points().stream().filter(p -> p.pointType().equals("DIM")).count());
+        assertEquals(1764, catalog.points().stream().filter(p -> p.pointType().equals("MIN")).count());
+        assertEquals(111, catalog.points().stream().filter(p -> p.pointType().equals("SDM")).count());
+        assertEquals(4037, catalog.points().stream().map(RvmDataLoader.RvmSeed::externalId).distinct().count());
+        assertEquals(64, catalog.hash().length());
+        assertTrue(catalog.points().stream().anyMatch(p -> p.address().contains("ŞANLIURFA")));
     }
-
-    @Test
-    void upsertsByNameThenCoordinatesWithoutDeletingExistingRows()
-            throws Exception {
-        RvmDataLoader loader = new RvmDataLoader();
-        AppUserRepository users = mock(AppUserRepository.class);
-        MapPinRepository pins = mock(MapPinRepository.class);
-        AppUser owner = new AppUser();
-        List<RvmDataLoader.RvmSeed> catalog =
-                RvmDataLoader.loadAndValidate(objectMapper);
-
-        MapPin nameMatch = existingPin(
-                catalog.get(0).name(),
-                40.0,
-                30.0,
-                owner
-        );
-        MapPin coordinateMatch = existingPin(
-                "Eski makine adı",
-                catalog.get(1).latitude(),
-                catalog.get(1).longitude(),
-                owner
-        );
-
-        when(users.findByEmail("admin@ecovision.com"))
-                .thenReturn(Optional.of(owner));
-        when(pins.findAll()).thenReturn(List.of(nameMatch, coordinateMatch));
-
-        loader.seedRvmMachineCatalog(users, pins, objectMapper).run();
-
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<Iterable<MapPin>> captor =
-                ArgumentCaptor.forClass(Iterable.class);
-        verify(pins).saveAll(captor.capture());
-        List<MapPin> saved = new ArrayList<>();
-        captor.getValue().forEach(saved::add);
-
-        assertEquals(RvmDataLoader.EXPECTED_MACHINE_COUNT, saved.size());
-        assertSame(nameMatch, saved.get(0));
-        assertSame(coordinateMatch, saved.get(1));
-        assertEquals(catalog.get(0).latitude(), nameMatch.getLatitude());
-        assertEquals(catalog.get(1).name(), coordinateMatch.getTitle());
-        assertEquals(3, nameMatch.getBinList().size());
-        assertEquals(100, nameMatch.getBinList().get(0).getLevel());
-        assertFalse(nameMatch.getBinList().get(0).isState());
-        verify(pins, never()).deleteAll();
-        verify(pins, never()).deleteAllInBatch();
-        verify(pins, never()).deleteAll(any(Iterable.class));
-    }
-
-    private MapPin existingPin(
-            String title,
-            double latitude,
-            double longitude,
-            AppUser owner
-    ) {
+    @Test void preservesRawValuesAndIgnoresClusters() throws Exception {
+        var source = mapper.readTree("""
+            {"rvmList":[{"name":"A","latitude":37.1,"longitude":38.8,"address":"B",
+            "binList":[{"contentType":"pet","level":130,"state":false}]}],
+            "clusterDataList":[{"latitude":38,"longitude":39}]}
+            """);
+        var catalog = RvmDataLoader.parse(source, mapper, "hash", Instant.EPOCH, "source");
+        assertEquals(1, catalog.points().size());
+        var seed = catalog.points().get(0);
+        assertEquals(130, seed.binList().get(0).level());
+        assertFalse(seed.binList().get(0).state());
+        assertTrue(seed.dataQualityFlags().contains("BIN_LEVEL_OUT_OF_RANGE"));
         MapPin pin = new MapPin();
-        pin.setTitle(title);
-        pin.setLatitude(latitude);
-        pin.setLongitude(longitude);
-        pin.setCreatedBy(owner);
-        return pin;
+        RvmDataLoader.apply(seed, pin, null);
+        assertEquals(130, pin.getBinList().get(0).getLevel());
+        assertNull(pin.getTelemetryObservedAt());
+        assertNull(pin.getSourceActiveRaw());
     }
-
-    private boolean hasMojibake(String value) {
-        return value.contains("Ã")
-                || value.contains("Ä")
-                || value.contains("Å")
-                || value.contains("\uFFFD");
+    @Test void simplifiedSourceDoesNotInventTelemetry() throws Exception {
+        var catalog = RvmDataLoader.parse(mapper.readTree("""
+            [{"id":"test-id","name":"Merkez","point_type":"min","latitude":38.1,
+            "longitude":35.2,"accepted_materials":["can","pet"],"weekly_schedule":[]}]
+            """), mapper, "hash", Instant.EPOCH, "source");
+        var seed = catalog.points().get(0);
+        assertEquals("MIN", seed.pointType());
+        assertFalse(seed.acceptedMaterials().contains("aluminum"));
+        assertTrue(seed.binList().isEmpty());
+    }
+    @Test void dryRunDoesNotWriteAndMatchingHashSkipsImport() throws Exception {
+        var catalog = RvmDataLoader.loadCatalog(mapper);
+        var users = mock(AppUserRepository.class);
+        var pins = mock(MapPinRepository.class);
+        when(pins.findCatalogIdentities()).thenReturn(List.of());
+        assertEquals(4037, RvmDataLoader.importCatalog(catalog, users, pins, true).inserted());
+        verify(pins, never()).saveAll(any());
+        when(pins.countByProviderAndDatasetHash("DOA", catalog.hash())).thenReturn(4037L);
+        assertEquals(4037, RvmDataLoader.importCatalog(catalog, users, pins, false).unchanged());
+        verifyNoInteractions(users);
+        verify(pins, never()).deleteAll();
+    }
+    @Test void invalidCoordinatesAreQuarantined() throws Exception {
+        var catalog = RvmDataLoader.parse(mapper.readTree("""
+            [{"id":"invalid","name":"X","latitude":999,"longitude":30}]
+            """), mapper, "hash", Instant.EPOCH, "source");
+        assertTrue(catalog.points().isEmpty());
+        assertEquals(List.of("invalid"), catalog.quarantineIds());
     }
 }

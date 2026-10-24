@@ -105,6 +105,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
                   ),
                   const Spacer(),
+                  TextButton(
+                    onPressed: _finishing ? null : _finish,
+                    child: const Text('Atla'),
+                  ),
                   Text(
                     '${_page + 1} / ${_pages.length}',
                     style: TextStyle(

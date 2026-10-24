@@ -11,7 +11,7 @@ import 'eco_market_screen.dart';
 import 'avatar_evolution_screen.dart';
 import 'education_guide_screen.dart';
 import 'leaderboard_screen.dart';
-import 'carbon_footprint_screen.dart';
+import 'detailed_carbon_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -42,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final image = await _imagePicker.pickImage(
         source: source,
         maxWidth: 1024,
+        maxHeight: 1024,
         imageQuality: 72,
       );
 
@@ -151,6 +152,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   icon: const Icon(Icons.photo_library_outlined),
                   label: const Text('Galeriden Seç'),
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  'Fotoğrafın sunucuda analiz edilir; bulut modunda Gemini’ye iletilir.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 const SizedBox(height: 24),
                 _EcoCenter(apiService: widget.apiService),
                 const SizedBox(height: 18),
@@ -202,7 +208,7 @@ class _EcoCenter extends StatelessWidget {
       (
         'Karbon Ayak İzi',
         Icons.co2_rounded,
-        () => CarbonFootprintScreen(apiService: apiService),
+        () => DetailedCarbonScreen(apiService: apiService),
       ),
     ];
     return Column(
@@ -373,7 +379,7 @@ class _HowItWorksCard extends StatelessWidget {
             const _StepRow(
               icon: Icons.psychology_alt_outlined,
               title: 'Tanı',
-              subtitle: 'Cihazdaki model atık malzemesini belirler.',
+              subtitle: 'Görsel model atığın malzemesini tahmin eder.',
             ),
             _StepRow(
               icon: Icons.add_location_alt_outlined,

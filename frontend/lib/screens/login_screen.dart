@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/auth_validators.dart';
@@ -25,9 +26,11 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _rememberMe = true;
   String _loadingMessage = 'Güvenli giriş yapılıyor...';
+  Timer? _slowRequest;
 
   @override
   void dispose() {
+    _slowRequest?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -75,6 +78,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _beginLoading() {
+    _slowRequest?.cancel();
+    _slowRequest = Timer(const Duration(seconds: 3), () {
+      if (mounted && _isLoading)
+        setState(
+          () => _loadingMessage =
+              'Sunucu yanıtı bekleniyor. Bağlantı biraz sürebilir...',
+        );
+    });
     setState(() {
       _isLoading = true;
       _loadingMessage = 'Güvenli giriş yapılıyor...';
@@ -82,6 +93,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _endLoading() {
+    _slowRequest?.cancel();
     if (mounted) setState(() => _isLoading = false);
   }
 

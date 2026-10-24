@@ -92,12 +92,12 @@ public class DataInitializer {
                         usernameService.createUnique("ecovision_admin", email)
                 );
                 superuser.setPassword(
-                        passwordEncoder.encode("EcoVisionAdmin2026!")
+                        passwordEncoder.encode(UUID.randomUUID().toString() + UUID.randomUUID())
                 );
                 superuser.setTotalPoints(0);
+                superuser.setAge(30);
+                superuser.setRole(Role.SUPERUSER);
             }
-            superuser.setAge(30);
-            superuser.setRole(Role.SUPERUSER);
             userRepository.save(superuser);
         };
     }

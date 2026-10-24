@@ -12,9 +12,9 @@ class QuestDataLoaderTest {
     void catalogContainsExactlyOneHundredUniqueTurkishQuests() {
         var catalog = QuestDataLoader.catalog();
 
-        assertEquals(100, catalog.size());
+        assertEquals(200, catalog.size());
         assertEquals(
-                100,
+                200,
                 catalog.stream()
                         .map(QuestDataLoader.QuestSeed::code)
                         .collect(java.util.stream.Collectors.toSet())

@@ -18,8 +18,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-900000}
       JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS:-2592000000}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:?Set GEMINI_API_KEY in .env}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+      ML_ENABLED: ${ML_ENABLED:-false}
+      GEMINI_ON_UNCERTAIN_ENABLED: ${GEMINI_ON_UNCERTAIN_ENABLED:-false}
+      RVM_IMPORT_DRY_RUN: ${RVM_IMPORT_DRY_RUN:-false}
       GEMINI_CONNECT_TIMEOUT_MS: ${GEMINI_CONNECT_TIMEOUT_MS:-10000}
       GEMINI_READ_TIMEOUT_MS: ${GEMINI_READ_TIMEOUT_MS:-60000}
       OVERPASS_CONNECT_TIMEOUT_MS: ${OVERPASS_CONNECT_TIMEOUT_MS:-10000}
@@ -28,6 +32,7 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-dummy-client-id.apps.googleusercontent.com}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
       UPLOAD_DIR: ${UPLOAD_DIR:-/tmp/uploads}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xmx128m -XX:MaxMetaspaceSize=112m -XX:MaxDirectMemorySize=16m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -Xss512k}
 
   prometheus:
     image: prom/prometheus:latest

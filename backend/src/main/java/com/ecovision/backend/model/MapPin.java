@@ -27,7 +27,9 @@ import java.util.Map;
 import java.util.Set;
 
 @Entity
-@Table(name = "map_pins")
+@Table(name = "map_pins", uniqueConstraints = @jakarta.persistence.UniqueConstraint(
+        name = "uk_map_pins_provider_external_id", columnNames = {"provider", "external_id"}),
+        indexes = @jakarta.persistence.Index(name = "idx_map_pins_coordinates", columnList = "latitude,longitude"))
 public class MapPin {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,6 +46,57 @@ public class MapPin {
 
     @Column(length = 500)
     private String address;
+
+    @Column(nullable = false, length = 30)
+    private String provider = "ECOVISION";
+
+    @Column(name = "external_id", length = 100)
+    private String externalId;
+
+    @Column(name = "point_type", nullable = false, length = 20)
+    private String pointType = "UNKNOWN";
+
+    @Column(name = "weekly_schedule_json", columnDefinition = "text")
+    private String weeklyScheduleJson;
+
+    @Column(nullable = false, length = 50)
+    private String timezone = "Europe/Istanbul";
+
+    @Column(name = "source_status_raw")
+    private Integer sourceStatusRaw;
+
+    @Column(name = "source_active_raw")
+    private Boolean sourceActiveRaw;
+
+    @Column(name = "source_machine_status_raw")
+    private Integer sourceMachineStatusRaw;
+
+    @Column(name = "source_url", length = 500)
+    private String sourceUrl;
+
+    @Column(name = "dataset_version", length = 100)
+    private String datasetVersion;
+
+    @Column(name = "dataset_hash", length = 64)
+    private String datasetHash;
+
+    @Column(name = "snapshot_at")
+    private Instant snapshotAt;
+
+    @Column(name = "imported_at")
+    private Instant importedAt;
+
+    @Column(name = "telemetry_observed_at")
+    private Instant telemetryObservedAt;
+
+    @Column(name = "data_quality_flags", columnDefinition = "text")
+    private String dataQualityFlags;
+
+    @Column(name = "source_material_codes_json", columnDefinition = "text")
+    private String sourceMaterialCodesJson;
+
+    @Column(name = "raw_bins_json", columnDefinition = "text")
+    private String rawBinsJson;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(
@@ -129,6 +182,55 @@ public class MapPin {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+
+    public String getProvider() { return provider; }
+    public String getSourceMaterialCodesJson() { return sourceMaterialCodesJson; }
+    public void setSourceMaterialCodesJson(String value) { sourceMaterialCodesJson = value; }
+    public String getRawBinsJson() { return rawBinsJson; }
+    public void setRawBinsJson(String value) { rawBinsJson = value; }
+    public void setProvider(String provider) { this.provider = provider; }
+    public String getExternalId() { return externalId; }
+    public void setExternalId(String externalId) { this.externalId = externalId; }
+    public String getPointType() { return pointType; }
+    public void setPointType(String pointType) { this.pointType = pointType; }
+    public String getWeeklyScheduleJson() { return weeklyScheduleJson; }
+    public void setWeeklyScheduleJson(String weeklyScheduleJson) {
+        this.weeklyScheduleJson = weeklyScheduleJson;
+    }
+    public String getTimezone() { return timezone; }
+    public void setTimezone(String timezone) { this.timezone = timezone; }
+    public Integer getSourceStatusRaw() { return sourceStatusRaw; }
+    public void setSourceStatusRaw(Integer sourceStatusRaw) {
+        this.sourceStatusRaw = sourceStatusRaw;
+    }
+    public Boolean getSourceActiveRaw() { return sourceActiveRaw; }
+    public void setSourceActiveRaw(Boolean sourceActiveRaw) {
+        this.sourceActiveRaw = sourceActiveRaw;
+    }
+    public Integer getSourceMachineStatusRaw() { return sourceMachineStatusRaw; }
+    public void setSourceMachineStatusRaw(Integer sourceMachineStatusRaw) {
+        this.sourceMachineStatusRaw = sourceMachineStatusRaw;
+    }
+    public String getSourceUrl() { return sourceUrl; }
+    public void setSourceUrl(String sourceUrl) { this.sourceUrl = sourceUrl; }
+    public String getDatasetVersion() { return datasetVersion; }
+    public void setDatasetVersion(String datasetVersion) {
+        this.datasetVersion = datasetVersion;
+    }
+    public String getDatasetHash() { return datasetHash; }
+    public void setDatasetHash(String datasetHash) { this.datasetHash = datasetHash; }
+    public Instant getSnapshotAt() { return snapshotAt; }
+    public void setSnapshotAt(Instant snapshotAt) { this.snapshotAt = snapshotAt; }
+    public Instant getImportedAt() { return importedAt; }
+    public void setImportedAt(Instant importedAt) { this.importedAt = importedAt; }
+    public Instant getTelemetryObservedAt() { return telemetryObservedAt; }
+    public void setTelemetryObservedAt(Instant telemetryObservedAt) {
+        this.telemetryObservedAt = telemetryObservedAt;
+    }
+    public String getDataQualityFlags() { return dataQualityFlags; }
+    public void setDataQualityFlags(String dataQualityFlags) {
+        this.dataQualityFlags = dataQualityFlags;
     }
 
     public Set<String> getAcceptedMaterials() {

@@ -1,0 +1,19 @@
+{
+  "coverage": "count_matched_snapshot",
+  "root_reported_total": 4037,
+  "remaining_seed_areas": 13,
+  "collection_method": "coarse public clusters, then paginated overlapping 100-km searches (50-km fallback)",
+  "fetched_at_utc": "2026-10-24T08:20:51.364618+00:00",
+  "unique_points": 4037,
+  "by_type": {
+    "min": 1764,
+    "dim": 2162,
+    "sdm": 111
+  },
+  "invalid_records": [],
+  "http_calls_this_run": 9,
+  "source_url": "https://doa.gov.tr/ambalaj-iadesi-nereye-yapilir",
+  "endpoint": "https://dbysmgw.doa.gov.tr/dbys/v3/web/rvm/search",
+  "root_reported_total_at_finish": 4037,
+  "source_count_checked_at_utc": "2026-10-24T08:21:21.023002+00:00"
+}

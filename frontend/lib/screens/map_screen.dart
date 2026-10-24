@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -34,12 +36,36 @@ class _MapScreenState extends State<MapScreen> {
   final LocationService _locationService = LocationService();
   final MapController _mapController = MapController();
   LatLng? _currentLocation;
+  LatLng? _searchLocation;
   List<MapPin> _pins = [];
   Set<String> _selectedMaterials = {};
   double? _radiusKm = 10;
   bool _isLoading = true;
   bool _mapReady = false;
   bool _isAddingPin = false;
+  Timer? _cameraDebounce;
+  int _requestVersion = 0;
+  Completer<void>? _requestAbort;
+  bool _openOnly = false;
+  Set<String> _pointTypes = {'DIM'};
+
+  @override
+  void dispose() {
+    _cameraDebounce?.cancel();
+    _requestVersion++;
+    if (_requestAbort?.isCompleted == false) _requestAbort!.complete();
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  void _cameraChanged(MapCamera camera, bool gesture) {
+    if (!gesture) return;
+    _cameraDebounce?.cancel();
+    _cameraDebounce = Timer(
+      const Duration(milliseconds: 450),
+      () => _loadMap(viewport: true),
+    );
+  }
 
   bool get _canAddPins => widget.apiService.currentUser?.isAdmin ?? false;
 
@@ -64,25 +90,42 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<void> _loadMap() async {
+  Future<void> _loadMap({bool viewport = false}) async {
+    if (_requestAbort?.isCompleted == false) _requestAbort!.complete();
+    final abort = Completer<void>();
+    _requestAbort = abort;
+    final request = ++_requestVersion;
     if (mounted) setState(() => _isLoading = true);
     try {
-      final location = await _locationService.getCurrentOrFallbackLocation();
+      final location =
+          _searchLocation ??
+          _currentLocation ??
+          await _locationService.getCurrentOrFallbackLocation();
+      final bounds = viewport && _mapReady
+          ? _mapController.camera.visibleBounds
+          : null;
       final pins = await widget.apiService.fetchNearestMapPins(
         latitude: location.latitude,
         longitude: location.longitude,
         radiusKm: _radiusKm,
         materials: _selectedMaterials,
+        abortTrigger: abort.future,
+        pointTypes: _pointTypes,
+        openOnly: _openOnly,
+        south: bounds?.south,
+        north: bounds?.north,
+        west: bounds?.west,
+        east: bounds?.east,
       );
-      if (!mounted) return;
+      if (!mounted || request != _requestVersion) return;
       setState(() {
-        _currentLocation = location;
+        _currentLocation ??= location;
         _pins = List<MapPin>.unmodifiable(pins);
         _isLoading = false;
       });
-      _moveTo(location);
+      if (!viewport) _moveTo(location);
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || request != _requestVersion) return;
       setState(() {
         _currentLocation ??= AppConstants.sanliurfaFallback;
         _isLoading = false;
@@ -101,116 +144,139 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _openFilters() async {
     var draftMaterials = Set<String>.from(_selectedMaterials);
     var draftRadius = _radiusKm;
+    var draftOpen = _openOnly;
+    var draftCenters = _pointTypes.contains('MIN');
 
     final result = await showEcoGlassSheet<_MapFilters>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setSheetState) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 4, 22, 28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'DOA Makine Filtreleri',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Sana uygun ve gerçekten erişilebilir makineleri göster.',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Kabul edilen malzemeler',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                for (final material in _materials)
-                  CheckboxListTile(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(22, 4, 22, 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    value: draftMaterials.contains(material),
-                    title: Text(_materialLabel(material)),
-                    secondary: Icon(_materialIcon(material)),
-                    onChanged: (selected) => setSheetState(() {
-                      if (selected ?? false) {
-                        draftMaterials.add(material);
-                      } else {
-                        draftMaterials.remove(material);
-                      }
-                    }),
-                  ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Text(
-                      'Arama yarıçapı',
-                      style: TextStyle(fontWeight: FontWeight.w800),
+                    title: const Text('Yalnız programa göre açık noktalar'),
+                    subtitle: const Text(
+                      'Saat bilgisi olmayan noktalar bu filtrede gösterilmez',
                     ),
-                    const Spacer(),
-                    Text(
-                      draftRadius == null
-                          ? 'Sınırsız'
-                          : '${draftRadius!.round()} km',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: draftRadius == null,
-                  title: const Text('Sınırsız mesafe'),
-                  subtitle: const Text(
-                    'Türkiye genelindeki tüm makineleri göster',
-                  ),
-                  secondary: const Icon(Icons.public_rounded),
-                  onChanged: (value) =>
-                      setSheetState(() => draftRadius = value ? null : 10),
-                ),
-                if (draftRadius != null)
-                  Slider(
-                    value: draftRadius!,
-                    min: 1,
-                    max: 50,
-                    divisions: 49,
-                    label: '${draftRadius!.round()} km',
+                    value: draftOpen,
                     onChanged: (value) =>
-                        setSheetState(() => draftRadius = value),
+                        setSheetState(() => draftOpen = value),
                   ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    TextButton(
-                      onPressed: () => setSheetState(() {
-                        draftMaterials = {};
-                        draftRadius = 10;
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('İade merkezlerini de göster'),
+                    value: draftCenters,
+                    onChanged: (value) =>
+                        setSheetState(() => draftCenters = value),
+                  ),
+                  Text(
+                    'DOA Makine Filtreleri',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Sana uygun ve gerçekten erişilebilir makineleri göster.',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Kabul edilen malzemeler',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  for (final material in _materials)
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: draftMaterials.contains(material),
+                      title: Text(_materialLabel(material)),
+                      secondary: Icon(_materialIcon(material)),
+                      onChanged: (selected) => setSheetState(() {
+                        if (selected ?? false) {
+                          draftMaterials.add(material);
+                        } else {
+                          draftMaterials.remove(material);
+                        }
                       }),
-                      child: const Text('Sıfırla'),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () => Navigator.pop(
-                          context,
-                          _MapFilters(
-                            materials: draftMaterials,
-                            radiusKm: draftRadius,
-                          ),
-                        ),
-                        icon: const Icon(Icons.tune_rounded),
-                        label: const Text('Sonuçları Göster'),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Text(
+                        'Arama yarıçapı',
+                        style: TextStyle(fontWeight: FontWeight.w800),
                       ),
+                      const Spacer(),
+                      Text(
+                        draftRadius == null
+                            ? 'Sınırsız'
+                            : '${draftRadius!.round()} km',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: draftRadius == null,
+                    title: const Text('Sınırsız mesafe'),
+                    subtitle: const Text(
+                      'Türkiye genelindeki tüm makineleri göster',
                     ),
-                  ],
-                ),
-              ],
+                    secondary: const Icon(Icons.public_rounded),
+                    onChanged: (value) =>
+                        setSheetState(() => draftRadius = value ? null : 10),
+                  ),
+                  if (draftRadius != null)
+                    Slider(
+                      value: draftRadius!,
+                      min: 1,
+                      max: 50,
+                      divisions: 49,
+                      label: '${draftRadius!.round()} km',
+                      onChanged: (value) =>
+                          setSheetState(() => draftRadius = value),
+                    ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => setSheetState(() {
+                          draftMaterials = {};
+                          draftRadius = 10;
+                        }),
+                        child: const Text('Sıfırla'),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () => Navigator.pop(
+                            context,
+                            _MapFilters(
+                              materials: draftMaterials,
+                              radiusKm: draftRadius,
+                              openOnly: draftOpen,
+                              includeCenters: draftCenters,
+                            ),
+                          ),
+                          icon: const Icon(Icons.tune_rounded),
+                          label: const Text('Sonuçları Göster'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -220,97 +286,143 @@ class _MapScreenState extends State<MapScreen> {
     setState(() {
       _selectedMaterials = result.materials;
       _radiusKm = result.radiusKm;
+      _openOnly = result.openOnly;
+      _pointTypes = result.includeCenters ? {'DIM', 'MIN', 'KIM'} : {'DIM'};
     });
     await _loadMap();
   }
 
   Future<void> _showMachine(MapPin pin) async {
+    Map<String, dynamic>? detail;
+    try {
+      detail = await widget.apiService.fetchMapPinDetail(pin.id);
+    } catch (error) {
+      if (mounted) _showError(error);
+    }
+    if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 4, 22, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 54,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(8),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 4, 22, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.recycling_rounded,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
                     ),
-                    child: Icon(
-                      Icons.recycling_rounded,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            pin.title,
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                        ],
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                Text(
+                  pin.pointTypeLabel,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                Text(pin.scheduleLabel),
+                const Text('Son durum doğrulanmadı'),
+                if (pin.snapshotAt != null)
+                  Text(
+                    'Kaynak tarihi: ${pin.snapshotAt!.day}.${pin.snapshotAt!.month}.${pin.snapshotAt!.year}',
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          pin.title,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w900),
+                if (pin.distanceKm != null)
+                  Text('Kuş uçuşu ${pin.distanceKm!.toStringAsFixed(1)} km'),
+                if (detail != null)
+                  ExpansionTile(
+                    title: const Text('Veri ayrıntısı ve haftalık program'),
+                    children: [
+                      for (final day
+                          in (detail['weeklySchedule'] as List? ?? []))
+                        ListTile(
+                          dense: true,
+                          title: Text('${day['day'] ?? ''}'),
+                          trailing: Text(
+                            day['startTime'] == null || day['endTime'] == null
+                                ? 'Bilgi yok'
+                                : '${day['startTime']} – ${day['endTime']}',
+                          ),
                         ),
-                      ],
-                    ),
+                      const ListTile(
+                        subtitle: Text(
+                          'Program resmî tatil istisnalarını ve canlı hazne durumunu garanti etmez.',
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 22),
-              _DetailRow(
-                icon: Icons.location_on_outlined,
-                title: 'Adres',
-                value: pin.address.isEmpty
-                    ? 'Adres bilgisi bulunmuyor'
-                    : pin.address,
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Kabul edilen malzemeler',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 10),
-              for (final material in _materials)
-                _MaterialAcceptance(
-                  material: _materialLabel(material),
-                  icon: _materialIcon(material),
-                  accepted: pin.accepts(material),
+                _DetailRow(
+                  icon: Icons.location_on_outlined,
+                  title: 'Adres',
+                  value: pin.address.isEmpty
+                      ? 'Adres bilgisi bulunmuyor'
+                      : pin.address,
                 ),
-              const SizedBox(height: 22),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _mapController.move(pin.point, 16);
-                  },
-                  icon: const Icon(Icons.my_location_rounded),
-                  label: const Text('Haritada Odaklan'),
+                const SizedBox(height: 12),
+                const Text(
+                  'Kabul edilen malzemeler',
+                  style: TextStyle(fontWeight: FontWeight.w900),
                 ),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _showDirections(pin);
-                  },
-                  icon: const Icon(Icons.directions_rounded),
-                  label: const Text('Yol Tarifi Al'),
+                const SizedBox(height: 10),
+                for (final material in _materials)
+                  _MaterialAcceptance(
+                    material: _materialLabel(material),
+                    icon: _materialIcon(material),
+                    accepted: pin.supports(material),
+                    known: pin.acceptedMaterials.isNotEmpty,
+                  ),
+                const SizedBox(height: 22),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _mapController.move(pin.point, 16);
+                    },
+                    icon: const Icon(Icons.my_location_rounded),
+                    label: const Text('Haritada Odaklan'),
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _showDirections(pin);
+                    },
+                    icon: const Icon(Icons.directions_rounded),
+                    label: const Text('Yol Tarifi Al'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -439,6 +551,7 @@ class _MapScreenState extends State<MapScreen> {
                 _moveTo(location);
               },
               onLongPress: (_, point) => _addOfficialPin(point),
+              onPositionChanged: _cameraChanged,
             ),
             children: [
               TileLayer(
@@ -458,6 +571,34 @@ class _MapScreenState extends State<MapScreen> {
               alignment: Alignment.topCenter,
               child: LinearProgressIndicator(minHeight: 4),
             ),
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + kToolbarHeight + 8,
+            left: 16,
+            right: 16,
+            child: Column(
+              children: [
+                if (_locationService.lastLookupUsedFallback)
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(10),
+                      child: Text(
+                        'Konum alınamadı. Haritayı istediğin bölgeye taşıyıp ara.',
+                      ),
+                    ),
+                  ),
+                FilledButton.tonalIcon(
+                  onPressed: _isLoading || !_mapReady
+                      ? null
+                      : () {
+                          _searchLocation = _mapController.camera.center;
+                          _loadMap(viewport: true);
+                        },
+                  icon: const Icon(Icons.center_focus_strong),
+                  label: const Text('Bu alanda ara'),
+                ),
+              ],
+            ),
+          ),
           Positioned(
             left: 14,
             right: 14,
@@ -481,24 +622,55 @@ class _MapScreenState extends State<MapScreen> {
       width: 50,
       height: 50,
       child: _MapMarker(
-        icon: Icons.person_pin_circle_rounded,
+        icon: _locationService.lastLookupUsedFallback
+            ? Icons.center_focus_strong
+            : Icons.person_pin_circle_rounded,
         color: Theme.of(context).colorScheme.secondary,
       ),
     ),
-    for (final pin in _pins)
-      Marker(
-        point: pin.point,
-        width: 54,
-        height: 54,
-        child: GestureDetector(
-          onTap: () => _showMachine(pin),
-          child: _MapMarker(
-            icon: Icons.recycling_rounded,
-            color: Theme.of(context).colorScheme.primary,
+    ..._clusterMarkers(),
+  ];
+
+  List<Marker> _clusterMarkers() {
+    final zoom = _mapReady ? _mapController.camera.zoom : 13.5;
+    final cell = 55 / (256 * math.pow(2, zoom));
+    final groups = <String, List<MapPin>>{};
+    for (final pin in _pins) {
+      final x = (pin.longitude + 180) / 360;
+      final sinLat = math.sin(pin.latitude * math.pi / 180);
+      final y = 0.5 - math.log((1 + sinLat) / (1 - sinLat)) / (4 * math.pi);
+      groups
+          .putIfAbsent('${(x / cell).floor()}:${(y / cell).floor()}', () => [])
+          .add(pin);
+    }
+    return [
+      for (final cluster in groups.values)
+        Marker(
+          point: cluster.first.point,
+          width: 54,
+          height: 54,
+          child: GestureDetector(
+            onTap: () => cluster.length == 1
+                ? _showMachine(cluster.first)
+                : _mapController.move(
+                    cluster.first.point,
+                    (zoom + 2).clamp(3, 18).toDouble(),
+                  ),
+            child: cluster.length > 1
+                ? CircleAvatar(
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer,
+                    child: Text('${cluster.length}'),
+                  )
+                : _MapMarker(
+                    icon: Icons.recycling_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
           ),
         ),
-      ),
-  ];
+    ];
+  }
 
   void _showError(Object error) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -662,11 +834,13 @@ class _MaterialAcceptance extends StatelessWidget {
     required this.material,
     required this.icon,
     required this.accepted,
+    this.known = true,
   });
 
   final String material;
   final IconData icon;
   final bool accepted;
+  final bool known;
 
   @override
   Widget build(BuildContext context) {
@@ -690,7 +864,11 @@ class _MaterialAcceptance extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            accepted ? 'Kabul ediyor' : 'Kabul etmiyor',
+            !known
+                ? 'Bilgi yok'
+                : accepted
+                ? 'Destekleniyor'
+                : 'Desteklenmiyor',
             style: TextStyle(color: color, fontWeight: FontWeight.w800),
           ),
         ],
@@ -739,7 +917,14 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _MapFilters {
-  const _MapFilters({required this.materials, required this.radiusKm});
+  const _MapFilters({
+    required this.materials,
+    required this.radiusKm,
+    this.openOnly = false,
+    this.includeCenters = false,
+  });
+  final bool openOnly;
+  final bool includeCenters;
 
   final Set<String> materials;
   final double? radiusKm;

@@ -40,6 +40,9 @@ public interface UserQuestProgressRepository
             Instant now
     );
 
+    long countByUserIdAndQuestQuestCategoryAndArchivedAtIsNullAndExpiresAtAfter(
+            Long userId, com.ecovision.backend.model.QuestCategory category, Instant now);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select progress from UserQuestProgress progress

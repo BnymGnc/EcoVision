@@ -22,6 +22,14 @@ public record MapPinResponse(
         List<MapPinBinResponse> binList,
         boolean active
 ) {
+    public static MapPinResponse summary(com.ecovision.backend.service.DoaMapService.Point point) {
+        Set<String> reportedAccepting = point.binStates().entrySet().stream()
+                .filter(entry -> Boolean.TRUE.equals(entry.getValue())).map(Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toSet());
+        return new MapPinResponse(point.id(), point.title(), point.latitude(), point.longitude(),
+                "OFFICIAL_RECYCLING_BIN", 0L, "DOA", point.snapshotAt(), point.distanceKm(),
+                point.address(), reportedAccepting, point.binStates(), List.of(), true);
+    }
     public static MapPinResponse from(MapPin pin) {
         return from(pin, null);
     }

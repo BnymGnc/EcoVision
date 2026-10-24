@@ -1,0 +1,38 @@
+[
+  {
+    "file": "cardboard.png",
+    "type": "cardboard",
+    "score": 0.999607503414154,
+    "source_sha256": "9573fd98a5aca2ab9a4c5b9ebcdfa4dcf9719b216c2025ee4305c4df611c885f"
+  },
+  {
+    "file": "glass.png",
+    "type": "glass",
+    "score": 0.9956964254379272,
+    "source_sha256": "084511aff76ddb2668538ed7a25fe803d53e625cd3734f5a5656e00a76fb7a92"
+  },
+  {
+    "file": "metal.png",
+    "type": "metal",
+    "score": 0.5996577739715576,
+    "source_sha256": "cf0dbed4a17ca4e94805d9649d2f3fa00b6e4b19d1b401f10b5c54bf5e280fe1"
+  },
+  {
+    "file": "paper.png",
+    "type": "paper",
+    "score": 0.9387660622596741,
+    "source_sha256": "99b2e9cf63612ab39d5664972d6f51457c32eff0e049e9279446031f78fd1bcd"
+  },
+  {
+    "file": "plastic.png",
+    "type": "plastic",
+    "score": 0.9993007183074951,
+    "source_sha256": "87b7c1963f3edaf573ca0b650117b57f082754cf03e96e9b5f32c89bb0d4baf3"
+  },
+  {
+    "file": "trash.png",
+    "type": "plastic",
+    "score": 0.8143866062164307,
+    "source_sha256": "75e9ab1d65d23b663acbf0d6bc0d9381d5b2b93654209674aced879fd6c5ebda"
+  }
+]

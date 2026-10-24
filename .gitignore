@@ -1,5 +1,8 @@
 # Secrets and local app constants
 frontend/lib/core/constants.dart
+.env
+.env.*
+!.env.example
 
 # Flutter/Dart build and package caches
 frontend/build/
@@ -24,3 +27,7 @@ frontend/flutter_*.log
 hs_err_pid*.log
 replay_pid*.log
 backend/uploads/
+.venv-ml/
+ml/cache/
+ml/dataset/
+ml/benchmark-images/

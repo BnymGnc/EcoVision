@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -12,10 +13,15 @@ class _SplashScreenState extends State<SplashScreen>
   late final AnimationController _controller;
   late final Animation<double> _fade;
   late final Animation<double> _scale;
+  Timer? _slowRequest;
+  bool _waiting = false;
 
   @override
   void initState() {
     super.initState();
+    _slowRequest = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _waiting = true);
+    });
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1150),
@@ -29,6 +35,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
+    _slowRequest?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -88,7 +95,9 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                     const SizedBox(height: 18),
                     Text(
-                      'Güvenli oturumun kontrol ediliyor...',
+                      _waiting
+                          ? 'Sunucu yanıtı bekleniyor. Bağlantı biraz sürebilir...'
+                          : 'Güvenli oturumun kontrol ediliyor...',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: colors.onSurfaceVariant),
                     ),

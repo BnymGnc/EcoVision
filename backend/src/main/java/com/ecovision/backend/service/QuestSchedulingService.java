@@ -74,6 +74,10 @@ public class QuestSchedulingService {
             List<Quest> dailyCatalog,
             Instant now
     ) {
+        long currentAssignments = progressRepository
+                .countByUserIdAndQuestQuestCategoryAndArchivedAtIsNullAndExpiresAtAfter(user.getId(), QuestCategory.DAILY, now);
+        int remaining = Math.max(0, DAILY_QUESTS_PER_USER - (int)currentAssignments);
+        if (remaining == 0) return;
         List<Quest> candidates = new ArrayList<>(dailyCatalog);
         Collections.shuffle(candidates, random);
         int assigned = 0;
@@ -95,7 +99,7 @@ public class QuestSchedulingService {
             );
             progressRepository.save(progress);
             assigned++;
-            if (assigned == Math.min(DAILY_QUESTS_PER_USER, dailyCatalog.size())) {
+            if (assigned == Math.min(remaining, dailyCatalog.size())) {
                 break;
             }
         }

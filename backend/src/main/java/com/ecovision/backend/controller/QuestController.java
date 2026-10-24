@@ -26,8 +26,18 @@ public class QuestController {
     }
 
     @GetMapping
-    public List<QuestProgressResponse> catalog() {
-        return questCatalogService.catalog(currentUserService.currentUser());
+    public List<QuestProgressResponse> catalog(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int offset,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "200") int limit,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "") String query,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "") String domain
+    ) {
+        if (offset < 0 || limit < 1 || limit > 200) throw new IllegalArgumentException("Görev sayfa sınırı 1-200 olmalıdır");
+        String normalized = query.toLowerCase(java.util.Locale.forLanguageTag("tr"));
+        return questCatalogService.catalog(currentUserService.currentUser()).stream()
+                .filter(q -> domain.isBlank() || domain.equals(q.domain()))
+                .filter(q -> normalized.isBlank() || (q.title() + " " + q.description()).toLowerCase(java.util.Locale.forLanguageTag("tr")).contains(normalized))
+                .skip(offset).limit(limit).toList();
     }
 
     @PostMapping("/{questId}/check-in")

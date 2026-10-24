@@ -38,6 +38,7 @@ public class AuthService {
     private final InputSanitizer inputSanitizer;
     private final GoogleTokenVerifierService googleTokenVerifierService;
     private final QuestEventPublisher questEvents;
+    private final LoginActivityService loginActivity;
 
     public AuthService(
             AppUserRepository userRepository,
@@ -48,7 +49,8 @@ public class AuthService {
             RefreshTokenService refreshTokenService,
             InputSanitizer inputSanitizer,
             GoogleTokenVerifierService googleTokenVerifierService,
-            QuestEventPublisher questEvents
+            QuestEventPublisher questEvents,
+            LoginActivityService loginActivity
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -59,6 +61,7 @@ public class AuthService {
         this.inputSanitizer = inputSanitizer;
         this.googleTokenVerifierService = googleTokenVerifierService;
         this.questEvents = questEvents;
+        this.loginActivity = loginActivity;
     }
 
     @Transactional
@@ -178,6 +181,7 @@ public class AuthService {
     }
 
     private AuthResponse response(AppUser user) {
+        loginActivity.record(user.getId());
         RefreshTokenService.IssuedRefreshToken refreshToken = refreshTokenService.issue(user);
         return new AuthResponse(
                 jwtService.generateToken(user),
@@ -217,17 +221,7 @@ public class AuthService {
     }
 
     private void updateLoginStreak(AppUser user) {
-        LocalDate today = today();
-        LocalDate previous = user.getLastLoginDate();
-        if (today.equals(previous)) {
-            return;
-        }
-        if (previous != null && previous.equals(today.minusDays(1))) {
-            user.setLoginStreakCount(user.getLoginStreakCount() + 1);
-        } else {
-            user.setLoginStreakCount(1);
-        }
-        user.setLastLoginDate(today);
+        LoginActivityService.applyDay(user, today());
     }
 
     private void publishLoginStreak(AppUser user) {

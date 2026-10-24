@@ -22,17 +22,20 @@ public class AdminService {
     private final MapPinRepository mapPinRepository;
     private final OverpassMapPinService overpassMapPinService;
     private final RvmCatalogService rvmCatalogService;
+    private final DoaMapService doaMapService;
 
     public AdminService(
             AppUserRepository userRepository,
             MapPinRepository mapPinRepository,
             OverpassMapPinService overpassMapPinService,
-            RvmCatalogService rvmCatalogService
+            RvmCatalogService rvmCatalogService,
+            DoaMapService doaMapService
     ) {
         this.userRepository = userRepository;
         this.mapPinRepository = mapPinRepository;
         this.overpassMapPinService = overpassMapPinService;
         this.rvmCatalogService = rvmCatalogService;
+        this.doaMapService = doaMapService;
     }
 
     public List<UserResponse> getUsers() {
@@ -63,9 +66,9 @@ public class AdminService {
 
     public List<MapPinResponse> getMapPins() {
         rvmCatalogService.ensureCatalogAvailable();
-        return mapPinRepository.findAllByOrderByCreatedAtDesc()
-                .stream()
-                .map(MapPinResponse::from)
+        return doaMapService
+                .nearby(38.5, 35.0, null, 1000, Set.of(), Set.of("DIM", "UNKNOWN"), false, null, null, null, null)
+                .stream().map(MapPinResponse::summary)
                 .toList();
     }
 
@@ -96,21 +99,14 @@ public class AdminService {
                 .map(this::normalizeMaterial)
                 .filter(material -> !material.isBlank())
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
-        List<MapPinResponse> localPins = mapPinRepository.findAll()
+        List<MapPinResponse> localPins = doaMapService
+                .nearby(latitude, longitude, radiusKm,
+                        limit == null || limit <= 0 ? 1000 : Math.min(limit, 1000),
+                        normalizedMaterials, Set.of("DIM", "UNKNOWN"), false, null, null, null, null)
                 .stream()
-                .filter(MapPin::isActive)
-                .filter(pin -> normalizedMaterials.isEmpty()
-                        || normalizedMaterials.stream().anyMatch(pin::acceptsMaterial))
-                .map(pin -> new PinDistance(pin, haversineKm(
-                        latitude,
-                        longitude,
-                        pin.getLatitude(),
-                        pin.getLongitude()
-                )))
-                .filter(item -> radiusKm == null || item.distanceKm() <= radiusKm)
-                .sorted((left, right) -> Double.compare(left.distanceKm(), right.distanceKm()))
-                .limit(limit == null || limit <= 0 ? Long.MAX_VALUE : limit)
-                .map(item -> MapPinResponse.from(item.pin(), item.distanceKm()))
+                .filter(pin -> normalizedMaterials.isEmpty() || normalizedMaterials.stream()
+                        .anyMatch(material -> Boolean.TRUE.equals(pin.binStates().get(material))))
+                .map(MapPinResponse::summary)
                 .toList();
 
         if (!localPins.isEmpty() || !normalizedMaterials.isEmpty()) {

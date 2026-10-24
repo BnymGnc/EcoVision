@@ -47,6 +47,12 @@ public class QuestDataLoader implements CommandLineRunner {
         for (QuestSeed seed : seeds) {
             catalogCodes.add(seed.code());
             Quest quest = existingByCode.getOrDefault(seed.code(), new Quest());
+            String criteriaJson = toJson(seed.criteria());
+            if (quest.getId() != null && quest.isActive()
+                    && seed.title().equals(quest.getTitle()) && seed.description().equals(quest.getDescription())
+                    && seed.rewardPoints() == quest.getRewardPoints() && seed.targetAmount() == quest.getTargetAmount()
+                    && seed.category() == quest.getQuestCategory() && seed.triggerType() == quest.getTriggerType()
+                    && domainFor(seed) == quest.getDomain() && criteriaJson.equals(quest.getCriteriaJson())) continue;
             quest.setCode(seed.code());
             quest.setTitle(seed.title());
             quest.setDescription(seed.description());
@@ -55,24 +61,18 @@ public class QuestDataLoader implements CommandLineRunner {
             quest.setQuestCategory(seed.category());
             quest.setTriggerType(seed.triggerType());
             quest.setDomain(domainFor(seed));
-            quest.setCriteriaJson(toJson(seed.criteria()));
+            quest.setCriteriaJson(criteriaJson);
             quest.setActive(true);
             updates.add(quest);
         }
 
-        for (Quest existing : existingByCode.values()) {
-            if (existing.isActive() && !catalogCodes.contains(existing.getCode())) {
-                existing.setActive(false);
-                updates.add(existing);
-            }
-        }
         questRepository.saveAll(updates);
     }
 
     private void validateCatalog(List<QuestSeed> seeds) {
-        if (seeds.size() != 100) {
+        if (seeds.size() < 200) {
             throw new IllegalStateException(
-                    "Görev kataloğu tam olarak 100 görev içermelidir: "
+                    "Görev kataloğu en az 200 görev içermelidir: "
                             + seeds.size()
             );
         }
@@ -93,6 +93,12 @@ public class QuestDataLoader implements CommandLineRunner {
     }
 
     static List<QuestSeed> catalog() {
+        List<QuestSeed> result = new ArrayList<>(legacyCatalog());
+        result.addAll(HabitQuestCatalog.entries());
+        return List.copyOf(result);
+    }
+
+    private static List<QuestSeed> legacyCatalog() {
         return List.of(
                 // 1-10: Günlük görevler
                 q("daily_morning_coffee", "Sabah Kahvesi",

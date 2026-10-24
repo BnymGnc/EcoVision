@@ -14,6 +14,7 @@ class QuestProgress {
     required this.checkInAvailable,
     this.progressId,
     this.expiresAt,
+    this.details = const {},
   });
 
   final int questId;
@@ -30,6 +31,7 @@ class QuestProgress {
   final bool claimed;
   final bool checkInAvailable;
   final DateTime? expiresAt;
+  final Map<String, dynamic> details;
 
   double get progress =>
       targetAmount == 0 ? 0 : (currentAmount / targetAmount).clamp(0, 1);
@@ -60,6 +62,9 @@ class QuestProgress {
       claimed: _asBool(json['claimed']),
       checkInAvailable: _asBool(json['checkInAvailable']),
       expiresAt: expiresAt == null ? null : DateTime.tryParse(expiresAt),
+      details: json['details'] is Map
+          ? Map<String, dynamic>.from(json['details'] as Map)
+          : const {},
     );
   }
 }

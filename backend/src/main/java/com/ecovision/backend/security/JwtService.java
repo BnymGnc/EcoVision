@@ -31,6 +31,7 @@ public class JwtService {
                 .claim("userId", user.getId())
                 .claim("role", user.getRole().name())
                 .claim("tokenType", "access")
+                .claim("credentialVersion", user.getCredentialsChangedAt() == null ? 0L : user.getCredentialsChangedAt().toEpochMilli())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(expirationMs)))
                 .signWith(key)
@@ -44,6 +45,8 @@ public class JwtService {
     public boolean isValid(String token, AppUser user) {
         Claims claims = claims(token);
         return claims.getSubject().equals(user.getEmail())
+                && (user.getCredentialsChangedAt() == null ||
+                    java.util.Objects.equals(claims.get("credentialVersion", Long.class), user.getCredentialsChangedAt().toEpochMilli()))
                 && "access".equals(claims.get("tokenType", String.class))
                 && claims.getExpiration().after(new Date());
     }

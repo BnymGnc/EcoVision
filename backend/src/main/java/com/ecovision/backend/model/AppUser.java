@@ -63,8 +63,7 @@ public class AppUser implements UserDetails {
 
     @Column(
             nullable = false,
-            length = 100,
-            columnDefinition = "varchar(100) default 'assets/images/avatars/avatar_level_1.png'"
+            length = 100
     )
     private String selectedAvatarPath = DEFAULT_AVATAR_PATH;
 
@@ -74,7 +73,7 @@ public class AppUser implements UserDetails {
 
     private String neighborhood;
 
-    @Column(nullable = false, length = 20, columnDefinition = "varchar(20) default 'forest'")
+    @Column(nullable = false, length = 20)
     private String themePreference = "forest";
 
     private Integer equippedAvatarLevel = 1;
@@ -84,6 +83,8 @@ public class AppUser implements UserDetails {
     private LocalDate lastLoginDate;
 
     private Integer loginStreakCount = 0;
+    private Integer longestLoginStreak = 0;
+    private Instant credentialsChangedAt;
 
     private LocalDate lastScanDate;
 
@@ -91,12 +92,12 @@ public class AppUser implements UserDetails {
 
     private Integer streakFreezeCount = 0;
 
-    @Column(nullable = false, columnDefinition = "boolean default false")
+    @Column(nullable = false)
     private boolean banned = false;
 
     private Instant suspendedUntil;
 
-    @Column(nullable = false, columnDefinition = "integer default 0")
+    @Column(nullable = false)
     private Integer failedLoginAttempts = 0;
 
     private Instant lockoutUntil;
@@ -118,7 +119,7 @@ public class AppUser implements UserDetails {
     @Column(
             name = "profile_visibility",
             nullable = false,
-            columnDefinition = "varchar(20) default 'PUBLIC'"
+            length = 20
     )
     private ProfileVisibility profileVisibility = ProfileVisibility.PUBLIC;
 
@@ -320,6 +321,10 @@ public class AppUser implements UserDetails {
     public void setLoginStreakCount(Integer loginStreakCount) {
         this.loginStreakCount = loginStreakCount;
     }
+    public int getLongestLoginStreak() { return longestLoginStreak == null ? 0 : longestLoginStreak; }
+    public void setLongestLoginStreak(int value) { longestLoginStreak = value; }
+    public Instant getCredentialsChangedAt() { return credentialsChangedAt; }
+    public void setCredentialsChangedAt(Instant value) { credentialsChangedAt = value; }
     public LocalDate getLastScanDate() { return lastScanDate; }
     public void setLastScanDate(LocalDate lastScanDate) { this.lastScanDate = lastScanDate; }
     public Integer getStreakCount() { return streakCount == null ? 0 : streakCount; }

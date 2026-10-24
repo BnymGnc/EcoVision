@@ -15,6 +15,9 @@ class MapPin {
     required this.binStates,
     required this.active,
     this.distanceKm,
+    this.pointType = 'UNKNOWN',
+    this.scheduleStatus = 'UNKNOWN',
+    this.snapshotAt,
   });
 
   final int id;
@@ -30,6 +33,24 @@ class MapPin {
   final Set<String> acceptedMaterials;
   final Map<String, bool> binStates;
   final bool active;
+  final String pointType;
+  final String scheduleStatus;
+  final DateTime? snapshotAt;
+
+  bool supports(String material) =>
+      acceptedMaterials.contains(_normalizeMaterial(material));
+  String get pointTypeLabel => switch (pointType) {
+    'DIM' => 'İade Makinesi',
+    'MIN' => 'İade Merkezi',
+    'KIM' => 'İade Merkezi',
+    'SDM' => 'Toplu İade Merkezi',
+    _ => 'İade noktası',
+  };
+  String get scheduleLabel => switch (scheduleStatus) {
+    'OPEN' => 'Programa göre açık',
+    'CLOSED' => 'Programa göre kapalı',
+    _ => 'Saat bilgisi yok',
+  };
 
   LatLng get point => LatLng(latitude, longitude);
 
@@ -58,12 +79,14 @@ class MapPin {
         (key, value) => MapEntry(key.toLowerCase(), value == true),
       ),
       active: json['active'] as bool? ?? true,
+      pointType: (json['pointType'] ?? 'UNKNOWN').toString(),
+      scheduleStatus: (json['scheduleStatus'] ?? 'UNKNOWN').toString(),
+      snapshotAt: DateTime.tryParse((json['snapshotAt'] ?? '').toString()),
     );
   }
 
   static String _normalizeMaterial(String value) {
     final normalized = value.toLowerCase();
-    if (normalized == 'plastic' || normalized == 'plastik') return 'pet';
     if (normalized == 'cam') return 'glass';
     if (normalized.contains('alü') || normalized.contains('alum')) {
       return 'aluminum';

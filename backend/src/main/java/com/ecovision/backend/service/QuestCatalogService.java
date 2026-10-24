@@ -148,6 +148,8 @@ public class QuestCatalogService {
 
     @Transactional
     public QuestClaimResponse claim(AppUser currentUser, Long progressId) {
+        userRepository.findByIdForUpdate(currentUser.getId()).orElseThrow(
+                () -> new IllegalArgumentException("Kullanıcı bulunamadı"));
         UserQuestProgress before = progressRepository.findById(progressId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Görev ilerlemesi bulunamadı"
@@ -242,7 +244,15 @@ public class QuestCatalogService {
                 progress != null && progress.isCompleted(),
                 progress != null && progress.isClaimed(),
                 checkInAvailable,
-                progress == null ? null : progress.getExpiresAt()
+                progress == null ? null : progress.getExpiresAt(),
+                Map.of("verification", criteria.getOrDefault("verification", selfReported ? "USER_DECLARED" : "APP_OBSERVED"),
+                        "area", criteria.getOrDefault("area", quest.getDomain().name()),
+                        "unit", criteria.getOrDefault("unit", "eylem"),
+                        "difficulty", criteria.getOrDefault("difficulty", "STANDARD"),
+                        "estimatedMinutes", criteria.getOrDefault("estimatedMinutes", 10),
+                        "requiredResources", criteria.getOrDefault("requiredResources", "Görev yönergesini kontrol et"),
+                        "repeat", quest.getQuestCategory().name(),
+                        "catalogVersion", criteria.getOrDefault("catalogVersion", "legacy-v1"))
         );
     }
 

@@ -27,13 +27,33 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   late Future<_ProfileData> _future;
+  late Future<Map<String, dynamic>> _streakFuture;
+  late Future<Map<String, dynamic>> _impactFuture;
   @override
   void initState() {
     super.initState();
     _load();
+    _streakFuture = _fetchStreak();
+    _impactFuture = _fetchImpact();
   }
 
   void _load() => _future = _fetch();
+  Future<Map<String, dynamic>> _fetchStreak() async {
+    try {
+      return await widget.apiService.fetchLoginStreak();
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  Future<Map<String, dynamic>> _fetchImpact() async {
+    try {
+      return await widget.apiService.fetchCarbonSummary();
+    } catch (_) {
+      return const {};
+    }
+  }
+
   Future<_ProfileData> _fetch() async {
     final user = await widget.apiService.fetchCurrentUser();
     final values = await Future.wait([
@@ -50,6 +70,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _refresh() async {
     setState(() {
       _load();
+      _streakFuture = _fetchStreak();
+      _impactFuture = _fetchImpact();
     });
     await _future;
   }
@@ -132,6 +154,99 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 points: data.user.totalPoints,
                 streak: data.user.streakCount,
                 badgeCount: data.publicProfile.badges.length,
+              ),
+              const SizedBox(height: 16),
+              FutureBuilder<Map<String, dynamic>>(
+                future: _impactFuture,
+                builder: (context, snapshot) {
+                  final impact = snapshot.data;
+                  if (impact == null || impact.isEmpty)
+                    return const SizedBox.shrink();
+                  final difference = impact['estimatedDifferenceKg'] as num?;
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.eco_outlined),
+                      title: Text(
+                        difference == null
+                            ? 'Henüz hesaplanmış atık etkisi yok'
+                            : 'Tahmini fark: ${difference.toStringAsFixed(2)} kg CO₂e',
+                      ),
+                      subtitle: Text(
+                        '${impact['declaredActionCount']} eylem · Kullanıcı beyanı',
+                      ),
+                    ),
+                  );
+                },
+              ),
+              FutureBuilder<Map<String, dynamic>>(
+                future: _streakFuture,
+                builder: (context, snapshot) {
+                  final status = snapshot.data;
+                  if (status == null || status['today'] == null)
+                    return const SizedBox.shrink();
+                  final today = DateTime.parse(status['today'].toString());
+                  final dates = (status['lastSevenDays'] as List? ?? [])
+                      .map((d) => d.toString())
+                      .toSet();
+                  return GlassPanel(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Giriş serisi',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        Text(
+                          '${status['currentStreak']} gün · En uzun ${status['longestStreak']} gün',
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            for (var i = 6; i >= 0; i--)
+                              Builder(
+                                builder: (_) {
+                                  final date = today.subtract(
+                                    Duration(days: i),
+                                  );
+                                  final key = date.toIso8601String().substring(
+                                    0,
+                                    10,
+                                  );
+                                  final active = dates.contains(key);
+                                  return Column(
+                                    children: [
+                                      Icon(
+                                        active
+                                            ? Icons.check_circle
+                                            : Icons.circle_outlined,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                      Text(
+                                        const [
+                                          'Pt',
+                                          'Sa',
+                                          'Ça',
+                                          'Pe',
+                                          'Cu',
+                                          'Ct',
+                                          'Pa',
+                                        ][date.weekday - 1],
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        const Text('Bugünkü giriş kaydedildi'),
+                      ],
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 24),
               _Title(
@@ -344,9 +459,6 @@ class _EcoImpactDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final co2 = points * 0.015;
-    final water = points * 0.05;
-    final items = points ~/ 10;
     final colors = Theme.of(context).colorScheme;
     return GlassPanel(
       tint: colors.surfaceContainerLow,
@@ -426,8 +538,8 @@ class _EcoImpactDashboard extends StatelessWidget {
               Expanded(
                 child: _ImpactCard(
                   icon: Icons.cloud_outlined,
-                  value: '${co2.toStringAsFixed(1)} kg',
-                  label: 'CO₂ önlendi',
+                  value: '—',
+                  label: 'Doğrulanmış CO₂ verisi yok',
                   color: colors.primary,
                 ),
               ),
@@ -435,8 +547,8 @@ class _EcoImpactDashboard extends StatelessWidget {
               Expanded(
                 child: _ImpactCard(
                   icon: Icons.water_drop_outlined,
-                  value: '${water.toStringAsFixed(1)} L',
-                  label: 'Su korundu',
+                  value: '$streak',
+                  label: 'Tarama serisi',
                   color: colors.secondary,
                 ),
               ),
@@ -444,8 +556,8 @@ class _EcoImpactDashboard extends StatelessWidget {
               Expanded(
                 child: _ImpactCard(
                   icon: Icons.recycling_rounded,
-                  value: '$items',
-                  label: 'Atık ayrıştırıldı',
+                  value: '$badgeCount',
+                  label: 'Kazanılan rozet',
                   color: colors.tertiary,
                 ),
               ),

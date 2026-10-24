@@ -1,0 +1,10 @@
+{
+  "environment": "isolated local PostgreSQL + 512 MB Java 17 container; not Render",
+  "samples": 12,
+  "concurrency": 1,
+  "provider": "ONNX_CPU",
+  "photo_first_ms": 2057.1796000003815,
+  "photo_warm_p95_ms": 1450.6566999989445,
+  "map_p95_ms": 2438.720199999807,
+  "note": "Nearest-rank p95, one known glass image repeated. Not a field accuracy or throughput test."
+}

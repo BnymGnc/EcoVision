@@ -47,7 +47,7 @@ public class CommunityGroup {
 
     private String joinCodeHash;
 
-    @Column(nullable = false, columnDefinition = "boolean default false")
+    @Column(nullable = false)
     private boolean privateGroup;
 
     @Column(unique = true, length = 24)
