@@ -12,7 +12,7 @@
     "eligibility",
     "local_photo_inference"
   ],
-  "local_photo_endpoint_ms": 3490.5429999998887,
+  "local_photo_endpoint_ms": 1864.7103999992396,
   "provider": "ONNX_CPU",
   "browser_errors": []
 }
