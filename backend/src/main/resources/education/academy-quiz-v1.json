@@ -1,0 +1,325 @@
+{
+  "version": "2026-10-24-v1",
+  "modules": [
+    {
+      "categoryId": "modul-1",
+      "questions": [
+        {
+          "questionText": "Yerel modelin 'plastik' tahmini neyi kanıtlar?",
+          "options": [
+            "Şişenin kesin PET olduğunu",
+            "Yalnızca genel malzeme tahminini; depozito uygunluğunu değil",
+            "Makinenin kesin kabul edeceğini"
+          ],
+          "correctOptionIndex": 1
+        },
+        {
+          "questionText": "DOA iadesi öncesinde ambalaj için doğru işlem hangisidir?",
+          "options": [
+            "Barkodu koruyup ambalajı ezmemek",
+            "Barkodu söküp şişeyi ezmek",
+            "İçini başka atıklarla doldurmak"
+          ],
+          "correctOptionIndex": 0
+        },
+        {
+          "questionText": "Plastik üzerindeki reçine kodu ne işe yarar?",
+          "options": [
+            "Her belediyede kabul garantisi verir",
+            "Sadece satış fiyatını gösterir",
+            "Plastik türünü anlamaya yardımcı olur"
+          ],
+          "correctOptionIndex": 2
+        }
+      ]
+    },
+    {
+      "categoryId": "modul-2",
+      "questions": [
+        {
+          "questionText": "Cam ambalaj toplama kutusuna hangisi otomatik olarak uygun değildir?",
+          "options": [
+            "Boş içecek şişesi",
+            "Boş gıda kavanozu",
+            "Porselen tabak"
+          ],
+          "correctOptionIndex": 2
+        },
+        {
+          "questionText": "Depozitolu cam şişede ne korunmalıdır?",
+          "options": [
+            "Barkod ve ambalajın bütünlüğü",
+            "İçindeki içecek",
+            "Üzerine yapıştırılan yeni etiket"
+          ],
+          "correctOptionIndex": 0
+        },
+        {
+          "questionText": "Kırık cam görülünce güvenli yaklaşım hangisidir?",
+          "options": [
+            "Fotoğraf için çıplak elle tutmak",
+            "Yerel güvenli toplama talimatını izlemek",
+            "Diğer ambalajların içine saklamak"
+          ],
+          "correctOptionIndex": 1
+        }
+      ]
+    },
+    {
+      "categoryId": "modul-3",
+      "questions": [
+        {
+          "questionText": "Kağıt toplarken temel hazırlık hangisidir?",
+          "options": [
+            "Kuru tutmak ve yemek parçalarını ayırmak",
+            "Her kağıdı suya batırmak",
+            "Plastikle karıştırmak"
+          ],
+          "correctOptionIndex": 0
+        },
+        {
+          "questionText": "Süt kutusu neden ayrıca değerlendirilmelidir?",
+          "options": [
+            "Tamamı cam olduğu için",
+            "Çok katmanlı kompozit olabildiği için",
+            "İçindeki süt her zaman temiz olduğu için"
+          ],
+          "correctOptionIndex": 1
+        },
+        {
+          "questionText": "Yağ lekeli kutular için en doğru yaklaşım nedir?",
+          "options": [
+            "Dünyanın her yerinde kesin kabul edilir",
+            "Dünyanın her yerinde kesin reddedilir",
+            "Kalıntıyı ve yerel toplama talimatını değerlendirmek"
+          ],
+          "correctOptionIndex": 2
+        }
+      ]
+    },
+    {
+      "categoryId": "modul-4",
+      "questions": [
+        {
+          "questionText": "Genel metal tahmini hangisini doğrulamaz?",
+          "options": [
+            "Nesnenin görsel bir malzeme tahmini olduğunu",
+            "Kesin alüminyum ve depozito uygunluğunu",
+            "Sonucun kontrol edilmesi gerektiğini"
+          ],
+          "correctOptionIndex": 1
+        },
+        {
+          "questionText": "Basınçlı sprey kabıyla ne yapılmamalıdır?",
+          "options": [
+            "Delmek veya yakmak",
+            "Etiketini okumak",
+            "Yerel teslim talimatını sormak"
+          ],
+          "correctOptionIndex": 0
+        },
+        {
+          "questionText": "DOA kutusu iade öncesinde nasıl tutulmalıdır?",
+          "options": [
+            "Ezilip barkodu sökülerek",
+            "Başka atıklarla doldurularak",
+            "Ezilmeden ve barkodu okunur halde"
+          ],
+          "correctOptionIndex": 2
+        }
+      ]
+    },
+    {
+      "categoryId": "modul-5",
+      "questions": [
+        {
+          "questionText": "Cihaz tesliminden önce hangi işlem önemlidir?",
+          "options": [
+            "Kişisel bilgileri güvenli biçimde silmek",
+            "Pili delmek",
+            "Cihazı ambalaj kutusuna atmak"
+          ],
+          "correctOptionIndex": 0
+        },
+        {
+          "questionText": "Yerel görsel model elektronik atığı kesin tanır mı?",
+          "options": [
+            "Evet, her cihazı tanır",
+            "Hayır, ayrı elektronik sınıfı yoktur",
+            "Yalnızca pilin kimyasını kesin tanır"
+          ],
+          "correctOptionIndex": 1
+        },
+        {
+          "questionText": "Şişmiş pilde doğru yaklaşım hangisidir?",
+          "options": [
+            "Evde keserek açmak",
+            "Cam kutusuna atmak",
+            "Ellemeden yetkili toplama yönlendirmesi almak"
+          ],
+          "correctOptionIndex": 2
+        }
+      ]
+    },
+    {
+      "categoryId": "modul-6",
+      "questions": [
+        {
+          "questionText": "Kompozit ambalajın temel özelliği nedir?",
+          "options": [
+            "Tamamının cam olması",
+            "Her zaman depozitolu olması",
+            "Birden fazla malzemenin birlikte kullanılması"
+          ],
+          "correctOptionIndex": 2
+        },
+        {
+          "questionText": "Yerel modelin karton tahmini neyi kanıtlamaz?",
+          "options": [
+            "Kutunun dış görünüşü için bir tahmin olduğunu",
+            "Kutunun kompozit olmadığını ve tesiste kesin kabul edildiğini",
+            "Sonucun kontrol edilebileceğini"
+          ],
+          "correctOptionIndex": 1
+        },
+        {
+          "questionText": "Toplamadan önce ilk hazırlık hangisidir?",
+          "options": [
+            "İçeriği boşaltmak",
+            "Katmanları bıçakla ayırmak",
+            "Sıvıyla dolu bırakmak"
+          ],
+          "correctOptionIndex": 0
+        }
+      ]
+    },
+    {
+      "categoryId": "modul-7",
+      "questions": [
+        {
+          "questionText": "Kullanılmış yemeklik yağ nereye dökülmemelidir?",
+          "options": [
+            "Yetkili teslim kabına",
+            "Lavaboya, toprağa veya suya",
+            "Uygun ayrı biriktirme kabına"
+          ],
+          "correctOptionIndex": 1
+        },
+        {
+          "questionText": "Biriktirmeden önce yağ için ne yapılmalıdır?",
+          "options": [
+            "Tamamen soğuması beklenmelidir",
+            "Deterjan eklenmelidir",
+            "Sıcakken ince poşete konmalıdır"
+          ],
+          "correctOptionIndex": 0
+        },
+        {
+          "questionText": "Yerel model şişedeki yağ miktarını ölçer mi?",
+          "options": [
+            "Evet, litreyi kesin verir",
+            "Yalnızca sıcak yağda ölçer",
+            "Hayır; fotoğraftan miktar doğrulamaz"
+          ],
+          "correctOptionIndex": 2
+        }
+      ]
+    },
+    {
+      "categoryId": "modul-8",
+      "questions": [
+        {
+          "questionText": "Giyilebilir bir kıyafet için öncelikli seçenek hangisidir?",
+          "options": [
+            "Hemen yakmak",
+            "Plastik ambalaj kutusuna atmak",
+            "Onarmak veya yeniden kullanmak"
+          ],
+          "correctOptionIndex": 2
+        },
+        {
+          "questionText": "Lif bileşimi için hangi bilgi daha anlamlıdır?",
+          "options": [
+            "Ürünün malzeme etiketi",
+            "Fotoğraftaki arka plan rengi",
+            "Modelin genel plastik skoru"
+          ],
+          "correctOptionIndex": 0
+        },
+        {
+          "questionText": "Bağışlanabilir ve atık tekstiller nasıl hazırlanmalıdır?",
+          "options": [
+            "Islak halde aynı pakete konmalıdır",
+            "Durumlarına göre ayrı ve kuru tutulmalıdır",
+            "Yağla kaplanmalıdır"
+          ],
+          "correctOptionIndex": 1
+        }
+      ]
+    },
+    {
+      "categoryId": "modul-9",
+      "questions": [
+        {
+          "questionText": "Yenebilir gıda için ilk tercih nedir?",
+          "options": [
+            "İsrafı önlemek",
+            "DOA makinesine götürmek",
+            "Ambalajla karıştırmak"
+          ],
+          "correctOptionIndex": 0
+        },
+        {
+          "questionText": "Ev tipi kompost için hangisi ayrıca değerlendirilmelidir?",
+          "options": [
+            "Kuru yaprak",
+            "Meyve kabuğu",
+            "Et, süt ürünü ve yağ"
+          ],
+          "correctOptionIndex": 2
+        },
+        {
+          "questionText": "Kompostlanabilir etiketi ne anlama gelmez?",
+          "options": [
+            "Bir işleme koşulu olabileceği",
+            "Her ev kompostunda kesin uygunluk",
+            "Üretici talimatının kontrol edilebileceği"
+          ],
+          "correctOptionIndex": 1
+        }
+      ]
+    },
+    {
+      "categoryId": "modul-10",
+      "questions": [
+        {
+          "questionText": "Bilinmeyen kimyasalın içeriği nasıl kontrol edilmemelidir?",
+          "options": [
+            "Etiketi okuyarak",
+            "Yetkili birime danışarak",
+            "Açıp koklayarak veya başka maddeyle karıştırarak"
+          ],
+          "correctOptionIndex": 2
+        },
+        {
+          "questionText": "Modelin yüksek skoru tehlikesizlik garantisi midir?",
+          "options": [
+            "Hayır, güvenlik incelemesi değildir",
+            "Evet, her zaman",
+            "Yalnızca parlak fotoğrafta"
+          ],
+          "correctOptionIndex": 0
+        },
+        {
+          "questionText": "Kesici-delici atık için doğru yaklaşım nedir?",
+          "options": [
+            "Normal plastik kutusuna atmak",
+            "Yetkili sağlık biriminin güvenli teslim yönlendirmesini almak",
+            "Çıplak elle ayırmak"
+          ],
+          "correctOptionIndex": 1
+        }
+      ]
+    }
+  ]
+}

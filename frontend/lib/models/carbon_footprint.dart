@@ -30,24 +30,47 @@ class CarbonQuestion {
 }
 
 class CarbonFootprintResult {
-  const CarbonFootprintResult({required this.annualKg, required this.tier});
+  const CarbonFootprintResult({
+    required this.annualKg,
+    required this.tier,
+    this.consumptionAdjusted = false,
+  });
 
   final int annualKg;
   final CarbonFootprintTier tier;
+  final bool consumptionAdjusted;
 
   double get annualTons => annualKg / 1000;
+}
+
+class CarbonConsumptionData {
+  const CarbonConsumptionData({
+    this.monthlyElectricityKwh,
+    this.householdMembers = 1,
+    this.monthlyFuelLitres,
+    this.fuelType = 'PETROL',
+  });
+
+  final double? monthlyElectricityKwh;
+  final int householdMembers;
+  final double? monthlyFuelLitres;
+  final String fuelType;
+
+  bool get hasValues =>
+      monthlyElectricityKwh != null || monthlyFuelLitres != null;
 }
 
 abstract final class CarbonFootprintCalculator {
   static CarbonFootprintResult calculate({
     required List<CarbonQuestion> questions,
     required Map<int, int> selectedOptionIndexes,
+    CarbonConsumptionData? consumption,
   }) {
     if (selectedOptionIndexes.length != questions.length) {
       throw StateError('Karbon hesabı için tüm sorular yanıtlanmalıdır.');
     }
 
-    var totalKg = 0;
+    final annualByQuestion = <int, double>{};
     for (final question in questions) {
       final selectedIndex = selectedOptionIndexes[question.id];
       if (selectedIndex == null ||
@@ -55,10 +78,58 @@ abstract final class CarbonFootprintCalculator {
           selectedIndex >= question.options.length) {
         throw StateError('${question.id}. soru için geçerli bir yanıt yok.');
       }
-      totalKg += question.options[selectedIndex].kgOfCo2;
+      annualByQuestion[question.id] = question.options[selectedIndex].kgOfCo2
+          .toDouble();
     }
 
-    return CarbonFootprintResult(annualKg: totalKg, tier: tierForKg(totalKg));
+    void validateAmount(double value) {
+      if (!value.isFinite || value < 0 || value > 1000000) {
+        throw ArgumentError(
+          'Tüketim geçerli, negatif olmayan bir sayı olmalıdır.',
+        );
+      }
+    }
+
+    final details = consumption;
+    if (details != null) {
+      if (details.householdMembers < 1 || details.householdMembers > 50) {
+        throw ArgumentError('Hanedeki kişi sayısı 1-50 olmalıdır.');
+      }
+      if (details.monthlyElectricityKwh case final electricity?) {
+        validateAmount(electricity);
+        // Replace appliance/AC estimates, never add the bill on top of them.
+        // ETKB 2023 distribution grid: 0.469 kg CO2e/kWh.
+        annualByQuestion[11] =
+            electricity * 12 * 0.469 / details.householdMembers;
+        annualByQuestion[12] = 0;
+        if (selectedOptionIndexes[9] == 3) {
+          annualByQuestion[9] = 0;
+          annualByQuestion[10] = 0;
+        }
+      }
+      if (details.monthlyFuelLitres case final litres?) {
+        validateAmount(litres);
+        // EPA tailpipe CO2 / US gallon, converted to litres. This remains
+        // an approximate survey, not a verified personal emissions inventory.
+        final factor = switch (details.fuelType) {
+          'PETROL' => 8.887 / 3.785411784,
+          'DIESEL' => 10.180 / 3.785411784,
+          _ => throw ArgumentError('Yakıt türü benzin veya dizel olmalıdır.'),
+        };
+        annualByQuestion[2] = litres * 12 * factor;
+        if (selectedOptionIndexes[1] == 3) annualByQuestion[1] = 0;
+        if (selectedOptionIndexes[4] == 3) annualByQuestion[4] = 0;
+      }
+    }
+    final totalKg = annualByQuestion.values
+        .fold(0.0, (sum, kg) => sum + kg)
+        .round();
+
+    return CarbonFootprintResult(
+      annualKg: totalKg,
+      tier: tierForKg(totalKg),
+      consumptionAdjusted: details?.hasValues ?? false,
+    );
   }
 
   static CarbonFootprintTier tierForKg(int annualKg) {

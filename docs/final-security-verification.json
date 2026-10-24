@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-24",
+  "scope": "Local source, isolated PostgreSQL 15 and Java 17 Docker validation; not production deployment",
+  "backend": {
+    "command": ".\\mvnw.cmd -q clean verify '-DargLine=-Xmx256m -XX:+UseSerialGC'",
+    "test_database": "jdbc:postgresql://127.0.0.1:25439/ecovision_test",
+    "tests": 88,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "postgres_integration_tests": 8,
+    "jar_sha256": "8fb6241aa9c2554e6002af8f06fedc5b5a67bf1ecb9382b0a757f7f5ecafceed",
+    "application_classes": 278,
+    "maximum_class_major": 61,
+    "runtime_java": 17,
+    "runtime_profile": "prod",
+    "startup_seconds": 42.925,
+    "flyway_migrations_validated": 6,
+    "v6_replay_test": "passed",
+    "unchanged_doa_snapshot_points": 4037,
+    "postgres_default_syntax_error": false
+  },
+  "flutter": {
+    "test_command": "flutter test --no-pub",
+    "tests_passed": 88,
+    "web_command": "flutter build web --no-pub --no-wasm-dry-run --dart-define=API_BASE_URL=http://127.0.0.1:18081",
+    "web_build": "passed",
+    "web_compile_seconds": 86.8,
+    "android_command": "flutter build apk --debug --no-pub --target-platform android-arm64",
+    "android_build": "passed in an ASCII-named temporary source copy",
+    "android_gradle_seconds": 201.7,
+    "android_apk": "frontend/build/app/outputs/flutter-apk/app-debug.apk",
+    "android_apk_bytes": 97252091,
+    "android_apk_sha256": "78dc4d87f7ac8217c9c8499f61661188bfe426c2c2f98a768fdb90a203db1735",
+    "android_api_base": "https://ecovision-backend-wdr0.onrender.com",
+    "android_constants": "constants.example.dart; no provider credentials",
+    "android_installed": false,
+    "analyzer": "No clean analyzer claim; previously observed SDK analysis-server failure is documented in verification.md"
+  },
+  "browser": {
+    "engine": "Installed Google Chrome, Playwright, real CanvasKit application",
+    "core_report": "security-core-browser-verification.json",
+    "academy_report": "academy-browser-verification.json",
+    "core_viewport_width": 390,
+    "academy_viewport_widths": [320, 390, 768],
+    "provider": "ONNX_CPU",
+    "real_file_upload": true,
+    "private_photo_bearer_header": true,
+    "glass_guide_and_map_filter": true,
+    "directions_target_coordinates": true,
+    "quiz_reward_and_one_time_completion": true,
+    "javascript_or_overflow_errors": []
+  },
+  "local_onnx_memory": {
+    "container_limit_bytes": 536870912,
+    "cgroup_reported_peak_bytes": 537321472,
+    "memory_max_events": 146,
+    "oom_events": 0,
+    "oom_kill_events": 0,
+    "jvm_vm_hwm_kib": 529692,
+    "safe_512_mib_capacity_proven": false,
+    "default_provider_changed": false,
+    "note": "Short sequential smoke only. Memory pressure reached the container limit; not a Render capacity guarantee or proof of the historical exit 137 cause."
+  },
+  "not_performed": [
+    "Render deployment or production writes",
+    "Live Gemini key/quota validation",
+    "Physical Android device installation or field test",
+    "Production load or penetration test",
+    "Quest N+1 batching, distributed scheduler lock or scan-history cursor migration"
+  ]
+}

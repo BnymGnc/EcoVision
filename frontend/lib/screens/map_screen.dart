@@ -16,6 +16,7 @@ class MapScreen extends StatefulWidget {
   const MapScreen({
     required this.apiService,
     this.requestedMaterial,
+    this.requestVersion = 0,
     this.notificationCount = 0,
     this.onNotifications,
     super.key,
@@ -23,6 +24,7 @@ class MapScreen extends StatefulWidget {
 
   final ApiService apiService;
   final String? requestedMaterial;
+  final int requestVersion;
   final int notificationCount;
   final VoidCallback? onNotifications;
 
@@ -82,9 +84,11 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void didUpdateWidget(covariant MapScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.requestedMaterial != null &&
-        widget.requestedMaterial != oldWidget.requestedMaterial) {
-      _selectedMaterials = {widget.requestedMaterial!};
+    if (widget.requestedMaterial != oldWidget.requestedMaterial ||
+        widget.requestVersion != oldWidget.requestVersion) {
+      _selectedMaterials = widget.requestedMaterial == null
+          ? {}
+          : {widget.requestedMaterial!};
       _radiusKm = null;
       _loadMap();
     }
@@ -351,7 +355,7 @@ class _MapScreenState extends State<MapScreen> {
                 const Text('Son durum doğrulanmadı'),
                 if (pin.snapshotAt != null)
                   Text(
-                    'Kaynak tarihi: ${pin.snapshotAt!.day}.${pin.snapshotAt!.month}.${pin.snapshotAt!.year}',
+                    'Son veri tarihi: ${pin.snapshotAt!.day}.${pin.snapshotAt!.month}.${pin.snapshotAt!.year}',
                   ),
                 if (pin.distanceKm != null)
                   Text('Kuş uçuşu ${pin.distanceKm!.toStringAsFixed(1)} km'),
@@ -386,7 +390,7 @@ class _MapScreenState extends State<MapScreen> {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Kabul edilen malzemeler',
+                  'Bu malzemeyi destekler',
                   style: TextStyle(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 10),
@@ -396,6 +400,7 @@ class _MapScreenState extends State<MapScreen> {
                     icon: _materialIcon(material),
                     accepted: pin.supports(material),
                     known: pin.acceptedMaterials.isNotEmpty,
+                    sourceState: pin.binStates[material],
                   ),
                 const SizedBox(height: 22),
                 SizedBox(
@@ -714,7 +719,7 @@ class _MachineSummary extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '${pins.length} DOA makinesi bulundu',
+                    '${pins.length} DOA noktası bulundu',
                     style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                 ),
@@ -727,6 +732,11 @@ class _MachineSummary extends StatelessWidget {
                 ),
               ],
             ),
+            if (radiusKm == null)
+              Text(
+                'Mesafe sınırı yok; harita alanındaki en fazla 500 nokta gösterilir.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             if (pins.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -835,21 +845,34 @@ class _MaterialAcceptance extends StatelessWidget {
     required this.icon,
     required this.accepted,
     this.known = true,
+    this.sourceState,
   });
 
   final String material;
   final IconData icon;
   final bool accepted;
   final bool known;
+  final bool? sourceState;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final color = accepted ? colors.primary : colors.error;
+    final color = !known
+        ? colors.onSurfaceVariant
+        : accepted
+        ? colors.primary
+        : colors.error;
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
       leading: Icon(icon, color: color),
+      subtitle: Text(
+        sourceState == null
+            ? 'Durum bilinmiyor'
+            : sourceState!
+            ? 'Kaynak verisindeki durum: olumlu · canlı teyit yok'
+            : 'Kaynak verisindeki durum: olumsuz · canlı teyit yok',
+      ),
       title: Text(
         material,
         style: const TextStyle(fontWeight: FontWeight.w800),
@@ -858,7 +881,11 @@ class _MaterialAcceptance extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            accepted ? Icons.check_circle_rounded : Icons.cancel_rounded,
+            !known
+                ? Icons.help_outline
+                : accepted
+                ? Icons.check_circle_rounded
+                : Icons.cancel_rounded,
             size: 18,
             color: color,
           ),

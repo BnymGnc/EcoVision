@@ -2,9 +2,15 @@ pluginManagement {
     val flutterSdkPath =
         run {
             val properties = java.util.Properties()
-            file("local.properties").inputStream().use { properties.load(it) }
+            // Flutter writes UTF-8 paths; InputStream uses ISO-8859-1 by default.
+            file("local.properties").reader(Charsets.UTF_8).use { properties.load(it) }
             val flutterSdkPath = properties.getProperty("flutter.sdk")
             require(flutterSdkPath != null) { "flutter.sdk not set in local.properties" }
+            // Flutter's plugin loader reads this file as Java Properties bytes.
+            // Escape Unicode paths so its ISO-8859-1 reader sees the same SDK.
+            if (flutterSdkPath.any { it.code > 127 }) {
+                file("local.properties").outputStream().use { properties.store(it, null) }
+            }
             flutterSdkPath
         }
 

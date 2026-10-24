@@ -3,11 +3,12 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import '../widgets/authorized_image.dart';
+import '../services/media_download.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as image_lib;
 import 'package:image_picker/image_picker.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/chat_message.dart';
 import '../models/community_group.dart';
@@ -35,7 +36,8 @@ class GroupChatScreen extends StatefulWidget {
   State<GroupChatScreen> createState() => _GroupChatScreenState();
 }
 
-class _GroupChatScreenState extends State<GroupChatScreen> {
+class _GroupChatScreenState extends State<GroupChatScreen>
+    with WidgetsBindingObserver {
   static const _pageSize = 50;
 
   final _message = TextEditingController();
@@ -60,10 +62,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   bool _sending = false;
   int _historyOffset = 0;
   int _pollCount = 0;
+  bool _pollInFlight = false;
+  bool _foreground = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _group = widget.group;
     _scroll.addListener(_onScroll);
     _message.addListener(_onComposerChanged);
@@ -74,6 +79,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _poller?.cancel();
     _unsubscribe?.call();
     _typingUnsubscribe?.call();
@@ -87,6 +93,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       ..removeListener(_onScroll)
       ..dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    if (_foreground)
+      unawaited(_poll(forceMetadata: true, refreshMessages: true));
   }
 
   void _connectRealtime() {
@@ -105,6 +118,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         onConnect: (_) {
           if (!mounted) return;
           setState(() => _realtimeConnected = true);
+          unawaited(_poll(forceMetadata: true, refreshMessages: true));
           _unsubscribe?.call();
           _unsubscribe = client.subscribe(
             destination: '/topic/groups/${_group.id}',
@@ -281,18 +295,30 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     }
   }
 
-  Future<void> _poll({bool forceMetadata = false}) async {
-    if (_loading || _sending || !mounted) return;
+  Future<void> _poll({
+    bool forceMetadata = false,
+    bool refreshMessages = false,
+  }) async {
+    if (_loading || _sending || !mounted || !_foreground || _pollInFlight)
+      return;
+    _pollCount++;
+    final refreshMetadata = forceMetadata || _pollCount % 6 == 0;
+    // A slower reconciliation also recovers a missed frame without duplicating
+    // the normal eight-second fallback on every healthy WebSocket connection.
+    final fetchMessages =
+        !_realtimeConnected || refreshMessages || refreshMetadata;
+    if (!fetchMessages && !refreshMetadata) return;
+    _pollInFlight = true;
     try {
       final nearBottom =
           !_scroll.hasClients ||
           _scroll.position.maxScrollExtent - _scroll.offset < 180;
-      _pollCount++;
-      final refreshMetadata = forceMetadata || _pollCount % 6 == 0;
-      final messages = await widget.apiService.fetchGroupMessages(
-        _group.id,
-        limit: _pageSize,
-      );
+      final messages = !fetchMessages
+          ? <ChatMessage>[]
+          : await widget.apiService.fetchGroupMessages(
+              _group.id,
+              limit: _pageSize,
+            );
       CommunityGroup? refreshedGroup;
       List<GroupEvent>? refreshedEvents;
       if (refreshMetadata) {
@@ -314,6 +340,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       if (nearBottom) _scrollToBottom();
     } catch (_) {
       // Polling failures are retried without interrupting the chat.
+    } finally {
+      _pollInFlight = false;
     }
   }
 
@@ -1164,12 +1192,17 @@ class _GroupAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => CircleAvatar(
-    backgroundImage: group.coverImageUrl == null
-        ? null
-        : NetworkImage(group.coverImageUrl!),
     child: group.coverImageUrl == null
         ? const Icon(Icons.groups_2_outlined)
-        : null,
+        : ClipOval(
+            child: AuthorizedImage(
+              group.coverImageUrl!,
+              width: 40,
+              height: 40,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => const Icon(Icons.groups_2_outlined),
+            ),
+          ),
   );
 }
 
@@ -1320,7 +1353,7 @@ class _ChatEventCard extends StatelessWidget {
             if (event.coverImageUrl != null)
               AspectRatio(
                 aspectRatio: 16 / 7,
-                child: Image.network(
+                child: AuthorizedImage(
                   event.coverImageUrl!,
                   fit: BoxFit.cover,
                   errorBuilder: (context, _, _) => ColoredBox(
@@ -1679,7 +1712,7 @@ class _MessageBubble extends StatelessWidget {
                                 ),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
-                                  child: Image.network(
+                                  child: AuthorizedImage(
                                     message.imageUrl!,
                                     width: 240,
                                     fit: BoxFit.cover,
@@ -1837,19 +1870,12 @@ class _DocumentMessageCard extends StatelessWidget {
 
   Future<void> _download(BuildContext context) async {
     await EcoHaptics.light();
-    final source = Uri.tryParse(message.fileUrl ?? '');
-    if (source == null) return;
-    final uri = source.replace(
-      queryParameters: {...source.queryParameters, 'download': 'true'},
-    );
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!opened && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Belge indirilemedi. Lütfen tekrar deneyin.'),
-        ),
+    if (context.mounted)
+      await downloadAuthorizedMedia(
+        context,
+        message.fileUrl ?? '',
+        message.fileName ?? 'belge.pdf',
       );
-    }
   }
 
   @override
@@ -2491,7 +2517,7 @@ class _GroupInfoSheetState extends State<_GroupInfoSheet> {
                       itemCount: media.length,
                       itemBuilder: (_, index) => ClipRRect(
                         borderRadius: BorderRadius.circular(7),
-                        child: Image.network(
+                        child: AuthorizedImage(
                           media[index].imageUrl!,
                           fit: BoxFit.cover,
                         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'authorized_image.dart';
 
 abstract final class ProfilePhotoPolicy {
   static bool canShowCustomPhoto({
@@ -123,7 +124,7 @@ class PrivacyAwareAvatar extends StatelessWidget {
         ),
         child: ClipOval(
           child: _canShowCustomPhoto
-              ? Image.network(
+              ? AuthorizedImage(
                   profilePictureUrl!,
                   width: size,
                   height: size,

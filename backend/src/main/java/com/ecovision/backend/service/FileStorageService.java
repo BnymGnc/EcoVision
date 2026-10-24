@@ -66,6 +66,7 @@ public class FileStorageService {
         try {
             byte[] bytes = file.getBytes();
             DetectedFile detected = detect(bytes);
+            if (IMAGE_TYPES.contains(detected.contentType())) validatePixels(bytes, detected.contentType());
             boolean allowed = IMAGE_TYPES.contains(detected.contentType())
                     || (allowPdf && detected.contentType().equals("application/pdf"));
             if (!allowed) {
@@ -86,6 +87,10 @@ public class FileStorageService {
             MediaAsset asset = new MediaAsset();
             asset.setId(UUID.randomUUID());
             asset.setCategory(folder);
+            var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getPrincipal() instanceof com.ecovision.backend.model.AppUser user) {
+                asset.setOwnerUserId(user.getId());
+            }
             asset.setContentType(detected.contentType());
             asset.setOriginalFileName(safeFileName(
                     file.getOriginalFilename(),
@@ -155,5 +160,42 @@ public class FileStorageService {
     }
 
     private record DetectedFile(String contentType, String extension) {
+    }
+
+    private void validatePixels(byte[] bytes, String type) throws IOException {
+        // JDK ImageIO has no WebP reader: inspect the actual WebP header instead.
+        if (type.equals("image/webp")) {
+            if (bytes.length < 30) throw new IllegalArgumentException("Geçersiz WebP");
+            String chunk = new String(bytes, 12, 4, java.nio.charset.StandardCharsets.US_ASCII);
+            int w, h;
+            if (chunk.equals("VP8X")) {
+                w = 1 + little24(bytes,24); h = 1 + little24(bytes,27);
+            } else if (chunk.equals("VP8L") && (bytes[20] & 255) == 0x2f) {
+                w = 1 + ((bytes[21]&255) | ((bytes[22]&63)<<8));
+                h = 1 + (((bytes[22]&192)>>6) | ((bytes[23]&255)<<2) | ((bytes[24]&15)<<10));
+            } else if (chunk.equals("VP8 ") && (bytes[23]&255)==0x9d && (bytes[24]&255)==1 && (bytes[25]&255)==0x2a) {
+                w = ((bytes[26]&255) | ((bytes[27]&255)<<8)) & 0x3fff;
+                h = ((bytes[28]&255) | ((bytes[29]&255)<<8)) & 0x3fff;
+            } else throw new IllegalArgumentException("Geçersiz WebP başlığı");
+            if (w < 1 || h < 1 || (long)w*h > 4_000_000) throw new IllegalArgumentException("Görsel en fazla 4 milyon piksel olabilir");
+            return;
+        }
+        try (var input = javax.imageio.ImageIO.createImageInputStream(new java.io.ByteArrayInputStream(bytes))) {
+            var readers = javax.imageio.ImageIO.getImageReaders(input);
+            if (!readers.hasNext()) throw new IllegalArgumentException("Geçersiz görsel içeriği");
+            var reader = readers.next();
+            try {
+                reader.setInput(input);
+                int w = reader.getWidth(0), h = reader.getHeight(0);
+                if (w < 1 || h < 1 || (long) w * h > 4_000_000) {
+                    throw new IllegalArgumentException("Görsel en fazla 4 milyon piksel olabilir");
+                }
+            } finally { reader.dispose(); }
+        } catch (javax.imageio.IIOException failure) {
+            throw new IllegalArgumentException("Geçersiz veya eksik görsel içeriği");
+        }
+    }
+    private int little24(byte[] bytes, int offset) {
+        return (bytes[offset]&255) | ((bytes[offset+1]&255)<<8) | ((bytes[offset+2]&255)<<16);
     }
 }

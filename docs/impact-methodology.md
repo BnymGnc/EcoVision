@@ -4,13 +4,15 @@ Version: 2026-10-24. Three quantities are intentionally kept separate: applicati
 
 ## Personal estimate
 
-The new short flow accepts household electricity in kWh/month and household size, plus personal petrol/diesel consumption in litres/month. Annual UI entries are divided by 12 before submission. Unknown answers remain unknown. A zero value must be entered explicitly.
+The retained short-consumption API accepts household electricity in kWh/month and household size, plus personal petrol/diesel consumption in litres/month. Annual UI entries are divided by 12. Unknown answers remain unknown. A zero value must be entered explicitly.
 
 - Electricity: **0.469 kgCO2e/kWh**, Turkey distribution-grid consumption factor, reporting year 2023. Source: [ETKB](https://enerji.gov.tr/evced-cevre-ve-iklim-elektrik-uretim-tuketim-emisyon-faktorleri). Published tCO2e/MWh and kgCO2e/kWh have the same numeric value. Household energy is divided by household members.
 - Petrol combustion: **8.887 kgCO2 / 3.785411784 litres**.
 - Diesel combustion: **10.180 kgCO2 / 3.785411784 litres**. These are US fuel-composition proxies, not Turkey-specific lifecycle factors. Source: [US EPA](https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle).
 
-The aggregate includes measured-input electricity CO2e plus fuel combustion CO2, with CO2's GWP of one. It omits other vehicle gases and upstream fuel production. Heating, food, aviation and other purchases are explicitly missing, so the result is a **known-scope partial estimate**, not a complete personal inventory. The previous questionnaire's fixed answer weights are retained only in legacy code and are not presented as source-based coefficients.
+This API aggregate includes measured-input electricity CO2e plus fuel combustion CO2, with CO2's GWP of one. It omits other vehicle gases and upstream fuel production. Heating, food, aviation and other purchases are explicitly missing, so this API result is a **known-scope partial estimate**, not a complete personal inventory.
+
+The user subsequently requested the original 20-question survey as the default UI again. Its original fixed answer weights remain approximate, not empirically validated emissions factors. Optional fuel inputs are below question 2, electricity/household inputs below question 11. Without extra data, the original sum is unchanged. With data, electricity replaces appliance/AC answer weights (and electric heating/insulation estimates when electric heating was selected); fuel replaces the weekly vehicle estimate plus personal commuting/intercity-car estimates where selected. These replacements prevent adding the same declared consumption on top of its survey proxies. Other survey weights remain unchanged. The combined survey is clearly labelled approximate, not a verified whole-inventory calculation. No measured CO2 benefit or offset is awarded for completing it.
 
 Hand check: 200 kWh/month × 12 × 0.469 / 2 people = **562.8 kgCO2e/person/year**, or 46.9 kg/month. The month is a uniform annual projection, not a measured seasonal distribution.
 
@@ -28,7 +30,7 @@ Versioned source: [EPA WARM v13, March 2015 factor table](https://archive.epa.go
 
 The WARM comparison includes materials-management and displaced manufacturing credits. It is not a measured Turkey emissions reduction and must not be merged with the personal footprint as an offset. A negative difference remains negative; identical routes yield zero. Unsupported materials/routes yield no estimate.
 
-Mass is supplied by the user, preferably by weighing; no grams are inferred from the photo. Evidence is USER_DECLARED. A scan, route launch, quiz, login or quest reward does not create a carbon action automatically. Each action has a stable user-scoped key. Replaying the same key returns the same record. Deleting an action changes the SQL-derived total immediately. Distinct dishonest declarations cannot be externally verified by this MVP.
+Mass is supplied by the user, preferably by weighing; no grams are inferred from the photo. Evidence is USER_DECLARED. A scan, route launch, quiz, login or quest reward does not create a carbon action automatically. Each action has a stable user-scoped key. Replaying the same key returns the same record. Deleting an action changes the SQL-derived total immediately. Distinct dishonest declarations cannot be externally verified by this MVP. The scan-result action-entry UI was removed at the user's request; existing records and endpoints were retained rather than deleting user data.
 
 ## Pilot proposal
 

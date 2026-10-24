@@ -23,6 +23,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class EducationProgressServiceTest {
+    private EducationQuizCatalog.Submission passing() {
+        return new EducationQuizCatalog.Submission("2026-10-24-v1", List.of(1, 0, 2));
+    }
     @Mock private AppUserRepository users;
     @Mock private UserEducationProgressRepository progress;
     @Mock private GamificationActionRepository actions;
@@ -31,14 +34,14 @@ class EducationProgressServiceTest {
     private AppUser user;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         GamificationService gamification = new GamificationService(
                 users,
                 actions,
                 null,
                 null
         );
-        service = new EducationProgressService(users, progress, gamification);
+        service = new EducationProgressService(users, progress, gamification, new EducationQuizCatalog(new com.fasterxml.jackson.databind.ObjectMapper()));
         user = new AppUser();
         user.setId(7L);
         user.setTotalPoints(10);
@@ -56,7 +59,7 @@ class EducationProgressServiceTest {
                 .thenReturn(List.of());
 
         EducationCompletionResponse response =
-                service.complete(user, "MODUL-1");
+                service.complete(user, "MODUL-1", passing());
 
         assertTrue(response.newlyCompleted());
         assertEquals(30, response.pointsAwarded());
@@ -77,7 +80,7 @@ class EducationProgressServiceTest {
                 .thenReturn(List.of());
 
         EducationCompletionResponse response =
-                service.complete(user, "modul-1");
+                service.complete(user, "modul-1", passing());
 
         assertFalse(response.newlyCompleted());
         assertEquals(0, response.pointsAwarded());
@@ -97,7 +100,7 @@ class EducationProgressServiceTest {
                 .thenReturn(List.of());
 
         EducationCompletionResponse response =
-                service.complete(user, "modul-1");
+                service.complete(user, "modul-1", passing());
 
         assertFalse(response.newlyCompleted());
         assertEquals(30, response.pointsAwarded());

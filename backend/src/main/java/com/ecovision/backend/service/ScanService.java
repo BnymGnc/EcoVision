@@ -64,20 +64,39 @@ public class ScanService {
     }
 
     private ScanHistory analyzeAndPersist(Long userId, String detectedClass) {
-        return analyzeAndPersist(userId, detectedClass, true);
+        return analyzeAndPersist(userId, detectedClass, false);
     }
 
     private ScanHistory analyzeAndPersist(Long userId, String detectedClass, boolean acceptedPrediction) {
+        // Label-only compatibility calls can log history but never mint XP.
+        return analyzeAndPersist(userId, detectedClass, false, null);
+    }
+
+    @Transactional
+    public ScanAnalysisResponse saveVerifiedAnalysis(AppUser user, String detectedClass,
+            boolean acceptedPrediction, String imageHash) {
+        if (imageHash == null || !imageHash.matches("[a-f0-9]{64}")) throw new IllegalArgumentException("Geçersiz analiz kimliği");
+        return ScanAnalysisResponse.from(analyzeAndPersist(user.getId(), detectedClass, acceptedPrediction, imageHash));
+    }
+
+    private ScanHistory analyzeAndPersist(Long userId, String detectedClass, boolean acceptedPrediction, String imageHash) {
         AppUser user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Kullanıcı bulunamadı"));
         Instant now = Instant.now();
 
         String prediction = detectedClass == null ? "" : detectedClass.trim();
         WasteMaterial material = WasteMaterial.detect(prediction);
-        int points = acceptedPrediction ? material.points() : 0;
+        LocalDate rewardDate = now.atZone(ZoneId.of("Europe/Istanbul")).toLocalDate();
+        boolean duplicate = imageHash != null && scanHistoryRepository
+            .existsByUserIdAndImageHashAndRewardDateAndPointsAwardedGreaterThan(userId, imageHash, rewardDate, 0);
+        int points = acceptedPrediction && !duplicate ? material.points() : 0;
         AvatarTier previousTier = AvatarTier.highestUnlocked(user.getLifetimePoints());
 
         ScanHistory scan = new ScanHistory();
+        scan.setAnalysisId(imageHash == null ? null : java.util.UUID.randomUUID());
+        scan.setImageHash(imageHash);
+        scan.setRewardDate(imageHash == null ? null : rewardDate);
+        scan.setRewardStatus(duplicate ? "DUPLICATE_IMAGE" : points > 0 ? "AWARDED" : "NO_REWARD");
         scan.setUser(user);
         scan.setMaterialType(material.displayName());
         scan.setIsRecyclable(material.recyclable());
@@ -88,7 +107,7 @@ public class ScanService {
 
         user.setTotalPoints(user.getTotalPoints() + points);
         user.setLifetimePoints(user.getLifetimePoints() + points);
-        if (points > 0) updateStreak(user);
+        if (points > 0) updateStreak(user, rewardDate);
         userRepository.save(user);
         ScanHistory saved = scanHistoryRepository.save(scan);
         scanHistoryRepository.flush();
@@ -139,8 +158,7 @@ public class ScanService {
         );
     }
 
-    private void updateStreak(AppUser user) {
-        LocalDate today = LocalDate.now(ZoneId.of("Europe/Istanbul"));
+    private void updateStreak(AppUser user, LocalDate today) {
         LocalDate last = user.getLastScanDate();
         if (today.equals(last)) return;
         if (last != null && last.equals(today.minusDays(1))) {

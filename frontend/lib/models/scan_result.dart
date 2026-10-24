@@ -11,6 +11,7 @@ class ScanResult {
     this.modelVersion = '',
     this.inferenceMode = '',
     this.needsConfirmation = false,
+    this.rewardStatus = '',
   });
 
   final String material;
@@ -24,6 +25,7 @@ class ScanResult {
   final String modelVersion;
   final String inferenceMode;
   final bool needsConfirmation;
+  final String rewardStatus;
 
   factory ScanResult.fromGeminiJson(Map<String, dynamic> json) {
     final scan = json['scan'] is Map<String, dynamic>
@@ -46,6 +48,7 @@ class ScanResult {
       modelVersion: (json['modelVersion'] ?? '').toString(),
       inferenceMode: (json['inferenceMode'] ?? '').toString(),
       needsConfirmation: json['needsConfirmation'] == true,
+      rewardStatus: (scan['rewardStatus'] ?? '').toString(),
     );
   }
 

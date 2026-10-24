@@ -36,6 +36,12 @@ public class UserController {
         return loginActivity.record(currentUserService.currentUser().getId());
     }
 
+    @org.springframework.web.bind.annotation.GetMapping("/login-history")
+    public com.ecovision.backend.service.LoginActivityService.History loginHistory(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String month) {
+        return loginActivity.history(currentUserService.currentUser().getId(), month);
+    }
+
     @PutMapping("/profile")
     public UserResponse updateProfile(@Valid @RequestBody UpdateProfileRequest request) {
         return profileService.updateProfile(currentUserService.currentUser(), request);

@@ -7,6 +7,8 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ScanHistoryRepository extends JpaRepository<ScanHistory, Long> {
+    boolean existsByUserIdAndImageHashAndRewardDateAndPointsAwardedGreaterThan(
+        Long userId, String imageHash, java.time.LocalDate rewardDate, int points);
     List<ScanHistory> findByUserIdOrderByScannedAtDesc(Long userId);
 
     long countByUserIdAndScannedAtAfter(Long userId, Instant scannedAt);
@@ -16,5 +18,11 @@ public interface ScanHistoryRepository extends JpaRepository<ScanHistory, Long> 
             Instant scannedAt
     );
 
-    long countByUserIdAndMaterialTypeIgnoreCase(Long userId, String materialType);
+    @org.springframework.data.jpa.repository.Query("""
+        select count(s) from ScanHistory s where s.user.id=:userId
+        and lower(s.materialType)=lower(:materialType) and s.pointsAwarded>0
+        """)
+    long countByUserIdAndMaterialTypeIgnoreCase(
+        @org.springframework.data.repository.query.Param("userId") Long userId,
+        @org.springframework.data.repository.query.Param("materialType") String materialType);
 }

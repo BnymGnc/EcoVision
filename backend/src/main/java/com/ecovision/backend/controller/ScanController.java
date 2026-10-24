@@ -54,12 +54,24 @@ public class ScanController {
 
     @PostMapping(value = "/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public GeminiScanResponse analyze(@RequestPart("image") MultipartFile image) {
+        if (image.isEmpty() || image.getSize() > 5L*1024*1024) throw new IllegalArgumentException("Fotoğraf en fazla 5 MB olabilir");
+        String hash;
+        try {
+            var digest = java.security.MessageDigest.getInstance("SHA-256");
+            try (var input = new java.security.DigestInputStream(image.getInputStream(), digest)) {
+                input.transferTo(java.io.OutputStream.nullOutputStream());
+            }
+            hash = java.util.HexFormat.of().formatHex(digest.digest());
+        } catch (java.io.IOException | java.security.NoSuchAlgorithmException failure) {
+            throw new IllegalArgumentException("Fotoğraf okunamadı");
+        }
         var analysis = geminiService.analyze(image);
         List<DetectedWasteResponse> detections = analysis.detections();
-        ScanAnalysisResponse scan = scanService.analyzeAndSave(
+        ScanAnalysisResponse scan = scanService.saveVerifiedAnalysis(
                 currentUserService.currentUser(),
-                new ScanAnalysisRequest(toPrediction(detections.get(0).type())),
-                detections.size() == 1 && detections.get(0).confidence() >= 0.65
+                toPrediction(detections.get(0).type()),
+                detections.size() == 1 && detections.get(0).confidence() >= 0.65,
+                hash
         );
         return new GeminiScanResponse(detections, scan, scan.updatedUserPoints(), analysis.provider(),
                 analysis.modelVersion(), analysis.inferenceMode(), detections.size() > 1

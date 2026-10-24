@@ -3,10 +3,11 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import '../widgets/authorized_image.dart';
+import '../services/media_download.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as image_lib;
 import 'package:stomp_dart_client/stomp_dart_client.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/chat_message.dart';
 import '../models/cleanup_event.dart';
@@ -1343,7 +1344,7 @@ class _EventChatCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (event.coverImageUrl != null)
-                  Image.network(
+                  AuthorizedImage(
                     event.coverImageUrl!,
                     width: double.infinity,
                     height: 150,
@@ -1546,7 +1547,7 @@ class _MessageRow extends StatelessWidget {
                           if (message.imageUrl != null)
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12),
-                              child: Image.network(
+                              child: AuthorizedImage(
                                 message.imageUrl!,
                                 width: 260,
                                 fit: BoxFit.cover,
@@ -1699,18 +1700,12 @@ class _DocumentAttachment extends StatelessWidget {
 
   Future<void> _open(BuildContext context) async {
     await EcoHaptics.light();
-    final source = Uri.tryParse(message.fileUrl ?? '');
-    final uri = source?.replace(
-      queryParameters: {...source.queryParameters, 'download': 'true'},
-    );
-    if (uri == null ||
-        !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('PDF dosyası açılamadı.')));
-      }
-    }
+    if (context.mounted)
+      await downloadAuthorizedMedia(
+        context,
+        message.fileUrl ?? '',
+        message.fileName ?? 'belge.pdf',
+      );
   }
 
   @override

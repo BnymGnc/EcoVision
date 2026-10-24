@@ -27,6 +27,7 @@ public class JwtService {
     public String generateToken(AppUser user) {
         Instant now = Instant.now();
         return Jwts.builder()
+                .id(java.util.UUID.randomUUID().toString())
                 .subject(user.getEmail())
                 .claim("userId", user.getId())
                 .claim("role", user.getRole().name())
@@ -41,6 +42,7 @@ public class JwtService {
     public String extractEmail(String token) {
         return claims(token).getSubject();
     }
+    public Instant expiration(String token) { return claims(token).getExpiration().toInstant(); }
 
     public boolean isValid(String token, AppUser user) {
         Claims claims = claims(token);

@@ -8,4 +8,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface LoginDayRepository extends JpaRepository<LoginDay, Long> {
     boolean existsByUserIdAndLoginDate(Long userId, LocalDate date);
     List<LoginDay> findByUserIdAndLoginDateGreaterThanEqualOrderByLoginDateAsc(Long userId, LocalDate start);
+    List<LoginDay> findByUserIdAndLoginDateBetweenOrderByLoginDateAsc(Long userId, LocalDate start, LocalDate end);
 }

@@ -17,7 +17,9 @@ public record ScanAnalysisResponse(
         @JsonProperty("points_awarded")
         Integer pointsAwarded,
         @JsonProperty("updated_user_points")
-        Integer updatedUserPoints
+        Integer updatedUserPoints,
+        java.util.UUID analysisId,
+        String rewardStatus
 ) {
     public static ScanAnalysisResponse from(ScanHistory scan) {
         return new ScanAnalysisResponse(
@@ -28,7 +30,9 @@ public record ScanAnalysisResponse(
                 scan.getRecycledInto(),
                 scan.getScannedAt(),
                 scan.getPointsAwarded(),
-                scan.getUser().getTotalPoints()
+                scan.getUser().getTotalPoints(),
+                scan.getAnalysisId(),
+                scan.getRewardStatus()
         );
     }
 }

@@ -24,6 +24,7 @@ class _AcademyQuizScreenState extends State<AcademyQuizScreen> {
   int _questionIndex = 0;
   int? _selectedOption;
   int _correctCount = 0;
+  final List<int> _answers = [];
   bool _confirmed = false;
   bool _submitting = false;
   bool _finished = false;
@@ -38,6 +39,7 @@ class _AcademyQuizScreenState extends State<AcademyQuizScreen> {
     EcoHaptics.selection();
     setState(() {
       _confirmed = true;
+      _answers.add(_selectedOption!);
       if (_selectedOption == _question.correctOptionIndex) _correctCount++;
     });
   }
@@ -77,6 +79,8 @@ class _AcademyQuizScreenState extends State<AcademyQuizScreen> {
             )
           : await widget.apiService!.completeEducationModule(
               widget.module.categoryId,
+              answers: List.unmodifiable(_answers),
+              quizVersion: AcademyModule.quizVersion,
             );
       unawaited(EcoHaptics.heavy());
       if (!mounted) return;
@@ -100,6 +104,7 @@ class _AcademyQuizScreenState extends State<AcademyQuizScreen> {
       _questionIndex = 0;
       _selectedOption = null;
       _correctCount = 0;
+      _answers.clear();
       _confirmed = false;
       _submitting = false;
       _finished = false;

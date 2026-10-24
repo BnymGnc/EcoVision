@@ -55,6 +55,93 @@ void main() {
     expect(find.text('Doğa Koruyucusu'), findsOneWidget);
     expect(find.text('Karbonunu Sıfırlamaya Başla!'), findsOneWidget);
   });
+
+  testWidgets(
+    'isteğe bağlı yıllık verileri soru altında doğrular ve hesaba katar',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final api = _FakeApiService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CarbonFootprintScreen(
+            apiService: api,
+            calculationDuration: const Duration(milliseconds: 300),
+          ),
+        ),
+      );
+      for (final question in carbonQuestions) {
+        await tester.tap(find.text(question.options.first.label));
+        await tester.pump();
+        if (question.id == 2 || question.id == 11) {
+          final tile = find.text('Daha net hesapla (isteğe bağlı)');
+          await tester.scrollUntilVisible(
+            tile,
+            180,
+            scrollable: find
+                .byWidgetPredicate(
+                  (widget) =>
+                      widget is Scrollable &&
+                      widget.axisDirection == AxisDirection.down,
+                )
+                .last,
+          );
+          await tester.tap(tile);
+          await tester.pumpAndSettle();
+          final annual = find.text('Yıllık');
+          await tester.scrollUntilVisible(
+            annual,
+            180,
+            scrollable: find
+                .byWidgetPredicate(
+                  (widget) =>
+                      widget is Scrollable &&
+                      widget.axisDirection == AxisDirection.down,
+                )
+                .last,
+          );
+          await tester.tap(annual);
+          await tester.pumpAndSettle();
+          final field = find.byKey(
+            ValueKey(question.id == 2 ? 'carbon-fuel' : 'carbon-electricity'),
+          );
+          await tester.scrollUntilVisible(
+            field,
+            180,
+            scrollable: find
+                .byWidgetPredicate(
+                  (widget) =>
+                      widget is Scrollable &&
+                      widget.axisDirection == AxisDirection.down,
+                )
+                .last,
+          );
+          if (question.id == 2) {
+            await tester.enterText(field, '-10');
+            await tester.tap(find.text('Devam Et'));
+            await tester.pumpAndSettle();
+            expect(
+              find.text('Geçerli, negatif olmayan bir tüketim gir.'),
+              findsOneWidget,
+            );
+          }
+          await tester.enterText(field, question.id == 2 ? '480' : '2400');
+        }
+        await tester.tap(
+          find.text(question.id == 20 ? 'Karbonumu Hesapla' : 'Devam Et'),
+        );
+        await tester.pump(const Duration(milliseconds: 500));
+        if (question.id != 20) await tester.pumpAndSettle();
+      }
+      await tester.pump(const Duration(milliseconds: 1000));
+      await tester.pump();
+      expect(api.submittedKg, 3152);
+      expect(find.text('3.15 Ton'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 class _FakeApiService extends ApiService {

@@ -12,7 +12,8 @@
     "eligibility",
     "local_photo_inference"
   ],
-  "local_photo_endpoint_ms": 1864.7103999992396,
+  "local_photo_endpoint_ms": 1106.1771999993653,
   "provider": "ONNX_CPU",
+  "carbon_flow": "20-question survey; optional inputs tested separately in Flutter",
   "browser_errors": []
 }

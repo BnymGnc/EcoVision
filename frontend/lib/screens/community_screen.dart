@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import '../widgets/authorized_image.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/turkey_locations.dart';
@@ -1087,16 +1088,25 @@ class _GroupCard extends StatelessWidget {
             Row(
               children: [
                 CircleAvatar(
-                  backgroundImage: group.coverImageUrl == null
-                      ? null
-                      : NetworkImage(group.coverImageUrl!),
                   child: group.coverImageUrl == null
                       ? Icon(
                           group.privateGroup
                               ? Icons.lock_outline
                               : Icons.eco_outlined,
                         )
-                      : null,
+                      : ClipOval(
+                          child: AuthorizedImage(
+                            group.coverImageUrl!,
+                            width: 40,
+                            height: 40,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Icon(
+                              group.privateGroup
+                                  ? Icons.lock_outline
+                                  : Icons.eco_outlined,
+                            ),
+                          ),
+                        ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

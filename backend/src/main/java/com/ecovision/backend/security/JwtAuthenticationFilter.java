@@ -17,13 +17,16 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
+    private final AccessTokenRevocations revocations;
 
     public JwtAuthenticationFilter(
             JwtService jwtService,
-            CustomUserDetailsService userDetailsService
+            CustomUserDetailsService userDetailsService,
+            AccessTokenRevocations revocations
     ) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+        this.revocations = revocations;
     }
 
     @Override
@@ -43,7 +46,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String email = jwtService.extractEmail(token);
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 AppUser user = (AppUser) userDetailsService.loadUserByUsername(email);
-                if (jwtService.isValid(token, user) && user.isAccountNonLocked()) {
+                if (jwtService.isValid(token, user) && user.isAccountNonLocked() && user.isEnabled() && !revocations.revoked(token)) {
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
                                     user,

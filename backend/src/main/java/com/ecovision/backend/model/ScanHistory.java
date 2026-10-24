@@ -35,6 +35,22 @@ public class ScanHistory {
     private String recycledInto;
 
     private Integer pointsAwarded;
+    @Column(unique = true)
+    private java.util.UUID analysisId;
+    @Column(length = 64)
+    private String imageHash;
+    private java.time.LocalDate rewardDate;
+    @Column(length = 30)
+    private String rewardStatus;
+
+    public java.util.UUID getAnalysisId() { return analysisId; }
+    public void setAnalysisId(java.util.UUID value) { analysisId=value; }
+    public String getImageHash() { return imageHash; }
+    public void setImageHash(String value) { imageHash=value; }
+    public java.time.LocalDate getRewardDate() { return rewardDate; }
+    public void setRewardDate(java.time.LocalDate value) { rewardDate=value; }
+    public String getRewardStatus() { return rewardStatus; }
+    public void setRewardStatus(String value) { rewardStatus=value; }
 
     @Column(nullable = false)
     private Instant scannedAt;

@@ -72,4 +72,79 @@ void main() {
       throwsStateError,
     );
   });
+
+  test('isteğe bağlı tüketim girilmezse eski hesap aynen korunur', () {
+    final selections = {for (final q in carbonQuestions) q.id: 0};
+    final result = CarbonFootprintCalculator.calculate(
+      questions: carbonQuestions,
+      selectedOptionIndexes: selections,
+      consumption: const CarbonConsumptionData(),
+    );
+    expect(result.annualKg, 1000);
+    expect(result.consumptionAdjusted, isFalse);
+  });
+
+  test(
+    'elektrik verisi cihaz ve klima tahmininin yerine geçer, haneye bölünür',
+    () {
+      final selections = {for (final q in carbonQuestions) q.id: 0};
+      final result = CarbonFootprintCalculator.calculate(
+        questions: carbonQuestions,
+        selectedOptionIndexes: selections,
+        consumption: const CarbonConsumptionData(
+          monthlyElectricityKwh: 200,
+          householdMembers: 2,
+        ),
+      );
+      expect(result.annualKg, (1000 - 100 + 200 * 12 * 0.469 / 2).round());
+      expect(result.consumptionAdjusted, isTrue);
+    },
+  );
+
+  test('yakıt girildiğinde özel araç tahminleri yeniden eklenmez', () {
+    final selections = {
+      for (final q in carbonQuestions) q.id: 0,
+      1: 3,
+      2: 3,
+      4: 3,
+    };
+    final result = CarbonFootprintCalculator.calculate(
+      questions: carbonQuestions,
+      selectedOptionIndexes: selections,
+      consumption: const CarbonConsumptionData(
+        monthlyFuelLitres: 40,
+        fuelType: 'DIESEL',
+      ),
+    );
+    expect(
+      result.annualKg,
+      (1000 - 100 + 40 * 12 * (10.180 / 3.785411784)).round(),
+    );
+  });
+
+  test('elektrikli ısıtma elektrik faturasıyla çift sayılmaz', () {
+    final selections = {
+      for (final q in carbonQuestions) q.id: 0,
+      9: 3,
+      10: 2,
+      12: 2,
+    };
+    final result = CarbonFootprintCalculator.calculate(
+      questions: carbonQuestions,
+      selectedOptionIndexes: selections,
+      consumption: const CarbonConsumptionData(monthlyElectricityKwh: 0),
+    );
+    expect(result.annualKg, 700);
+  });
+
+  test('hatalı isteğe bağlı tüketim reddedilir', () {
+    expect(
+      () => CarbonFootprintCalculator.calculate(
+        questions: carbonQuestions,
+        selectedOptionIndexes: {for (final q in carbonQuestions) q.id: 0},
+        consumption: const CarbonConsumptionData(monthlyElectricityKwh: -1),
+      ),
+      throwsArgumentError,
+    );
+  });
 }

@@ -2,7 +2,7 @@
 
 Problem: an individual needs a reliable next action for a waste item, including packaging eligibility and an appropriate return point.
 
-Solution: photograph an item, obtain a material estimate, answer short packaging questions, inspect material-relevant DOA locations and open directions. Education, 200 catalogued quests and separate activity records support retention without treating XP as verified environmental impact.
+Solution: photograph an item, obtain a material estimate with uncertainty, inspect material-relevant DOA locations and open directions. A linked sorting guide adds preparation, safety and source information. The current result flow has no packaging questionnaire. Education, 200 catalogued quests and separate activity records support retention without treating XP as verified environmental impact.
 
 Architecture: Flutter client, Spring Boot 3 modular monolith, PostgreSQL/Neon, HTTP JSON/multipart APIs and STOMP group chat. Point import uses provider UUIDs, snapshot hashes and data-quality information. Visual AI is separated from deterministic rules and arithmetic.
 

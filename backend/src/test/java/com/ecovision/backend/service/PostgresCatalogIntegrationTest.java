@@ -95,10 +95,208 @@ class PostgresCatalogIntegrationTest {
         assertEquals(0, carbon.summary(user).declaredActionCount());
         assertEquals(1, logins.record(user.getId()).currentStreak());
         assertEquals(1, logins.record(user.getId()).lastSevenDays().size());
+        var today = java.time.LocalDate.now(java.time.ZoneId.of("Europe/Istanbul"));
+        assertEquals(java.util.List.of(today), logins.history(user.getId(), null).loginDates());
+        assertTrue(logins.history(user.getId(), java.time.YearMonth.from(today).minusMonths(1).toString()).loginDates().isEmpty());
     }
 
     @Test void protectedApisRejectAnonymousAccessAndHealthRemainsPublic() {
         assertEquals(401, http.getForEntity("/api/map-pins/nearby?lat=38&lng=35", String.class).getStatusCode().value());
+        assertEquals(401, http.getForEntity("/api/users/login-history", String.class).getStatusCode().value());
         assertEquals(200, http.getForEntity("/api/health", String.class).getStatusCode().value());
+    }
+
+    private com.ecovision.backend.dto.AuthResponse securityAccount() {
+        String suffix = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        return auth.register(new com.ecovision.backend.dto.RegisterRequest(
+            "Security", "Test", suffix+"@ecovision.invalid", "Local!8aA"+suffix,
+            java.time.LocalDate.of(2000,1,1), "Kayseri","Talas","sec_"+suffix,true,true));
+    }
+    private org.springframework.http.HttpHeaders bearer(String token) {
+        var headers = new org.springframework.http.HttpHeaders();
+        if (token != null) headers.setBearerAuth(token);
+        return headers;
+    }
+    private org.springframework.http.ResponseEntity<String> media(String path, String token) {
+        return http.exchange(path, org.springframework.http.HttpMethod.GET,
+            new org.springframework.http.HttpEntity<>(bearer(token)), String.class);
+    }
+
+    @Test void profileMediaEnforcesLivePrivacyFriendshipAgeAndLegacyRules() throws Exception {
+        var owner = securityAccount(); var friend = securityAccount(); var stranger = securityAccount();
+        var png = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(2,2,1),"png",png);
+        var part = new org.springframework.core.io.ByteArrayResource(png.toByteArray()) {
+            @Override public String getFilename() { return "avatar.png"; }
+        };
+        var body = new org.springframework.util.LinkedMultiValueMap<String,Object>();
+        body.add("image", part);
+        var headers = bearer(owner.accessToken());
+        headers.setContentType(org.springframework.http.MediaType.MULTIPART_FORM_DATA);
+        var uploaded = http.exchange("/api/auth/me/profile-picture", org.springframework.http.HttpMethod.POST,
+            new org.springframework.http.HttpEntity<>(body, headers), java.util.Map.class);
+        assertEquals(200, uploaded.getStatusCode().value());
+        String path = uploaded.getBody().get("profilePictureUrl").toString();
+        var record = users.findById(owner.user().id()).orElseThrow();
+        record.setProfileVisibility(com.ecovision.backend.model.ProfileVisibility.FRIENDS_ONLY);
+        users.save(record);
+        assertEquals(401, media(path,null).getStatusCode().value());
+        assertEquals(403, media(path,stranger.accessToken()).getStatusCode().value());
+        assertEquals(200, media(path,owner.accessToken()).getStatusCode().value());
+        assertTrue(media(path,owner.accessToken()).getHeaders().getCacheControl().contains("no-store"));
+        var friendship = new com.ecovision.backend.model.Friendship();
+        friendship.setRequester(users.findById(owner.user().id()).orElseThrow());
+        friendship.setAddressee(users.findById(friend.user().id()).orElseThrow());
+        friendship.setStatus(com.ecovision.backend.model.FriendshipStatus.ACCEPTED);
+        var friends = context.getBean(FriendshipRepository.class);
+        friendship = friends.save(friendship);
+        assertEquals(200, media(path,friend.accessToken()).getStatusCode().value());
+        friends.deleteById(friendship.getId());
+        assertEquals(403, media(path,friend.accessToken()).getStatusCode().value());
+        record = users.findById(owner.user().id()).orElseThrow();
+        record.setProfileVisibility(com.ecovision.backend.model.ProfileVisibility.PUBLIC);
+        users.save(record);
+        assertEquals(200, media(path,null).getStatusCode().value());
+        // Existing media with no uploader metadata still uses its current domain owner.
+        jdbc.update("update media_assets set owner_user_id=null where id=?",
+            java.util.UUID.fromString(path.substring(path.lastIndexOf('/')+1)));
+        assertEquals(200, media(path,null).getStatusCode().value());
+        record = users.findById(owner.user().id()).orElseThrow();
+        record.setDateOfBirth(java.time.LocalDate.now().minusYears(16)); users.save(record);
+        assertEquals(403, media(path,owner.accessToken()).getStatusCode().value());
+    }
+
+    @Test void privateGroupMediaRevokesOnKickAndLogoutAndUnknownMediaFailsClosed() {
+        var founder = securityAccount(); var member = securityAccount(); var stranger = securityAccount();
+        var group = new com.ecovision.backend.model.CommunityGroup();
+        group.setCreator(users.findById(founder.user().id()).orElseThrow());
+        group.setName("Private test"); group.setDescription("Local test only");
+        group.setCity("Kayseri"); group.setDistrict("Talas"); group.setPrivateGroup(true);
+        group = context.getBean(CommunityGroupRepository.class).save(group);
+        var membership = new com.ecovision.backend.model.GroupMember();
+        membership.setGroup(group); membership.setUser(users.findById(member.user().id()).orElseThrow());
+        var memberships = context.getBean(GroupMemberRepository.class);
+        membership = memberships.save(membership);
+        var asset = new com.ecovision.backend.model.MediaAsset();
+        asset.setCategory("group-chat"); asset.setOwnerUserId(founder.user().id());
+        asset.setContentType("application/pdf"); asset.setOriginalFileName("test.pdf");
+        asset.setData("%PDF-1.7 local test".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        asset.setSizeBytes(asset.getData().length);
+        asset = context.getBean(MediaAssetRepository.class).save(asset);
+        String path = "/api/media/"+asset.getId();
+        var message = new com.ecovision.backend.model.ChatMessage();
+        message.setGroup(group); message.setSender(users.findById(founder.user().id()).orElseThrow());
+        message.setMessage(""); message.setFileUrl(path);
+        context.getBean(ChatMessageRepository.class).save(message);
+        assertEquals(401, media(path,null).getStatusCode().value());
+        assertEquals(403, media(path,stranger.accessToken()).getStatusCode().value());
+        assertEquals(200, media(path,member.accessToken()).getStatusCode().value());
+        // Delegated admins may upload a cover: uploader need not be the founder.
+        var cover = new com.ecovision.backend.model.MediaAsset();
+        cover.setCategory("groups"); cover.setOwnerUserId(member.user().id());
+        cover.setContentType("image/png"); cover.setOriginalFileName("cover.png");
+        cover.setData(new byte[]{1}); cover.setSizeBytes(1);
+        cover = context.getBean(MediaAssetRepository.class).save(cover);
+        String coverPath = "/api/media/"+cover.getId();
+        group.setCoverImageUrl(coverPath);
+        context.getBean(CommunityGroupRepository.class).save(group);
+        assertEquals(200,media(coverPath,founder.accessToken()).getStatusCode().value());
+        assertEquals(200,media(coverPath,member.accessToken()).getStatusCode().value());
+        assertEquals(403,media(coverPath,stranger.accessToken()).getStatusCode().value());
+        var legacy = new com.ecovision.backend.model.Event();
+        legacy.setCreator(users.findById(founder.user().id()).orElseThrow());
+        legacy.setTitle("Legacy group"); legacy.setDescription("Local security fixture");
+        legacy.setLocation("Kayseri"); legacy.setEventDate(java.time.Instant.now());
+        legacy=context.getBean(EventRepository.class).save(legacy);
+        group.setLegacyEventId(legacy.getId());
+        context.getBean(CommunityGroupRepository.class).save(group);
+        var oldMembership = new com.ecovision.backend.model.EventMember();
+        oldMembership.setEvent(legacy);
+        oldMembership.setUser(users.findById(member.user().id()).orElseThrow());
+        oldMembership.setRole(com.ecovision.backend.model.GroupRole.MEMBER);
+        context.getBean(EventMemberRepository.class).save(oldMembership);
+        var legacyAsset = new com.ecovision.backend.model.MediaAsset();
+        legacyAsset.setCategory("chat"); legacyAsset.setOwnerUserId(founder.user().id());
+        legacyAsset.setContentType("application/pdf"); legacyAsset.setOriginalFileName("legacy.pdf");
+        legacyAsset.setData(new byte[]{1}); legacyAsset.setSizeBytes(1);
+        legacyAsset=context.getBean(MediaAssetRepository.class).save(legacyAsset);
+        String legacyPath="/api/media/"+legacyAsset.getId();
+        var oldMessage=new com.ecovision.backend.model.ChatMessage();
+        oldMessage.setEvent(legacy); oldMessage.setSender(users.findById(founder.user().id()).orElseThrow());
+        oldMessage.setMessage(""); oldMessage.setFileUrl(legacyPath);
+        context.getBean(ChatMessageRepository.class).save(oldMessage);
+        assertEquals(200,media(legacyPath,member.accessToken()).getStatusCode().value());
+        memberships.deleteById(membership.getId());
+        assertEquals(403, media(path,member.accessToken()).getStatusCode().value());
+        assertEquals(403, media(legacyPath,member.accessToken()).getStatusCode().value());
+        assertEquals(200, media(path,founder.accessToken()).getStatusCode().value());
+        var logout = http.exchange("/api/auth/logout",org.springframework.http.HttpMethod.POST,
+            new org.springframework.http.HttpEntity<>(java.util.Map.of("refreshToken",founder.refreshToken()),bearer(founder.accessToken())),
+            String.class);
+        assertEquals(204, logout.getStatusCode().value());
+        assertEquals(401, media(path,founder.accessToken()).getStatusCode().value());
+        var orphan = new com.ecovision.backend.model.MediaAsset();
+        orphan.setCategory("unknown"); orphan.setContentType("application/pdf");
+        orphan.setOriginalFileName("orphan.pdf"); orphan.setSizeBytes(1); orphan.setData(new byte[]{1});
+        orphan = context.getBean(MediaAssetRepository.class).save(orphan);
+        assertEquals(403,media("/api/media/"+orphan.getId(),stranger.accessToken()).getStatusCode().value());
+    }
+
+    @Test void quizServerGradesAllThresholdsAndConcurrentCompletionAwardsOnce() throws Exception {
+        var user = securityAccount(); var other = securityAccount();
+        String path = "/api/education/complete/modul-1";
+        for (var answers : java.util.List.of(java.util.List.of(0,1,0),java.util.List.of(1,1,0))) {
+            var response = http.exchange(path,org.springframework.http.HttpMethod.POST,
+                new org.springframework.http.HttpEntity<>(java.util.Map.of("quizVersion","2026-10-24-v1","answers",answers),bearer(user.accessToken())), java.util.Map.class);
+            assertEquals(422,response.getStatusCode().value());
+        }
+        var missing = http.exchange(path,org.springframework.http.HttpMethod.POST,
+            new org.springframework.http.HttpEntity<>(java.util.Map.of(),bearer(user.accessToken())),java.util.Map.class);
+        assertEquals(426, missing.getStatusCode().value());
+        var payload = java.util.Map.of("quizVersion","2026-10-24-v1","answers",java.util.List.of(1,0,0));
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.Callable<Integer> claim = () -> {
+                var response = http.exchange(path,org.springframework.http.HttpMethod.POST,
+                    new org.springframework.http.HttpEntity<>(payload,bearer(user.accessToken())),java.util.Map.class);
+                assertEquals(200,response.getStatusCode().value());
+                return ((Number)response.getBody().get("pointsAwarded")).intValue();
+            };
+            var a=executor.submit(claim); var b=executor.submit(claim);
+            assertEquals(30,a.get()+b.get());
+        } finally { executor.shutdownNow(); }
+        var repeated=http.exchange(path,org.springframework.http.HttpMethod.POST,
+            new org.springframework.http.HttpEntity<>(java.util.Map.of("quizVersion","2026-10-24-v1","answers",java.util.List.of(1,0,2)),bearer(user.accessToken())),java.util.Map.class);
+        assertEquals(0,((Number)repeated.getBody().get("pointsAwarded")).intValue());
+        assertEquals(0,users.findById(other.user().id()).orElseThrow().getTotalPoints());
+        var publicQuiz=http.exchange("/api/education/quiz/modul-1",org.springframework.http.HttpMethod.GET,
+            new org.springframework.http.HttpEntity<>(bearer(user.accessToken())),String.class);
+        assertEquals(200,publicQuiz.getStatusCode().value());
+        assertFalse(publicQuiz.getBody().contains("correctOptionIndex"));
+    }
+
+    @Test void imageRewardsAreSerializedPerUserAndLegacyLabelsCannotMintPoints() throws Exception {
+        var identity=securityAccount(); var other=securityAccount();
+        var user=users.findById(identity.user().id()).orElseThrow();
+        var scans=context.getBean(ScanService.class);
+        String hash="1".repeat(64);
+        var executor=java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.Callable<Integer> call=()->scans.saveVerifiedAnalysis(user,"plastic",true,hash).pointsAwarded();
+            var a=executor.submit(call); var b=executor.submit(call);
+            assertEquals(10,a.get()+b.get());
+        } finally {executor.shutdownNow();}
+        assertEquals(10,users.findById(user.getId()).orElseThrow().getTotalPoints());
+        assertEquals("DUPLICATE_IMAGE",scans.saveVerifiedAnalysis(user,"plastic",true,hash).rewardStatus());
+        assertEquals(1,context.getBean(ScanHistoryRepository.class)
+            .countByUserIdAndMaterialTypeIgnoreCase(user.getId(),"Plastik Atık"));
+        assertEquals(10,scans.saveVerifiedAnalysis(users.findById(other.user().id()).orElseThrow(),"plastic",true,hash).pointsAwarded());
+        var legacy=http.exchange("/api/scans",org.springframework.http.HttpMethod.POST,
+            new org.springframework.http.HttpEntity<>(java.util.Map.of("materialType","plastic","recyclable",true),bearer(identity.accessToken())),java.util.Map.class);
+        assertEquals(200,legacy.getStatusCode().value());
+        assertEquals(10,users.findById(user.getId()).orElseThrow().getTotalPoints());
+        try(var in=new ClassPathResource("db/migration/V6__media_scope_scan_reward_and_token_revocation.sql").getInputStream()) {
+            String sql=new String(in.readAllBytes(),StandardCharsets.UTF_8); jdbc.execute(sql);jdbc.execute(sql);
+        }
     }
 }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -25,6 +26,8 @@ import '../models/social_models.dart';
 import '../models/app_notification.dart';
 import '../models/moderation_report.dart';
 import '../models/quest_progress.dart';
+import '../models/login_activity.dart';
+import 'media_session.dart';
 
 class ApiService {
   static const String _configuredBaseUrl = String.fromEnvironment(
@@ -43,6 +46,9 @@ class ApiService {
   String? _accessToken;
   String? _refreshToken;
   bool _rememberMe = true;
+  int _sessionGeneration = 0;
+  Future<void> _storageQueue = Future.value();
+  Future<bool>? _refreshInFlight;
   UserProfile? _currentUser;
   final Map<int, SocialUser> _confirmedFriends = <int, SocialUser>{};
 
@@ -123,24 +129,33 @@ class ApiService {
 
   Future<void> logout() async {
     final refreshToken = _refreshToken;
+    final authorization = authorizationHeader;
+    final generation = ++_sessionGeneration;
+    _accessToken = null;
+    _refreshToken = null;
+    _currentUser = null;
+    MediaSession.clear();
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
+    _confirmedFriends.clear();
+    _pointsNotifier.value = 0;
+    await _storeTokens(generation);
     if (refreshToken != null) {
       try {
-        await _client.post(
-          _uri('/api/auth/logout'),
-          headers: const {'Content-Type': 'application/json'},
-          body: jsonEncode({'refreshToken': refreshToken}),
-        );
+        await _client
+            .post(
+              _uri('/api/auth/logout'),
+              headers: {
+                'Content-Type': 'application/json',
+                if (authorization != null) 'Authorization': authorization,
+              },
+              body: jsonEncode({'refreshToken': refreshToken}),
+            )
+            .timeout(const Duration(seconds: 5));
       } catch (_) {
         // Local token destruction remains authoritative for logout.
       }
     }
-    await _secureStorage.delete(key: _accessTokenKey);
-    await _secureStorage.delete(key: _refreshTokenKey);
-    _accessToken = null;
-    _refreshToken = null;
-    _currentUser = null;
-    _confirmedFriends.clear();
-    _pointsNotifier.value = 0;
   }
 
   Future<void> requestPasswordReset(String email) async {
@@ -156,6 +171,14 @@ class ApiService {
 
   Future<Map<String, dynamic>> fetchLoginStreak() =>
       _getJson('/api/users/login-streak');
+
+  Future<LoginActivityMonth> fetchLoginHistory({String? month}) async {
+    final uri = Uri(
+      path: '/api/users/login-history',
+      queryParameters: month == null ? null : {'month': month},
+    );
+    return LoginActivityMonth.fromJson(await _getJson(uri.toString()));
+  }
 
   Future<Map<String, dynamic>> assessCarbon(Map<String, dynamic> inputs) async {
     final result = await _postJson('/api/carbon/assessments', inputs);
@@ -288,12 +311,15 @@ class ApiService {
     http.MultipartRequest Function() requestFactory, {
     Duration timeout = const Duration(seconds: 45),
   }) async {
+    final generation = _sessionGeneration;
     if (_accessToken == null && !await _refreshSession()) {
       throw const ApiException('Bu işlem için giriş yapmalısınız.');
     }
+    _requireSession(generation);
 
     Future<http.Response> send() async {
       Future<http.Response> execute() async {
+        _requireSession(generation);
         final request = requestFactory();
         request.headers.addAll(_authHeaders(includeJson: false));
         return http.Response.fromStream(await _client.send(request));
@@ -308,9 +334,12 @@ class ApiService {
     }
 
     var response = await send();
+    _requireSession(generation);
     if (response.statusCode == 401 && await _refreshSession()) {
+      _requireSession(generation);
       response = await send();
     }
+    _requireSession(generation);
     return response;
   }
 
@@ -347,13 +376,15 @@ class ApiService {
   }
 
   Future<EducationCompletionResult> completeEducationModule(
-    String categoryId,
-  ) async {
+    String categoryId, {
+    required List<int> answers,
+    required String quizVersion,
+  }) async {
     final encodedCategory = Uri.encodeComponent(categoryId);
-    final json = await _postJson(
-      '/api/education/complete/$encodedCategory',
-      const {},
-    );
+    final json = await _postJson('/api/education/complete/$encodedCategory', {
+      'answers': answers,
+      'quizVersion': quizVersion,
+    });
     final result = EducationCompletionResult.fromJson(json);
     _pointsNotifier.value = result.totalPoints;
     return result;
@@ -1399,6 +1430,7 @@ class ApiService {
   UserProfile _applyUser(Map<String, dynamic> json) {
     final user = UserProfile.fromJson(json);
     _currentUser = user;
+    MediaSession.bind(fetchMediaBytes, user.id);
     _pointsNotifier.value = user.totalPoints;
     return user;
   }
@@ -1483,7 +1515,13 @@ class ApiService {
     throw ApiException('Sunucudan geçerli bir nesne yanıtı alınamadı.');
   }
 
-  Future<void> _persistAuthResponse(Map<String, dynamic> json) async {
+  Future<void> _persistAuthResponse(
+    Map<String, dynamic> json, {
+    int? expectedGeneration,
+  }) async {
+    if (expectedGeneration != null && expectedGeneration != _sessionGeneration)
+      return;
+    final generation = expectedGeneration ?? ++_sessionGeneration;
     final accessToken = json['accessToken']?.toString();
     final refreshToken = json['refreshToken']?.toString();
     final userJson = json['user'];
@@ -1498,18 +1536,50 @@ class ApiService {
     _accessToken = accessToken;
     _refreshToken = refreshToken;
     _currentUser = UserProfile.fromJson(userJson);
+    MediaSession.bind(fetchMediaBytes, _currentUser!.id);
     _pointsNotifier.value = _currentUser!.totalPoints;
 
-    if (_rememberMe) {
-      await _secureStorage.write(key: _accessTokenKey, value: accessToken);
-      await _secureStorage.write(key: _refreshTokenKey, value: refreshToken);
-    } else {
-      await _secureStorage.delete(key: _accessTokenKey);
-      await _secureStorage.delete(key: _refreshTokenKey);
-    }
+    await _storeTokens(
+      generation,
+      access: _rememberMe ? accessToken : null,
+      refresh: _rememberMe ? refreshToken : null,
+    );
+  }
+
+  Future<void> _storeTokens(int generation, {String? access, String? refresh}) {
+    final operation = _storageQueue.then((_) async {
+      if (generation != _sessionGeneration) return;
+      if (access == null || refresh == null) {
+        await _secureStorage.delete(key: _accessTokenKey);
+        await _secureStorage.delete(key: _refreshTokenKey);
+      } else {
+        await _secureStorage.write(key: _accessTokenKey, value: access);
+        await _secureStorage.write(key: _refreshTokenKey, value: refresh);
+      }
+    });
+    _storageQueue = operation.catchError((Object _) {});
+    return operation;
   }
 
   Uri _uri(String path) => Uri.parse('$productionBaseUrl$path');
+
+  Future<Uint8List> fetchMediaBytes(Uri uri) async {
+    final base = Uri.parse(productionBaseUrl);
+    if (uri.origin != base.origin ||
+        !RegExp(r'^/api/media/[0-9a-fA-F-]{36}$').hasMatch(uri.path) ||
+        uri.userInfo.isNotEmpty) {
+      throw const ApiException('Geçersiz medya adresi');
+    }
+    final response = await _authorizedRequest(
+      (headers) =>
+          _client.get(uri, headers: {...headers, 'Cache-Control': 'no-store'}),
+    ).timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) _decodeAnyResponse(response);
+    if (response.bodyBytes.length > 5 * 1024 * 1024) {
+      throw const ApiException('Medya boyutu sınırı aşıldı');
+    }
+    return response.bodyBytes;
+  }
 
   Map<String, String> _authHeaders({bool includeJson = true}) {
     if (_accessToken == null) {
@@ -1524,17 +1594,40 @@ class ApiService {
   Future<http.Response> _authorizedRequest(
     Future<http.Response> Function(Map<String, String> headers) request,
   ) async {
+    final generation = _sessionGeneration;
     if (_accessToken == null && !await _refreshSession()) {
       throw ApiException('Bu işlem için giriş yapmalısınız.');
     }
+    _requireSession(generation);
     var response = await request(_authHeaders());
+    _requireSession(generation);
     if (response.statusCode == 401 && await _refreshSession()) {
+      _requireSession(generation);
       response = await request(_authHeaders());
     }
+    _requireSession(generation);
     return response;
   }
 
+  void _requireSession(int generation) {
+    if (generation != _sessionGeneration || _accessToken == null) {
+      throw const ApiException('Oturum değişti. Lütfen tekrar giriş yapın.');
+    }
+  }
+
   Future<bool> _refreshSession() async {
+    if (_refreshInFlight != null) return _refreshInFlight!;
+    final operation = _performRefresh();
+    _refreshInFlight = operation;
+    try {
+      return await operation;
+    } finally {
+      _refreshInFlight = null;
+    }
+  }
+
+  Future<bool> _performRefresh() async {
+    final generation = _sessionGeneration;
     final refreshToken = _refreshToken;
     if (refreshToken == null || refreshToken.isEmpty) {
       return false;
@@ -1548,8 +1641,11 @@ class ApiService {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return false;
       }
-      await _persistAuthResponse(_decodeResponse(response));
-      return true;
+      await _persistAuthResponse(
+        _decodeResponse(response),
+        expectedGeneration: generation,
+      );
+      return generation == _sessionGeneration && _accessToken != null;
     } catch (_) {
       return false;
     }

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import '../widgets/authorized_image.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/turkey_locations.dart';
@@ -197,7 +198,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                               color: colors.primary,
                             ),
                           )
-                        : Image.network(
+                        : AuthorizedImage(
                             _group.coverImageUrl!,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => ColoredBox(
@@ -505,7 +506,7 @@ class _EditGroupSheetState extends State<_EditGroupSheet> {
                   child: _cover != null
                       ? Image.memory(_cover!, fit: BoxFit.cover)
                       : widget.group.coverImageUrl != null
-                      ? Image.network(
+                      ? AuthorizedImage(
                           widget.group.coverImageUrl!,
                           fit: BoxFit.cover,
                         )
@@ -796,7 +797,7 @@ class _GroupEventCard extends StatelessWidget {
           if (event.coverImageUrl != null)
             AspectRatio(
               aspectRatio: 16 / 7,
-              child: Image.network(
+              child: AuthorizedImage(
                 event.coverImageUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => ColoredBox(

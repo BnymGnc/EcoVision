@@ -1,0 +1,10 @@
+target/
+uploads/
+*.log
+.env
+.env.*
+.git/
+.idea/
+.vscode/
+**/__pycache__/
+**/*.pyc

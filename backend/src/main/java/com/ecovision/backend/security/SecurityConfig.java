@@ -60,6 +60,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/media/**").permitAll()
+                        // MediaController applies dynamic object-level authorization.
+                        .requestMatchers("/uploads/**").denyAll()
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/register",
@@ -68,8 +70,7 @@ public class SecurityConfig {
                                 "/api/auth/logout",
                                 "/api/auth/forgot-password",
                                 "/ws",
-                                "/ws/**",
-                                "/uploads/**"
+                                "/ws/**"
                         ).permitAll()
                         .requestMatchers("/api/admin/users", "/api/admin/assign-admin").hasRole("SUPERUSER")
                         .requestMatchers("/api/admin/map-pins").hasAnyRole("ADMIN", "SUPERUSER")

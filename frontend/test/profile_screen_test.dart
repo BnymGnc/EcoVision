@@ -9,8 +9,13 @@ import 'package:ecovision/theme/theme_controller.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:ecovision/models/login_activity.dart';
+import 'package:ecovision/widgets/privacy_aware_avatar.dart';
+import 'package:ecovision/widgets/profile_identity_header.dart';
 
 void main() {
+  setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
   testWidgets(
     'profile showcase opens grouped settings and logout resets navigation',
     (tester) async {
@@ -59,9 +64,187 @@ void main() {
       expect(find.text("EcoVision'a Hoş Geldin"), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'giriş serisi yalnız profil başlığında ve takvim dokununca açılır',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final api = _FakeApiService();
+      await tester.pumpWidget(
+        MaterialApp(home: ProfileScreen(apiService: api)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Giriş serisi'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(ProfileIdentityHeader),
+          matching: find.text('3 gün giriş serisi'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Giriş günlerin'), findsNothing);
+      expect(api.historyMonths, isEmpty);
+      final summary = find.byKey(const ValueKey('profile-login-streak'));
+      await tester.ensureVisible(summary);
+      await tester.tap(summary);
+      await tester.pumpAndSettle();
+      expect(find.text('Giriş günlerin'), findsOneWidget);
+      expect(find.text('Ekim 2026'), findsOneWidget);
+      expect(api.historyMonths, ['2026-10']);
+      final semantics = tester.ensureSemantics();
+      expect(
+        tester
+            .getSemantics(find.byKey(const ValueKey('login-day-2026-10-24')))
+            .label,
+        contains('giriş yapıldı, bugün'),
+      );
+      semantics.dispose();
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is IconButton && widget.tooltip == 'Sonraki ay',
+              ),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.byTooltip('Önceki ay'));
+      await tester.pumpAndSettle();
+      expect(find.text('Eylül 2026'), findsOneWidget);
+      expect(api.historyMonths.last, '2026-09');
+      await tester.tap(find.byTooltip('Kapat'));
+      await tester.pumpAndSettle();
+      expect(find.text('Giriş günlerin'), findsNothing);
+      expect(find.text('3 gün giriş serisi'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('takvim hata halinde tekrar denenebilir', (tester) async {
+    final api = _FakeApiService()..failHistory = true;
+    await tester.pumpWidget(MaterialApp(home: ProfileScreen(apiService: api)));
+    await tester.pumpAndSettle();
+    final button = find.byKey(const ValueKey('profile-login-streak'));
+    await tester.ensureVisible(button);
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(find.text('Giriş günlerin yüklenemedi.'), findsOneWidget);
+    api.failHistory = false;
+    await tester.tap(find.text('Tekrar Dene'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ekim 2026'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('başlıktan avatar değişimi profile hemen yansır', (tester) async {
+    final api = _FakeApiService();
+    await tester.pumpWidget(MaterialApp(home: ProfileScreen(apiService: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Avatarı Düzenle'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Seviye 2'));
+    await tester.pump();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Avatarı Seç'));
+    await tester.pump();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pumpAndSettle();
+    final avatar = tester.widget<PrivacyAwareAvatar>(
+      find.byType(PrivacyAwareAvatar),
+    );
+    expect(
+      avatar.selectedAvatarPath,
+      'assets/images/avatars/avatar_level_2.png',
+    );
+    expect(avatar.avatarLevel, 2);
+    expect(find.text('3 gün giriş serisi'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('eski sunucuda yalnız bilinen yedi gün gösterilir', (
+    tester,
+  ) async {
+    final api = _FakeApiService()
+      ..failHistory = true
+      ..historyErrorStatus = 404;
+    await tester.pumpWidget(MaterialApp(home: ProfileScreen(apiService: api)));
+    await tester.pumpAndSettle();
+    final control = find.byKey(const ValueKey('profile-login-streak'));
+    await tester.ensureVisible(control);
+    await tester.tap(control);
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Bu görünüm yalnızca son yedi günün kayıtlarını içerir.'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<IconButton>(
+            find.byWidgetPredicate(
+              (w) => w is IconButton && w.tooltip == 'Önceki ay',
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final theme in AppThemeKind.values) {
+    for (final width in [320.0, 430.0]) {
+      testWidgets('$theme: uzun isim ve büyük yazı $width genişlikte taşmaz', (
+        tester,
+      ) async {
+        tester.view.physicalSize = Size(width, 932);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final api = _FakeApiService()
+          ..name = 'Çok Uzun İsimli Bir EcoVision'
+          ..surname = 'Kahramanı Sürdürülebilirlik Gönüllüsü';
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppThemes.forKind(theme),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(1.8)),
+              child: child!,
+            ),
+            home: ProfileScreen(apiService: api),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(ProfileIdentityHeader), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        final summary = find.byKey(const ValueKey('profile-login-streak'));
+        await tester.ensureVisible(summary);
+        await tester.tap(summary);
+        await tester.pumpAndSettle();
+        expect(find.text('Giriş günlerin'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
 }
 
 class _FakeApiService extends ApiService {
+  String name = 'Ada';
+  String surname = 'Green';
+  int avatarLevel = 1;
+  bool failHistory = false;
+  int historyErrorStatus = 500;
+  final List<String?> historyMonths = [];
   bool didLogout = false;
   final ValueNotifier<int> _points = ValueNotifier<int>(80);
 
@@ -70,16 +253,52 @@ class _FakeApiService extends ApiService {
 
   @override
   Future<UserProfile> fetchCurrentUser() async {
-    return const UserProfile(
+    return UserProfile(
       id: 1,
-      name: 'Ada',
-      surname: 'Green',
+      name: name,
+      surname: surname,
+      username: 'ada.eco',
       email: 'ada@ecovision.test',
       totalPoints: 80,
       role: 'USER',
       city: 'Şanlıurfa',
+      district: 'Haliliye',
+      equippedAvatarLevel: avatarLevel,
+      currentAvatarLevel: 2,
+      selectedAvatarPath: 'assets/images/avatars/avatar_level_$avatarLevel.png',
       ownedMarketItems: {},
     );
+  }
+
+  @override
+  Future<Map<String, dynamic>> fetchLoginStreak() async => {
+    'today': '2026-10-24',
+    'currentStreak': 3,
+    'longestStreak': 9,
+    'lastSevenDays': ['2026-10-22', '2026-10-23', '2026-10-24'],
+  };
+
+  @override
+  Future<Map<String, dynamic>> fetchCarbonSummary() async => {};
+
+  @override
+  Future<LoginActivityMonth> fetchLoginHistory({String? month}) async {
+    historyMonths.add(month);
+    if (failHistory)
+      throw ApiException('Test sunucu hatası', statusCode: historyErrorStatus);
+    return LoginActivityMonth.fromJson({
+      'month': month ?? '2026-10',
+      'today': '2026-10-24',
+      'loginDates': month == '2026-09'
+          ? ['2026-09-03']
+          : ['2026-10-22', '2026-10-23', '2026-10-24'],
+    });
+  }
+
+  @override
+  Future<UserProfile> equipAvatar(int level) async {
+    avatarLevel = level;
+    return fetchCurrentUser();
   }
 
   @override

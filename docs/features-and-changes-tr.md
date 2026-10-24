@@ -4,9 +4,28 @@ Bu belge 24 Ekim 2026 tarihindeki kod incelemesine ve bu çalışma sırasında 
 
 ## Ürün ne işe yarıyor?
 
+Son güvenlik turu: [önce/sonra tablosu](old-vs-new-final-tr.md),
+[yetki ve test raporu](final-security-and-tests-tr.md),
+[dağıtım hazırlığı](deployment-readiness-tr.md).
+
+Son Climathon incelemesi, öncelikli mantık/gizlilik bulguları, AI ve optimizasyon
+önerileri: [climathon-readiness-tr.md](climathon-readiness-tr.md).
+
 EcoVision, bir atığı fotoğraftan tanımaya, doğru ayrıştırma yolunu öğrenmeye ve uygun içecek ambalajı için ilgili DOA iade noktasını bulmaya yardımcı olur. Görevler, akademi, avatarlar ve topluluk bu davranışın devam etmesini destekler. Ambalajın resmî iadesi ve depozito ödemesi DOA'nın kendi sisteminde gerçekleşir.
 
-Temel yol: **Fotoğraf → malzeme tahmini → ambalaj uygunluğu → ilgili iade noktaları → harici harita uygulamasında yol tarifi → isteğe bağlı kullanıcı beyanı.**
+Güncel temel yol: **Fotoğraf → malzeme tahmini → DOA makinelerini göster → harici harita uygulamasında yol tarifi.**
+
+### Son arayüz düzenlemesi
+
+Rehber artık Türkçe karakter toleranslı arama ve tamamlanma filtreleri içerir.
+10 modül ve 30 soru korunurken teslim yolu, uygun/uygun olmayan örnekler,
+hazırlık, güvenlik, sık hatalar, yeniden kullanım ve açılabilir kaynaklar
+eklendi. Sonuç sayfasındaki yeni rehber bağlantısı tanınan kategoriye gider;
+AI özeti provider/model sürümünü ve tahminin sınırlarını açıklar.
+
+Kullanıcının sonraki tercihiyle tarama sonucu yeniden sadeleştirildi: ambalaj soru formu ve “Gerçekleştirdiğim Eylemi Kaydet” düğmesi kaldırıldı. Sonuçtan doğrudan **DOA Makinelerini Haritada Göster** düğmesiyle haritaya geçilir. PET/cam/alüminyum açıkça tanındıysa ilgili malzeme filtresi uygulanır; genel plastik/metal gibi belirsiz sınıfta harita malzeme filtresi olmadan açılır. Düğme ön konum/API sorgusuna bağlı gizlenmez. Makineye yönlendirme, resmî depozito kabulü anlamına gelmez.
+
+Eco Merkezi'ndeki karbon girişi tekrar eski **20 soruluk ankete** açılır. 2. sorunun altında isteğe bağlı yakıt litresi/türü/dönemi; 11. sorunun altında isteğe bağlı elektrik kWh/dönem/hane kişi sayısı vardır. Boş alanlar eski yanıt ağırlıklarını aynen korur. Veri girilirse ilgili yaklaşık ağırlıklar tüketim hesabıyla değiştirilir, aynı kullanım ikinci kez toplanmaz. Sonuç hâlâ yaklaşık anket sonucudur. Backend uygunluk/eylem endpoint'leri ve eski kayıtlar silinmedi; aşağıdaki ilk teslim karşılaştırması tarihsel bağlamını korur.
 
 ## Eski sürümden ne değişti?
 
@@ -28,7 +47,7 @@ Temel yol: **Fotoğraf → malzeme tahmini → ambalaj uygunluğu → ilgili iad
 | Görev kataloğu | 100 görev | Mevcut 100 görev + 100 ayrı alışkanlık eylemi; kararlı kodlar ve eski ilerleme korunuyor |
 | Görev ödülü | Eşzamanlı claim yanıtları yanıltıcı ödül bilgisi verebiliyordu | Kullanıcı kilidi claim yanıtının hesabını da kapsıyor; mevcut DB kilitli ödül akışı korunuyor |
 | Giriş serisi | Tarama serisi görünürken giriş geçmişi sınırlıydı | Giriş ve tarama serisi ayrı; güncel/en uzun giriş serisi ve son yedi gün saklanıyor |
-| Karbon | 20 soruluk sabit ağırlık anketi; profilde puan×katsayı tasarrufları | Eco Merkezi kısa, tüketim verili hesaba açılıyor; kaynak ve eksik kapsam gösteriliyor; puanlardan tasarruf türetilmiyor |
+| Karbon | 20 soruluk sabit ağırlık anketi; profilde puan×katsayı tasarrufları | Eco Merkezi 20 soruluk ankete açılıyor; yakıt/elektrik verisi isteğe bağlı ve çakışan tahminin yerine geçiyor; puanlardan tasarruf türetilmiyor |
 | Atık etkisi | Tarama ile geri dönüşüm birbirine karışabiliyordu | Tartılmış kütle ve yönetim yoluyla, ayrı kullanıcı beyanı kayıtları; tekrarlanan aynı kayıt anahtarı ikinci kayıt oluşturmuyor |
 | Admin erişimi | Kodda bilinen başlangıç parolası vardı | Yeni kurulumda rastgele hash; mevcut admin için gizli parola istemli yerel sıfırlama aracı ve oturum iptali |
 | Tanıtım | Son sayfaya kadar ilerleme gerekiyordu | Hesaba bağlı tanıtıma Atla düğmesi eklendi |
@@ -54,13 +73,11 @@ Fotoğraf Çek veya Galeriden Seç ile `image_picker` görseli alınır. Fotoğr
 
 Ana sayfadaki Eco Merkezi altı giriş içerir: Görevlerim, Eco-Market, Avatar Yolu, Atık Rehberi/Eko-Akademi, Liderlik ve Karbon Ayak İzi.
 
-### 4. Tarama sonucu ve ambalaj kontrolü
+### 4. Tarama sonucu ve haritaya geçiş
 
 Sonuçta malzeme, model skoru, doğada kalıcılık rehberi, olası geri kazanım yolu ve verilen uygulama puanı görünür. Kalıcılık metinleri genel eğitim bilgisidir; fotoğraftaki nesnenin ölçülmüş ömrü değildir.
 
-DOA adayı bir ambalaj için kullanıcı malzemeyi, tek kullanımlık süt ürünü olmayan içecek ambalajı olmasını, DOA işaretini, boş/deforme olmamış durumunu ve hacmini kontrol eder. Backend sürümlü kurala göre ELIGIBLE / INELIGIBLE / UNKNOWN üretir. Olumlu sonuç `USER_DECLARED` kanıtıdır. Barkod veya DBYS doğrulaması yapılmaz.
-
-Uygun nokta düğmesi ilgili malzemeyle haritaya geçer. Kâğıt, pil, organik atık veya genel metal yalnız bu adla DOA'ya yönlendirilmez. Kullanıcı isterse sonradan gerçekleştirdiği ayrıştırmayı kütlesiyle ayrı kaydeder.
+DOA haritası düğmesi doğrudan görünür. Tanımlı PET, cam ve alüminyumda ilgili noktalar; diğer malzemelerde genel DOA haritası açılır. Ambalaj kontrol formu ve eylem kaydı bu ekrandan kaldırılmıştır. Barkod/DBYS doğrulaması yapılmaz; genel haritayı açmak o atığın kabul edileceği iddiası değildir.
 
 ### 5. DOA haritası
 
@@ -84,13 +101,13 @@ Tamamlanan görevin ödülü ayrıca talep edilir. Kullanıcı/ilerleme kilitler
 
 ### 7. Eko-Akademi
 
-İçerik `assets/data/academy_guide.json` dosyasından yüklenir. Bir modül seçilince ders metni, sonra üç soruluk quiz açılır. En az iki doğru cevap geçme koşuludur. Backend kullanıcı-modül ilerlemesini tutar; bir modülün puanı bir defa verilir. Ana listede tamamlanan modüller işaretlenir. İçerik statik eğitim verisidir; ilerleme ve ödül sunucudadır.
+İçerik `assets/data/academy_guide.json` dosyasından yüklenir. Bir modül seçilince ders ve üç soruluk quiz açılır. İstemci üç cevap indeksini ve sürümü gönderir; sunucu kendi sürümlü kataloğuyla en az iki doğruyu doğrulamadan ödül vermez. Kullanıcı kilidi/idempotent işlem modül puanını tek seferle sınırlar. Cevapsız eski istemci 426 güncelleme yanıtı alır. Statik istemci cevap anahtarı geri bildirim içindir; kötü niyetli istemciye karşı insanın gerçekten öğrendiğinin kanıtı değildir.
 
 ### 8. Karbon ve eylem kayıtları
 
-Eco Merkezi'ndeki giriş yeni kısa tüketim hesabını açar. Kullanıcı elektrik kWh, dönem, hanedeki kişi sayısı ve varsa kendi benzin/dizel litresini girer. Elektrik hane kişi sayısına bölünür; araç yakıtı kişisel kabul edilir. Yıllık girilen miktar aylığa çevrilir, sonuçta aylık/yıllık bilinen bölüm gösterilir.
+Eco Merkezi'ndeki giriş 20 soruluk eski anketi açar. Ölçülebilir tüketim verilerini eklemek isteğe bağlıdır ve ilgili sorunun altında açılır. Elektrik hane kişi sayısına bölünür; araç yakıtı kişisel kabul edilir. Yıllık girilen miktar aylığa çevrilerek hesap motoruna iletilir.
 
-Elektrik için Türkiye ETKB 2023 dağıtım şebekesi katsayısı; yakıt için EPA yanma CO₂ katsayısı kullanılır. Isınma, beslenme, uçuş ve diğer tüketimler henüz bu kısa hesaba katılmadığı için açıkça eksik kapsam olarak listelenir. Eski 20 soruluk anket kodu geriye uyumluluk için durur; ana giriş onu açmaz.
+İsteğe bağlı elektrik için Türkiye ETKB 2023 dağıtım şebekesi katsayısı; yakıt için EPA yanma CO₂ katsayısı kullanılır. Diğer sorular eski anketin yaklaşık ağırlıklarını korur. Elektrik verisi beyaz eşya/klima tahminlerinin; yakıt verisi ilgili özel araç tahminlerinin yerine geçer. Eski kısa tüketim ekranı ve API'si korunmuştur fakat ana giriş artık onu açmaz.
 
 Atık eylemleri ayrı tutulur. Kütle ve uygulanan yönetim yolu kullanıcı tarafından beyan edilir; EPA WARM v13 ABD senaryosu ile fark hesaplanır. PET, cam ve alüminyum kutu dışındaki malzemelerde sonuç hesaplanamayabilir. Bu bir Türkiye saha ölçümü veya karbon kredisi değildir. Eylemin gramajı düzeltilince fark yeniden hesaplanır; silinince toplam sorgudan güncellendiği için tutarlı kalır.
 
@@ -126,7 +143,13 @@ Etkinlik bağımsız topluluk yerine bir grubun altında oluşturulur. Yetkili k
 
 Profil; avatar/uygun özel fotoğraf, kullanıcı adı, seviye, puan, şehir, rozetler, tarama serisi, giriş serisi ve tarama geçmişini gösterir. Özel fotoğraf yüklemek yalnız yetişkin kullanıcıya açıktır. Gizli profilde özel fotoğrafı yalnız sahibi ve kabul edilmiş arkadaşları görebilir; diğer ziyaretçilere avatar gösterilir.
 
+Kimlik başlığı mobilde tek hizadadır: avatar ve düzenleme simgesi, isim/kullanıcı adı, konum, Eko Puan ve avatar seviyesi. Ayrı giriş serisi kartı kaldırılmıştır. Başlıktaki “N gün giriş serisi” alanına dokununca aylık takvim açılır; yalnız kişinin kendi hesabına ait kaydedilmiş günler işaretlenir. Önceki aylara geçilebilir, gelecek ay kapalıdır. Takvim sorgusu yeni giriş veya ödül oluşturmaz. Backend henüz güncellenmemişse yalnız mevcut son yedi gün gösterilir ve bu sınır açıkça belirtilir.
+
 Uygulama puanı, geri dönüştürülmüş kilogram veya doğrulanmış karbon tasarrufu değildir. Günlük giriş serisi de fiziksel geri dönüşüm serisinden ayrıdır.
+
+Fotoğraf gizliliği artık yalnız UI'da değil her medya GET'inde sunucuda
+denetlenir. Flutter yetkili bytes yükler; çıkışta görsel önbelleği temizlenir.
+Önceden indirilmiş/public-cache kopyalarını sunucu geri alamaz.
 
 ### 16. Ayarlar
 

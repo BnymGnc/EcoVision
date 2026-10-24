@@ -1,0 +1,22 @@
+{
+  "backend": "isolated local PostgreSQL test environment",
+  "viewports": [
+    390
+  ],
+  "api_checks": [
+    "register",
+    "quests_200",
+    "map_DIM_OR_material",
+    "eligibility",
+    "local_photo_inference",
+    "private_media_authorization_header",
+    "browser_photo_upload",
+    "guide_for_glass",
+    "glass_map_filter",
+    "directions_real_coordinates"
+  ],
+  "local_photo_endpoint_ms": 533.2140999998956,
+  "provider": "ONNX_CPU",
+  "ui_flow": "private profile image, real photo upload, AI, guide, filtered map and directions intent",
+  "browser_errors": []
+}

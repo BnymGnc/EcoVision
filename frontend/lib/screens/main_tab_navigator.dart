@@ -20,16 +20,23 @@ class MainTabNavigator extends StatefulWidget {
   State<MainTabNavigator> createState() => _MainTabNavigatorState();
 }
 
-class _MainTabNavigatorState extends State<MainTabNavigator> {
+class _MainTabNavigatorState extends State<MainTabNavigator>
+    with WidgetsBindingObserver {
   int _selectedIndex = 0;
   int _unreadCommunityCount = 0;
   int _unreadNotificationCount = 0;
   String? _requestedMapMaterial;
+  int _mapRequestVersion = 0;
   Timer? _unreadTimer;
+  bool _foreground = true;
+  bool _refreshingUnread = false;
+  bool _refreshingNotifications = false;
+  final Set<int> _visited = {0};
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.apiService.currentUser?.adult ?? false) {
       unawaited(_refreshUnread());
     }
@@ -42,12 +49,24 @@ class _MainTabNavigatorState extends State<MainTabNavigator> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _unreadTimer?.cancel();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    if (_foreground) {
+      unawaited(_refreshUnread());
+      unawaited(_refreshNotifications());
+    }
+  }
+
   Future<void> _refreshUnread() async {
     if (!(widget.apiService.currentUser?.adult ?? false)) return;
+    if (!_foreground || _refreshingUnread) return;
+    _refreshingUnread = true;
     try {
       if (_selectedIndex == 2) {
         await widget.apiService.markCommunityRead();
@@ -58,14 +77,21 @@ class _MainTabNavigatorState extends State<MainTabNavigator> {
       if (mounted) setState(() => _unreadCommunityCount = count);
     } catch (_) {
       // Navigation remains usable while unread state retries in the background.
+    } finally {
+      _refreshingUnread = false;
     }
   }
 
   Future<void> _refreshNotifications() async {
+    if (!_foreground || _refreshingNotifications) return;
+    _refreshingNotifications = true;
     try {
       final count = await widget.apiService.fetchUnreadNotificationCount();
       if (mounted) setState(() => _unreadNotificationCount = count);
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _refreshingNotifications = false;
+    }
   }
 
   Future<void> _openNotifications() async {
@@ -81,12 +107,18 @@ class _MainTabNavigatorState extends State<MainTabNavigator> {
     }
   }
 
-  void _selectTab(int index, {String? mapMaterial}) {
+  void _selectTab(
+    int index, {
+    String? mapMaterial,
+    bool resetMapMaterial = false,
+  }) {
     EcoHaptics.selection();
     setState(() {
       _selectedIndex = index;
-      if (index == 1 && mapMaterial != null) {
+      _visited.add(index);
+      if (index == 1 && (mapMaterial != null || resetMapMaterial)) {
         _requestedMapMaterial = mapMaterial;
+        _mapRequestVersion++;
       }
     });
     if (index == 2 && (widget.apiService.currentUser?.adult ?? false)) {
@@ -111,13 +143,15 @@ class _MainTabNavigatorState extends State<MainTabNavigator> {
     final screens = <Widget>[
       HomeScreen(
         apiService: widget.apiService,
-        onOpenMap: (material) => _selectTab(1, mapMaterial: material),
+        onOpenMap: (material) =>
+            _selectTab(1, mapMaterial: material, resetMapMaterial: true),
         notificationCount: _unreadNotificationCount,
         onNotifications: _openNotifications,
       ),
       MapScreen(
         apiService: widget.apiService,
         requestedMaterial: _requestedMapMaterial,
+        requestVersion: _mapRequestVersion,
         notificationCount: _unreadNotificationCount,
         onNotifications: _openNotifications,
       ),
@@ -136,7 +170,13 @@ class _MainTabNavigatorState extends State<MainTabNavigator> {
 
     return Scaffold(
       extendBody: false,
-      body: IndexedStack(index: _selectedIndex, children: screens),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          for (var i = 0; i < screens.length; i++)
+            _visited.contains(i) ? screens[i] : const SizedBox.shrink(),
+        ],
+      ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(14, 0, 14, 12),
         child: ClipRRect(

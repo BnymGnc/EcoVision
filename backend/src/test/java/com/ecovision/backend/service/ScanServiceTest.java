@@ -72,10 +72,8 @@ class ScanServiceTest {
         when(scanHistoryRepository.save(any(ScanHistory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        ScanAnalysisResponse response = scanService.analyzeAndSave(
-                user,
-                new ScanAnalysisRequest("plastic waste")
-        );
+        ScanAnalysisResponse response = scanService.saveVerifiedAnalysis(
+                user, "plastic waste", true, "a".repeat(64));
 
         assertEquals(10, response.pointsAwarded());
         assertEquals(10, response.updatedUserPoints());
@@ -85,5 +83,25 @@ class ScanServiceTest {
 
     private void setUserId(AppUser target, Long id) {
         target.setId(id);
+    }
+
+    @Test void labelOnlyCompatibilityCallNeverAwardsPoints() {
+        when(scanHistoryRepository.save(any(ScanHistory.class))).thenAnswer(i -> i.getArgument(0));
+        var result = scanService.analyzeAndSave(user, new ScanAnalysisRequest("plastic"));
+        assertEquals(0,result.pointsAwarded());
+        assertEquals(0,user.getTotalPoints());
+        org.mockito.Mockito.verifyNoInteractions(applicationEventPublisher);
+    }
+    @Test void sameImageAndUncertainPredictionCannotAdvanceQuests() {
+        when(scanHistoryRepository.save(any(ScanHistory.class))).thenAnswer(i -> i.getArgument(0));
+        when(scanHistoryRepository.existsByUserIdAndImageHashAndRewardDateAndPointsAwardedGreaterThan(
+            org.mockito.ArgumentMatchers.eq(7L),org.mockito.ArgumentMatchers.eq("b".repeat(64)),
+            org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.eq(0))).thenReturn(true);
+        var duplicate = scanService.saveVerifiedAnalysis(user,"plastic",true,"b".repeat(64));
+        assertEquals(0,duplicate.pointsAwarded());
+        assertEquals("DUPLICATE_IMAGE",duplicate.rewardStatus());
+        var uncertain = scanService.saveVerifiedAnalysis(user,"plastic",false,"c".repeat(64));
+        assertEquals(0,uncertain.pointsAwarded());
+        org.mockito.Mockito.verifyNoInteractions(applicationEventPublisher);
     }
 }

@@ -27,6 +27,8 @@ class _WasteGuideScreenState extends State<WasteGuideScreen> {
   bool _loading = true;
   String? _loadError;
   String? _progressWarning;
+  String _query = '';
+  String _filter = 'all';
 
   ApiService? get _apiService => widget.apiService;
 
@@ -111,10 +113,18 @@ class _WasteGuideScreenState extends State<WasteGuideScreen> {
     final completedCount = _modules
         .where((module) => _completed.contains(module.categoryId))
         .length;
+    final visible = _modules
+        .where((module) {
+          final completed = _completed.contains(module.categoryId);
+          return module.matches(_query) &&
+              (_filter == 'all' ||
+                  (_filter == 'completed' ? completed : !completed));
+        })
+        .toList(growable: false);
     return ListView.separated(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-      itemCount: _modules.length + 2,
+      itemCount: visible.isEmpty ? 4 : visible.length + 3,
       separatorBuilder: (_, index) => SizedBox(height: index == 0 ? 14 : 10),
       itemBuilder: (context, index) {
         if (index == 0) {
@@ -124,15 +134,75 @@ class _WasteGuideScreenState extends State<WasteGuideScreen> {
           );
         }
         if (index == 1) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                key: const ValueKey('academy-search'),
+                onChanged: (value) => setState(() => _query = value),
+                decoration: const InputDecoration(
+                  labelText: 'Atık veya malzeme ara',
+                  hintText: 'Örneğin: pil, şişe, karton',
+                  prefixIcon: Icon(Icons.search_rounded),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  for (final entry in const {
+                    'all': 'Tümü',
+                    'remaining': 'Tamamlanmayan',
+                    'completed': 'Tamamlanan',
+                  }.entries)
+                    ChoiceChip(
+                      label: Text(entry.value),
+                      selected: _filter == entry.key,
+                      onSelected: (_) {
+                        HapticFeedback.selectionClick();
+                        setState(() => _filter = entry.key);
+                      },
+                    ),
+                ],
+              ),
+            ],
+          );
+        }
+        if (index == 2) {
           return _progressWarning == null
               ? const SizedBox.shrink()
               : _ProgressWarning(message: _progressWarning!);
         }
-        final module = _modules[index - 2];
+        if (visible.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.manage_search_rounded,
+                  size: 80,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Bu seçimde modül bulunamadı',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Başka bir malzeme veya filtre seçebilirsin.',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        }
+        final module = visible[index - 3];
         final completed = _completed.contains(module.categoryId);
         return _ModuleCard(
           module: module,
-          index: index - 2,
+          index: _modules.indexOf(module),
           completed: completed,
           onTap: () => _openModule(module),
         );
@@ -184,7 +254,7 @@ class _AcademyHeader extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Bilimsel modülleri tamamla, kısa sınavları geç ve Eko Puan kazan.',
+            'Doğru ayırmayı öğren. Kaynakları incele, kısa sınavlarla bilgini pekiştir.',
             style: TextStyle(
               color: colors.onPrimaryContainer.withValues(alpha: 0.82),
               height: 1.4,
@@ -232,14 +302,18 @@ class _ModuleCard extends StatelessWidget {
   final bool completed;
   final VoidCallback onTap;
 
-  static const _icons = [
-    Icons.recycling_rounded,
-    Icons.local_drink_rounded,
-    Icons.battery_charging_full_rounded,
-    Icons.water_drop_rounded,
-    Icons.forest_rounded,
-    Icons.energy_savings_leaf_rounded,
-  ];
+  static const _icons = {
+    'modul-1': Icons.local_drink_outlined,
+    'modul-2': Icons.wine_bar_outlined,
+    'modul-3': Icons.inventory_2_outlined,
+    'modul-4': Icons.recycling_rounded,
+    'modul-5': Icons.devices_outlined,
+    'modul-6': Icons.layers_outlined,
+    'modul-7': Icons.oil_barrel_outlined,
+    'modul-8': Icons.checkroom_outlined,
+    'modul-9': Icons.compost_outlined,
+    'modul-10': Icons.health_and_safety_outlined,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -262,7 +336,10 @@ class _ModuleCard extends StatelessWidget {
                   color: accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(_icons[index % _icons.length], color: accent),
+                child: Icon(
+                  _icons[module.categoryId] ?? Icons.menu_book_outlined,
+                  color: accent,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -278,9 +355,23 @@ class _ModuleCard extends StatelessWidget {
                         height: 1.2,
                       ),
                     ),
+                    if (module.summary.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        module.summary,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 5),
                     Text(
-                      completed ? 'Tamamlandı' : '3 soruluk sınav',
+                      completed
+                          ? 'Tamamlandı'
+                          : '${module.readingMinutes} dk · 3 soruluk sınav',
                       style: TextStyle(
                         color: completed
                             ? colors.primary

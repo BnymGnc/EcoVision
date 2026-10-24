@@ -1,0 +1,22 @@
+{
+  "backend": "isolated local PostgreSQL test environment",
+  "viewports": [
+    320,
+    390,
+    768
+  ],
+  "api_checks": [
+    "register",
+    "quests_200",
+    "map_DIM_OR_material",
+    "eligibility",
+    "local_photo_inference",
+    "education_progress",
+    "quiz_reward_balance_updated",
+    "repeat_completion_no_points"
+  ],
+  "local_photo_endpoint_ms": 841.0829000004014,
+  "provider": "ONNX_CPU",
+  "ui_flow": "academy search, lesson, quiz, completion and one-time reward",
+  "browser_errors": []
+}

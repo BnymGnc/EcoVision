@@ -47,6 +47,11 @@ public class ApiExceptionHandler {
         return error(HttpStatus.BAD_REQUEST, "İstek içeriği okunamadı", request);
     }
 
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApiError> invalidParameter(HttpServletRequest request) {
+        return error(HttpStatus.BAD_REQUEST, "İstek parametresi geçersiz", request);
+    }
+
     @ExceptionHandler(LockedException.class)
     ResponseEntity<ApiError> locked(HttpServletRequest request) {
         return error(

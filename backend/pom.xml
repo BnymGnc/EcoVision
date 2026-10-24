@@ -109,6 +109,22 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <excludes>
+                    <!-- Keep source exports for audit, but ship only the canonical import. -->
+                    <exclude>data/**/*.csv</exclude>
+                    <exclude>data/**/*.geojson</exclude>
+                    <exclude>data/data/doa_points.json</exclude>
+                    <exclude>data/data/doa_machines_dim.json</exclude>
+                    <exclude>data/*.py</exclude>
+                    <exclude>data/*.md</exclude>
+                    <exclude>data/SHA256SUMS.txt</exclude>
+                    <exclude>data/**/__pycache__/**</exclude>
+                </excludes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

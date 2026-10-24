@@ -22,16 +22,22 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/media")
 public class MediaController {
     private final MediaAssetRepository mediaAssets;
+    private final com.ecovision.backend.service.MediaAccessService access;
 
-    public MediaController(MediaAssetRepository mediaAssets) {
+    public MediaController(MediaAssetRepository mediaAssets, com.ecovision.backend.service.MediaAccessService access) {
         this.mediaAssets = mediaAssets;
+        this.access = access;
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<byte[]> get(
             @PathVariable UUID id,
-            @RequestParam(defaultValue = "false") boolean download
+            @RequestParam(defaultValue = "false") boolean download,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.ecovision.backend.model.AppUser viewer
     ) {
+        var descriptor = mediaAssets.describe(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Medya bulunamadı"));
+        access.requireAccess(id, descriptor.getCategory(), descriptor.getOwnerUserId(), viewer);
         MediaAsset asset = mediaAssets.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
@@ -43,7 +49,7 @@ public class MediaController {
         } catch (IllegalArgumentException ignored) {
             contentType = MediaType.APPLICATION_OCTET_STREAM;
         }
-        ContentDisposition disposition = (download
+        ContentDisposition disposition = (download || contentType.equals(MediaType.APPLICATION_PDF)
                 ? ContentDisposition.attachment()
                 : ContentDisposition.inline())
                 .filename(asset.getOriginalFileName(), StandardCharsets.UTF_8)
@@ -51,8 +57,7 @@ public class MediaController {
         return ResponseEntity.ok()
                 .contentType(contentType)
                 .contentLength(asset.getSizeBytes())
-                .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable())
-                .eTag('"' + id.toString() + '"')
+                .header(HttpHeaders.CACHE_CONTROL, "private, no-store, max-age=0")
                 .header("X-Content-Type-Options", "nosniff")
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .body(asset.getData());

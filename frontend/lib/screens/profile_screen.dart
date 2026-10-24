@@ -6,7 +6,9 @@ import '../models/user_profile.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_bell.dart';
 import '../widgets/premium_ui.dart';
-import '../widgets/privacy_aware_avatar.dart';
+import '../models/login_activity.dart';
+import '../widgets/profile_identity_header.dart';
+import '../widgets/login_activity_sheet.dart';
 import 'avatar_selection_screen.dart';
 import 'scan_history_screen.dart';
 import 'settings_screen.dart';
@@ -85,6 +87,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) await _refresh();
   }
 
+  Future<void> _openLoginHistory(LoginStreakSummary? summary) async {
+    await showEcoGlassSheet<void>(
+      context: context,
+      builder: (_) =>
+          LoginActivitySheet(apiService: widget.apiService, summary: summary),
+    );
+  }
+
   Future<void> _openAvatarSelection(UserProfile user) async {
     final updated = await Navigator.push<UserProfile>(
       context,
@@ -145,13 +155,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: [
-              _Persona(
+              ProfileIdentityHeader(
                 user: data.user,
+                streakFuture: _streakFuture,
+                onLoginHistory: _openLoginHistory,
                 onEditAvatar: () => _openAvatarSelection(data.user),
               ),
               const SizedBox(height: 14),
               _EcoImpactDashboard(
-                points: data.user.totalPoints,
                 streak: data.user.streakCount,
                 badgeCount: data.publicProfile.badges.length,
               ),
@@ -174,76 +185,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       subtitle: Text(
                         '${impact['declaredActionCount']} eylem · Kullanıcı beyanı',
                       ),
-                    ),
-                  );
-                },
-              ),
-              FutureBuilder<Map<String, dynamic>>(
-                future: _streakFuture,
-                builder: (context, snapshot) {
-                  final status = snapshot.data;
-                  if (status == null || status['today'] == null)
-                    return const SizedBox.shrink();
-                  final today = DateTime.parse(status['today'].toString());
-                  final dates = (status['lastSevenDays'] as List? ?? [])
-                      .map((d) => d.toString())
-                      .toSet();
-                  return GlassPanel(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Giriş serisi',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        Text(
-                          '${status['currentStreak']} gün · En uzun ${status['longestStreak']} gün',
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            for (var i = 6; i >= 0; i--)
-                              Builder(
-                                builder: (_) {
-                                  final date = today.subtract(
-                                    Duration(days: i),
-                                  );
-                                  final key = date.toIso8601String().substring(
-                                    0,
-                                    10,
-                                  );
-                                  final active = dates.contains(key);
-                                  return Column(
-                                    children: [
-                                      Icon(
-                                        active
-                                            ? Icons.check_circle
-                                            : Icons.circle_outlined,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                      ),
-                                      Text(
-                                        const [
-                                          'Pt',
-                                          'Sa',
-                                          'Ça',
-                                          'Pe',
-                                          'Cu',
-                                          'Ct',
-                                          'Pa',
-                                        ][date.weekday - 1],
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        const Text('Bugünkü giriş kaydedildi'),
-                      ],
                     ),
                   );
                 },
@@ -303,157 +244,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   );
 }
 
-class _Persona extends StatelessWidget {
-  const _Persona({required this.user, required this.onEditAvatar});
-  final UserProfile user;
-  final VoidCallback onEditAvatar;
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [colors.primary, colors.secondary],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: colors.primary.withValues(alpha: 0.24),
-            blurRadius: 30,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Wrap(
-        spacing: 18,
-        runSpacing: 16,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              PrivacyAwareAvatar(
-                userId: user.id,
-                currentUserId: user.id,
-                radius: 50,
-                backgroundColor: colors.surface,
-                borderColor: colors.onPrimary.withValues(alpha: 0.35),
-                profilePictureUrl: user.profilePictureUrl,
-                profileImagePreference: user.profileImagePreference,
-                selectedAvatarPath: user.selectedAvatarPath,
-                avatarLevel: user.equippedAvatarLevel,
-                highestAvatarLevel: user.currentAvatarLevel,
-                adult: user.adult,
-                profileVisibility: user.profileVisibility,
-              ),
-              const SizedBox(height: 7),
-              TextButton.icon(
-                onPressed: onEditAvatar,
-                style: TextButton.styleFrom(
-                  foregroundColor: colors.onPrimary,
-                  visualDensity: VisualDensity.compact,
-                ),
-                icon: const Icon(Icons.edit_rounded, size: 16),
-                label: const Text('Avatarı Düzenle'),
-              ),
-            ],
-          ),
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 210, maxWidth: 520),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user.fullName.isEmpty ? 'EcoVision Kahramanı' : user.fullName,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: colors.onPrimary,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  '${user.city}${user.district.isEmpty ? '' : ' • ${user.district}'}',
-                  style: TextStyle(color: colors.onPrimary.withAlpha(210)),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    Chip(
-                      avatar: const Icon(Icons.eco_outlined, size: 18),
-                      label: Text('Avatar Seviye ${user.equippedAvatarLevel}'),
-                    ),
-                    if (user.streakFreezeCount > 0)
-                      Chip(
-                        avatar: const Icon(Icons.ac_unit, size: 18),
-                        label: Text('${user.streakFreezeCount} Dondurucu'),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _initials(UserProfile u) =>
-      '${u.name.isEmpty ? 'E' : u.name[0]}${u.surname.isEmpty ? 'V' : u.surname[0]}'
-          .toUpperCase();
-}
-
-class _Metric extends StatelessWidget {
-  const _Metric({
-    required this.icon,
-    required this.value,
-    required this.label,
-    required this.color,
-  });
-  final IconData icon;
-  final String value, label;
-  final Color color;
-  @override
-  Widget build(BuildContext context) => Container(
-    height: 112,
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surface,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: color),
-        const SizedBox(height: 7),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-        ),
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 11),
-        ),
-      ],
-    ),
-  );
-}
-
 class _EcoImpactDashboard extends StatelessWidget {
-  const _EcoImpactDashboard({
-    required this.points,
-    required this.streak,
-    required this.badgeCount,
-  });
+  const _EcoImpactDashboard({required this.streak, required this.badgeCount});
 
-  final int points;
   final int streak;
   final int badgeCount;
 
@@ -489,39 +282,11 @@ class _EcoImpactDashboard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '$streak günlük seri  •  $badgeCount rozet',
+                      'Tarama serisi: $streak gün  •  $badgeCount rozet',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '$points',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: colors.onPrimaryContainer,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      'Eko Puan',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colors.onPrimaryContainer,
                       ),
                     ),
                   ],
@@ -539,7 +304,7 @@ class _EcoImpactDashboard extends StatelessWidget {
                 child: _ImpactCard(
                   icon: Icons.cloud_outlined,
                   value: '—',
-                  label: 'Doğrulanmış CO₂ verisi yok',
+                  label: 'Ölçülen CO₂',
                   color: colors.primary,
                 ),
               ),

@@ -1,0 +1,17 @@
+{
+  "checked_at_utc": "2026-10-24T12:22:51Z",
+  "database": "configured Neon production database; connection details withheld",
+  "read_only": true,
+  "source_rows": 4037,
+  "source_unique_ids": 4037,
+  "database_total_rows": 4175,
+  "database_doa_rows": 4037,
+  "dim_machines": 2162,
+  "min_centres": 1764,
+  "sdm_bulk_centres": 111,
+  "sanliurfa_dim_machines": 28,
+  "source_ids_match": true,
+  "source_coordinates_match": true,
+  "coordinate_tolerance_degrees": 0.00000001,
+  "writes_performed": false
+}

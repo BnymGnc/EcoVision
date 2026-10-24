@@ -22,6 +22,7 @@ public class MediaAsset {
 
     @Column(nullable = false, length = 30)
     private String category;
+    private Long ownerUserId;
 
     @Column(nullable = false)
     private long sizeBytes;
@@ -52,6 +53,8 @@ public class MediaAsset {
     }
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
+    public Long getOwnerUserId() { return ownerUserId; }
+    public void setOwnerUserId(Long value) { ownerUserId = value; }
     public long getSizeBytes() { return sizeBytes; }
     public void setSizeBytes(long sizeBytes) { this.sizeBytes = sizeBytes; }
     public byte[] getData() { return data; }

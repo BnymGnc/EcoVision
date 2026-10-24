@@ -23,15 +23,18 @@ public class EducationProgressService {
     private final AppUserRepository users;
     private final UserEducationProgressRepository progress;
     private final GamificationService gamification;
+    private final EducationQuizCatalog quizzes;
 
     public EducationProgressService(
             AppUserRepository users,
             UserEducationProgressRepository progress,
-            GamificationService gamification
+            GamificationService gamification,
+            EducationQuizCatalog quizzes
     ) {
         this.users = users;
         this.progress = progress;
         this.gamification = gamification;
+        this.quizzes = quizzes;
     }
 
     @Transactional(readOnly = true)
@@ -45,9 +48,11 @@ public class EducationProgressService {
     @Transactional
     public EducationCompletionResponse complete(
             AppUser currentUser,
-            String rawCategoryId
+            String rawCategoryId,
+            EducationQuizCatalog.Submission submission
     ) {
         String categoryId = normalizeAndValidate(rawCategoryId);
+        quizzes.requirePassing(categoryId, submission);
         AppUser user = users.findByIdForUpdate(currentUser.getId())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Kullanıcı bulunamadı"

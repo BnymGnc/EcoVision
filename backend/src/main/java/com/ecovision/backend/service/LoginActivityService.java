@@ -35,5 +35,25 @@ public class LoginActivityService {
         }
         user.setLongestLoginStreak(Math.max(user.getLongestLoginStreak(), user.getLoginStreakCount()));
     }
+    @Transactional(readOnly = true)
+    public History history(Long userId, String month) {
+        LocalDate today = LocalDate.now(ZoneId.of("Europe/Istanbul"));
+        YearMonth selected = YearMonth.from(today);
+        if (month != null && !month.isBlank()) {
+            try {
+                if (!month.matches("[0-9]{4}-(0[1-9]|1[0-2])")) throw new DateTimeException("Invalid month");
+                selected = YearMonth.parse(month);
+            } catch (DateTimeException failure) {
+                throw new IllegalArgumentException("Ay bilgisi YYYY-AA biçiminde olmalıdır");
+            }
+        }
+        if (selected.getYear() < 1 || selected.isAfter(YearMonth.from(today)))
+            throw new IllegalArgumentException("Gelecek ayın giriş kayıtları görüntülenemez");
+        LocalDate end = selected.atEndOfMonth().isAfter(today) ? today : selected.atEndOfMonth();
+        return new History(selected.toString(), today,
+                days.findByUserIdAndLoginDateBetweenOrderByLoginDateAsc(userId,
+                        selected.atDay(1), end).stream().map(LoginDay::getLoginDate).toList());
+    }
+    public record History(String month, LocalDate today, List<LocalDate> loginDates) {}
     public record Status(int currentStreak, int longestStreak, LocalDate today, List<LocalDate> lastSevenDays) {}
 }

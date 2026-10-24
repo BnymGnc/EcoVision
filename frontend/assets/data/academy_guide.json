@@ -1,221 +1,702 @@
 [
   {
     "categoryId": "modul-1",
-    "title": "Plastik Atıkların Polimerik Yapısı ve Ekosistem Serüveni",
-    "contentBody": "1. Giriş: Mucizeden Küresel Tehdide\nPlastik, 20. yüzyılın başlarında laboratuvar ortamında sentetik olarak üretildiğinde insanlık için bir mucize olarak görülüyordu. Hafif, dayanıklı, esnek ve maliyeti son derece düşük olan bu malzeme, tıp alanından uzay sanayisine kadar her sektörü dönüştürdü. Ancak plastiği bu kadar mükemmel kılan 'dayanıklılık' özelliği, onu aynı zamanda gezegenin en büyük sorunlarından biri haline getirdi. Doğadaki mikroorganizmalar, sentetik plastiklerin sahip olduğu güçlü karbon-karbon kovalent bağlarını tanıyıp parçalayacak biyolojik enzimlere sahip değildir. Bu nedenle doğaya bırakılan bir plastik şişe çürümez; sadece ufalanır.\n\n2. Parçalanma Süreci: Mikro ve Nanoplastikler\nGüneşten gelen ultraviyole (UV) ışınlar ve mekanik aşındırma ile plastikler 5 milimetreden küçük mikroplastiklere ayrışır. Günümüzde okyanus yüzeylerinden Mariana Çukuru'nun en derin noktalarına, anne sütüne ve insan kanına kadar her yerde mikroplastik partikülleri tespit edilmiştir. Biyoakümülasyon yoluyla bu partiküller besin zincirinde yukarı doğru tırmanarak insan vücuduna geri döner.\n\n3. Geri Dönüşümün Bilimsel Süreci\nBir PET şişe geri dönüşüm tesisine girdiğinde; 'Yakın Kızılötesi (NIR)' spektrometreler ile türüne göre ayrıştırılır. Yıkama ve kırma işleminden sonra 'flake' (çapak) haline gelir. Bu çapaklar 260°C'de eritilerek ince spagetti şeritleri şeklinde dondurulur ve kesilerek 'granüllere' (pellet) dönüştürülür.\n\n4. İleri Dönüşüm (Upcycling)\nPlastik sonsuz kez dönüştürülemez (Downcycling). Bir PET şişe tekrar şişe olmak yerine genellikle polar montlara, otomobil yalıtım malzemelerine veya plastik paletlere dönüştürülür.\n\n5. Yapay Zeka Tarama İpuçları\nŞeffaf plastikleri taratırken güçlü arkadan vuran ışıklardan kaçının. Koyu ve zıt renkli bir arka planda kapağı veya kağıt etiketi belirgin olacak şekilde kadraja almak yapay zekanın güven skorunu anında %95'in üzerine çıkarır.",
+    "title": "Plastik Atıklar: Her Plastik PET Değildir",
+    "summary": "Şişe, ambalaj ve film arasındaki farkı öğren; malzemeyi depozito uygunluğu ile karıştırma.",
+    "collectionRoute": "Belediyenin kabul ettiği plastik ambalaj toplama noktası; kapsam içindeki içecek şişeleri için DOA.",
+    "contentBody": "Plastik tek bir malzeme değildir. PET, HDPE, PVC ve PP farklı polimerlerdir. Ambalajdaki reçine kodu türü anlamaya yardımcı olur; tek başına yerel toplama sisteminin kabul garantisi değildir.\n\nÖnce atık oluşumunu azaltmayı ve güvenli yeniden kullanımı düşün. Ayrı toplamada doğru akışı seçmek, çok sayıda nesneyi tek kutuya atmaktan daha değerlidir. Fotoğraf sınıflandırması ise malzeme için bir tahmindir; kimyasal analiz veya resmi depozito doğrulaması değildir.",
+    "acceptedExamples": [
+      "Boş PET içecek şişesi; depozito için işaret ve barkod ayrıca gerekir.",
+      "Yerel programın kabul ettiği HDPE deterjan ambalajı.",
+      "Yerel programın kabul ettiği PP gıda kabı."
+    ],
+    "excludedExamples": [
+      "İlaç, pestisit veya tehlikeli kimyasal kalıntısı içeren ambalaj.",
+      "Kompostlanabilir poşet: normal plastik akışına otomatik olarak dahil değildir.",
+      "Plastik oyuncak veya diş fırçası: ambalaj kutusunun kabulünü ayrıca kontrol et."
+    ],
+    "preparation": [
+      "İçeriği boşalt, gerekiyorsa az suyla kalıntıyı gider; yerel toplama talimatını izle.",
+      "DOA için şişeyi ezme; barkodun ve depozito işaretinin okunmasını koru.",
+      "Noktaya gitmeden önce doğru malzeme haznesinin kabul bilgisini kontrol et."
+    ],
+    "mistakes": [
+      "Her plastik nesneyi PET sanmak.",
+      "Sadece geri dönüşüm simgesine bakarak makinenin kabul edeceğini varsaymak.",
+      "Fotoğraf çekildi diye ambalajın geri dönüştürüldüğünü düşünmek."
+    ],
+    "aiTip": "Tek nesneyi sade zeminde, gölge ve parlamayı azaltarak çek. Yerel model yalnızca genel plastik sınıfını tahmin eder; PET türünü veya DOA işaretini doğrulamaz. Model skoru gerçek doğruluk yüzdesi değildir.",
+    "safetyNote": "Kimyasal ambalajı başka amaçla kullanma; içindeki maddeleri karıştırma.",
+    "reuseIdeas": [
+      "Tek kullanımlık ambalaj yerine uygun matara tercih et.",
+      "Gıda temasına uygun olmayan bir kabı yiyecek saklamak için yeniden kullanma."
+    ],
+    "sources": [
+      {
+        "title": "US EPA · Malzemeye göre geri dönüşüm",
+        "url": "https://www.epa.gov/recycle/how-do-i-recycle-common-recyclables"
+      },
+      {
+        "title": "DOA · Ambalaj iadesi ve sistem kapsamı",
+        "url": "https://doa.gov.tr/"
+      }
+    ],
     "questions": [
       {
-        "questionText": "Doğadaki mikroorganizmaların plastikleri çürütememesinin temel kimyasal nedeni nedir?",
-        "options": ["Plastiklerin aşırı derecede ağır olması", "Sentetik karbon-karbon kovalent bağlarını kıracak enzimlere sahip olmamaları", "Plastiklerin güneş ışığını doğrudan yansıtması"],
+        "questionText": "Yerel modelin 'plastik' tahmini neyi kanıtlar?",
+        "options": [
+          "Şişenin kesin PET olduğunu",
+          "Yalnızca genel malzeme tahminini; depozito uygunluğunu değil",
+          "Makinenin kesin kabul edeceğini"
+        ],
         "correctOptionIndex": 1
       },
       {
-        "questionText": "Geri dönüşüm tesislerinde farklı plastik türleri (PET, HDPE vb.) hangi teknoloji kullanılarak birbirlerinden ayrıştırılır?",
-        "options": ["Mıknatıslı bant sistemleri", "Yüksek basınçlı su tankları", "Yakın Kızılötesi (NIR) spektrometreler"],
-        "correctOptionIndex": 2
+        "questionText": "DOA iadesi öncesinde ambalaj için doğru işlem hangisidir?",
+        "options": [
+          "Barkodu koruyup ambalajı ezmemek",
+          "Barkodu söküp şişeyi ezmek",
+          "İçini başka atıklarla doldurmak"
+        ],
+        "correctOptionIndex": 0
       },
       {
-        "questionText": "Geri dönüştürülmüş bir PET şişe polimer zincirleri kısaldığı için genellikle hangi ürüne dönüşür?",
-        "options": ["Polar tekstil ürünlerine veya yalıtım malzemelerine", "Yüksek ısıya dayanıklı fırın kaplarına", "Biyolojik olarak parçalanabilir çöp poşetine"],
-        "correctOptionIndex": 0
+        "questionText": "Plastik üzerindeki reçine kodu ne işe yarar?",
+        "options": [
+          "Her belediyede kabul garantisi verir",
+          "Sadece satış fiyatını gösterir",
+          "Plastik türünü anlamaya yardımcı olur"
+        ],
+        "correctOptionIndex": 2
       }
     ]
   },
   {
     "categoryId": "modul-2",
-    "title": "Cam Atıklar – Sonsuz Döngünün Kristal Hali",
-    "contentBody": "1. Doğanın Kusursuz Elementi\nCam; silis kumu, soda ve kireçtaşından oluşur. Kimyasal olarak inanılmaz derecede kararlıdır (inert). Bu sayede içine konulan gıdanın tadını değiştirmez. Ancak aynı kararlılık, doğaya atılan bir cam şişenin 4.000 yıldan fazla süre bütünlüğünü korumasına neden olur.\n\n2. Geri Dönüşümün Altın Standardı\nCamı diğer tüm geri dönüştürülebilir atıklardan ayıran eşsiz bir özelliği vardır: Kalitesinden ve saflığından hiçbir şey kaybetmeden sonsuz kez geri dönüştürülebilir. Plastik polimerleri her eritildiğinde zayıflar, ancak cam sadece şekil değiştirir.\n\n3. Enerji ve Emisyon Tasarrufu\nSıfırdan kum kullanarak cam üretmek için fırınların 1.600°C'ye ulaşması gerekir. Oysa kırık cam parçaları (cullet), 1.000°C civarında erir. Geri dönüştürülmüş cam oranındaki her %10'luk artış, CO2 emisyonlarını %5 oranında azaltır. Bir tek cam şişeyi dönüştürmek, bir ampulü 4 saat yakacak enerjiyi kurtarır.\n\n4. Renklerin Bilimi\nCam geri dönüşümündeki en büyük teknik engel renk ayrımıdır. Kahverengi bir şişe kırığı, şeffaf cam fırınına karışırsa tüm üretim serisinin şeffaflığını bozar. Optik lazerlerle renk ayrımı şarttır.\n\n5. Yapay Zeka Tarama İpuçları\nYapay zeka camları analiz ederken parlama (glare) sorunu yaşar. Cam şişeyi ana ışık kaynağına (pencere/lamba) doğru tutarak, ışığın içinden geçip silüetini belirginleştirmesini sağlamak tanınma oranını maksimize eder.",
-    "questions": [
+    "title": "Cam Atıklar: Şişe ile Seramiği Ayır",
+    "summary": "Ambalaj camını tanı, kırık cam riskini azalt ve doğru teslim yolunu seç.",
+    "collectionRoute": "Cam ambalaj toplama noktası; depozitolu içecek ambalajı için uygun DOA noktası.",
+    "contentBody": "Cam şişe ile porselen tabak aynı toplama akışına ait değildir. İçerik, kaplama ve kullanım amacı önemlidir. Cam ambalajlar yeniden işlenebilir; ancak bu, her cam eşyanın aynı tesiste işlenebileceği anlamına gelmez.\n\nAyırma ve taşıma sırasında öncelik güvenliktir. Ürünü yeniden kullanmak mümkünse atık haline getirmeden önce bunu değerlendir. Kırık veya özel cam için yerel işletmenin talimatı, genel bir mobil uygulama tavsiyesinden önce gelir.",
+    "acceptedExamples": [
+      "Toplama programına uygun boş cam şişe.",
+      "Toplama programına uygun boş gıda kavanozu.",
+      "DOA kapsamı doğrulanan içecek şişesi."
+    ],
+    "excludedExamples": [
+      "Porselen ve seramik tabaklar.",
+      "Ayna, pencere camı ve ısıya dayanıklı fırın kabı; ayrı talimat gerekir.",
+      "Ampul ve floresan; ambalaj camı değildir."
+    ],
+    "preparation": [
+      "Şişe veya kavanozu boşalt.",
+      "Kırık parçalara çıplak elle dokunma; yerel güvenli teslim yöntemini öğren.",
+      "Depozitolu şişenin barkodunu ve bütünlüğünü koru."
+    ],
+    "mistakes": [
+      "Cam görünümlü her ürünü şişe kutusuna atmak.",
+      "Kırık camı korumasız taşımak.",
+      "Cam tahminini barkod veya depozito doğrulaması saymak."
+    ],
+    "aiTip": "Parlama yüzeyi gizleyebilir. Şişeyi bütün halde kadraja al ve ışığı yandan kullan. Yerel modelde cam sınıfı vardır, fakat ürünün borosilikat, kristal veya ambalaj camı olduğunu güvenilir biçimde ayıramaz.",
+    "safetyNote": "Kırık veya keskin parçaları fotoğraf için eline alma; güvenli mesafeyi koru.",
+    "reuseIdeas": [
+      "Sağlam ve uygun bir kavanozu kuru eşya düzenleyicisi yap.",
+      "Şişeyi keserek veya delerek el işi yapmak yerine kesici alet gerektirmeyen süsleme tercih et."
+    ],
+    "sources": [
       {
-        "questionText": "Camın plastik veya kağıda kıyasla geri dönüşüm alanındaki en büyük bilimsel üstünlüğü nedir?",
-        "options": ["Doğada en hızlı çözünen malzeme olması", "Geri dönüştürülürken yapısal kalitesinden hiçbir şey kaybetmemesi", "Sadece organik atıklarla dönüştürülebilmesi"],
-        "correctOptionIndex": 1
+        "title": "US EPA · Malzemeye göre geri dönüşüm",
+        "url": "https://www.epa.gov/recycle/how-do-i-recycle-common-recyclables"
       },
       {
-        "questionText": "Sıfırdan kum yerine, kırık cam (cullet) kullanarak cam üretmek temel olarak ne sağlar?",
-        "options": ["Camın esnek olmasını", "Camın daha renkli olmasını", "Fırınların daha düşük sıcaklıklarda çalışarak devasa enerji ve emisyon tasarrufu yapmasını"],
+        "title": "DOA · Ambalaj iadesi ve sistem kapsamı",
+        "url": "https://doa.gov.tr/"
+      }
+    ],
+    "questions": [
+      {
+        "questionText": "Cam ambalaj toplama kutusuna hangisi otomatik olarak uygun değildir?",
+        "options": [
+          "Boş içecek şişesi",
+          "Boş gıda kavanozu",
+          "Porselen tabak"
+        ],
         "correctOptionIndex": 2
       },
       {
-        "questionText": "Aşağıdaki malzemelerden hangisi, erime noktası farklı olduğu için standart cam şişe geri dönüşümüne KESİNLİKLE atılmamalıdır?",
-        "options": ["Isıya dayanıklı fırın kapları (Pyrex) ve seramik kupalar", "Şeffaf maden suyu şişeleri", "Yeşil zeytinyağı şişeleri"],
+        "questionText": "Depozitolu cam şişede ne korunmalıdır?",
+        "options": [
+          "Barkod ve ambalajın bütünlüğü",
+          "İçindeki içecek",
+          "Üzerine yapıştırılan yeni etiket"
+        ],
         "correctOptionIndex": 0
+      },
+      {
+        "questionText": "Kırık cam görülünce güvenli yaklaşım hangisidir?",
+        "options": [
+          "Fotoğraf için çıplak elle tutmak",
+          "Yerel güvenli toplama talimatını izlemek",
+          "Diğer ambalajların içine saklamak"
+        ],
+        "correctOptionIndex": 1
       }
     ]
   },
   {
     "categoryId": "modul-3",
-    "title": "Kağıt ve Karton: Liflerin Yaşam Döngüsü",
-    "contentBody": "1. Kağıdın Yapısı ve Çevresel Etkisi\nKağıt, ağaçlardan elde edilen selüloz liflerinden üretilir. Kurtarılan her 1 ton kağıt, yaklaşık 17 ağacın kesilmesini ve 26.000 litre suyun tüketilmesini önler. Aksi takdirde çöplüklere giden kağıt, havasız ortamda çürüyerek metan gazı salgılar.\n\n2. Lif Kısalması: Sınırlandırılmış Dönüşüm\nCam veya metalin aksine kağıt sonsuz bir döngüye sahip değildir. Geri dönüşüm sürecinde kağıt hamur haline getirilirken lifleri kırılır ve kısalır. Bir selüloz lifi ortalama 5 ila 7 kez geri dönüştürülebilir. Lifler çok kısaldığında tuvalet kağıdı veya yumurta viyolü gibi düşük kaliteli ürünlere dönüşür ve döngüsünü tamamlar.\n\n3. Geri Dönüşüm Süreci\nToplanan atık kağıtlar dev mikserlerde (pulper) su ve kimyasallarla karıştırılarak 'hamur' (pulp) haline getirilir. Santrifüj ve eleklerden geçerek içindeki zımba teli, plastik bant ve mürekkeplerden (de-inking) arındırılır. Sonrasında preslenip dev bobinlere sarılarak yeni kağıt fabrikalarına gönderilir.\n\n4. Kirletici (Kontamine) Atıklar\nYağlı bir pizza kutusu, kullanılmış peçeteler veya ıslak mendiller geri dönüştürülemez. Yağ, kağıt liflerine işler ve hamurlaştırma sürecinde su ile karışmayı engelleyerek tüm partiyi bozar. Bunlar organik atık veya normal çöp statüsündedir.\n\n5. Yapay Zeka Tarama İpuçları\nBuruşturulmuş bir A4 kağıt formunu kaybettiği için AI tarafından 'organik atık' sanılabilir. Taratmadan önce kağıdı veya kartonu düzeltmek ve yüzeyini net bir şekilde kadraja almak doğruluğu artırır.",
+    "title": "Kağıt ve Karton: Kuru ve Ayrı Topla",
+    "summary": "Islaklık, yemek kalıntısı ve kaplama farklarını öğren.",
+    "collectionRoute": "Yerel kağıt-karton toplama programı; kaplamalı ürünler için ayrıca kabul kontrolü.",
+    "contentBody": "Kağıt ve kartonun geri kazanımı liflerin yeniden kullanılmasına dayanır. Lif kalitesi, kirlenme ve ürünün kaplaması sonraki kullanımını etkiler. Her kağıt ürünü aynı koşullarda toplanmaz.\n\nÖnce gereksiz baskıyı azalt, kullanılabilir kitapları paylaş ve kutuları tekrar kullan. Sonraki adım, kalan malzemeyi doğru ayrı toplama akışına vermektir. Bir fotoğraftaki renk veya doku tek başına kaplamayı ya da kirlenmeyi kesin olarak belirleyemez.",
+    "acceptedExamples": [
+      "Kuru karton koli.",
+      "Yerel programın kabul ettiği gazete ve ofis kağıdı.",
+      "Kullanılamayan, yerel talimata uygun kağıt ambalaj."
+    ],
+    "excludedExamples": [
+      "Islak mendil ve hijyen ürünü.",
+      "Yoğun yemek kalıntısı veya sıvıyla kirlenmiş kağıt.",
+      "Plastik kaplamalı bardak ve termal fiş: kabulü ayrıca kontrol edilir."
+    ],
+    "preparation": [
+      "Yemek parçalarını ayır; temiz ve kuru bölümü mümkünse ayrı tut.",
+      "Koliyi düzleştir, kağıtları kuru bir yerde biriktir.",
+      "Süt kutusunu sıradan kağıt sayma; kompozit modülündeki yolu incele."
+    ],
+    "mistakes": [
+      "Yağ lekesi olan bütün kutulara evrensel bir kabul veya ret kuralı uygulamak.",
+      "Kağıt atığını temizlemek için ıslatmak.",
+      "Kartonun görünüşüne bakarak plastik kaplamayı yok saymak."
+    ],
+    "aiTip": "Buruşuk kağıdı güvenle düzeltebilir, ambalajı tek başına çekebilirsin. Yerel modelde kağıt ve karton ayrı eğitim sınıflarıdır; uygulama bunları aynı malzeme grubunda gösterir. Fotoğraf yerel tesis kabulünü doğrulamaz.",
+    "safetyNote": "Kirli hijyen ürünlerini geri dönüşüm için açıp ayırma.",
+    "reuseIdeas": [
+      "Temiz kolileri yeniden taşıma ve saklama için kullan.",
+      "Tek yüzü kullanılmış temiz kağıdı not almak için değerlendir."
+    ],
+    "sources": [
+      {
+        "title": "US EPA · Malzemeye göre geri dönüşüm",
+        "url": "https://www.epa.gov/recycle/how-do-i-recycle-common-recyclables"
+      }
+    ],
     "questions": [
       {
-        "questionText": "Kağıt neden sonsuza kadar geri dönüştürülemez?",
-        "options": ["Rengini kaybettiği için", "Mürekkebi tamamen silinemediği için", "Selüloz lifleri her dönüşümde kısalıp zayıfladığı için"],
-        "correctOptionIndex": 2
-      },
-      {
-        "questionText": "1 ton kağıdın geri dönüştürülmesi yaklaşık kaç ağacın kesilmesini önler?",
-        "options": ["5", "10", "17"],
-        "correctOptionIndex": 2
-      },
-      {
-        "questionText": "Hangi tür kağıt/karton atık geri dönüşüm sistemine DAHİL EDİLEMEZ?",
-        "options": ["Yağlı pizza kutuları", "Zımbalı ofis kağıtları", "Renkli dergiler"],
+        "questionText": "Kağıt toplarken temel hazırlık hangisidir?",
+        "options": [
+          "Kuru tutmak ve yemek parçalarını ayırmak",
+          "Her kağıdı suya batırmak",
+          "Plastikle karıştırmak"
+        ],
         "correctOptionIndex": 0
+      },
+      {
+        "questionText": "Süt kutusu neden ayrıca değerlendirilmelidir?",
+        "options": [
+          "Tamamı cam olduğu için",
+          "Çok katmanlı kompozit olabildiği için",
+          "İçindeki süt her zaman temiz olduğu için"
+        ],
+        "correctOptionIndex": 1
+      },
+      {
+        "questionText": "Yağ lekeli kutular için en doğru yaklaşım nedir?",
+        "options": [
+          "Dünyanın her yerinde kesin kabul edilir",
+          "Dünyanın her yerinde kesin reddedilir",
+          "Kalıntıyı ve yerel toplama talimatını değerlendirmek"
+        ],
+        "correctOptionIndex": 2
       }
     ]
   },
   {
     "categoryId": "modul-4",
-    "title": "Metal Atıklar: Çelik ve Alüminyumun Endüstriyel Gücü",
-    "contentBody": "1. Alüminyumun Enerji Mucizesi\nAlüminyum yeryüzünde en çok bulunan elementlerden biri olsa da, doğadaki cevherden (boksit) çıkartılarak işlenmesi devasa bir enerji gerektirir. Ancak bir alüminyum kutuyu sıfırdan üretmek yerine geri dönüştürmek %95 oranında enerji tasarrufu sağlar. Bu, endüstriyel dünyadaki en büyük tasarruf oranlarından biridir.\n\n2. Çelik mi, Alüminyum mu?\nGeri dönüşüm endüstrisinde metal atıklar iki ana koldan işlenir: Manyetik (çelik gibi) ve Manyetik Olmayan (alüminyum gibi). Evinizdeki bir konservenin veya içecek kutusunun ne olduğunu anlamanın en basit yolu ona bir buzdolabı mıknatısı yaklaştırmaktır. Mıknatıs yapışıyorsa çelik, yapışmıyorsa alüminyumdur.\n\n3. Kalitesini Asla Kaybetmeyen Döngü\nTıpkı cam gibi, metaller de kalitelerinden ödün vermeden sonsuz kez eritilip yeniden şekillendirilebilir. Devasa fırınlarda eritilen atıklar, ingot adı verilen büyük metal bloklarına dönüştürülür. Altı hafta önce içtiğiniz bir meşrubatın kutusu, bugün bir uçağın gövdesinde veya bir bisiklet jantında uçuyor olabilir.\n\n4. Boya ve Etiketlerin Akıbeti\nMetal kutuların üzerindeki markalama boyaları ve etiketler, geri dönüşüm sürecinde ergitme fırınlarında 500°C ile 1500°C arasındaki ısılarda buharlaşarak veya kül olarak tamamen sistemden uzaklaşır. Temiz metal eriyik dibe çöker.\n\n5. Yapay Zeka Tarama İpuçları\nAI, konserve kutularının silindirik yapısını kolayca tanır. Ancak metal tamamen ezilmişse formunu kaybeder. Üzerinde marka ve barkod olsa bile, malzemenin metalik parlamasını ve katlanma yerlerini gösterecek şekilde hafif çapraz bir açıdan tarama yapılması doğru sonuç verir.",
+    "title": "Metal Atıklar: Alüminyum ile Çeliği Karıştırma",
+    "summary": "Metal ambalaj, tehlikeli kap ve depozitolu içecek kutusu farklıdır.",
+    "collectionRoute": "Yerel metal ambalaj toplama programı; uygun alüminyum içecek kutuları için DOA.",
+    "contentBody": "Metal sınıfı alüminyum, çelik ve başka alaşımları kapsayabilir. Bir nesnenin metal olması onun depozito iade makinesine uygun olduğunu göstermez. Ürünün ne içerdiği ve hangi toplama programına dahil olduğu belirleyicidir.\n\nGeri kazanım tesisleri metalleri ayırıp yeni üretim için işler. Uygulamanın görevi bu süreç gerçekleşmiş gibi puanla çevresel kazanç eşitlemek değil, kullanıcıya daha doğru bir sonraki adımı göstermektir.",
+    "acceptedExamples": [
+      "Yerel sistemin kabul ettiği boş gıda konservesi.",
+      "Yerel sistemin kabul ettiği temiz metal ambalaj.",
+      "Depozito kapsamındaki alüminyum içecek kutusu."
+    ],
+    "excludedExamples": [
+      "Basınçlı veya içeriği bilinmeyen sprey kutusu.",
+      "Boya ve çözücü kalıntılı kap.",
+      "Pil ve elektronik parça: ayrı toplama gerekir."
+    ],
+    "preparation": [
+      "Ambalajı boşalt; keskin kenarlara temas etme.",
+      "DOA kutusunu ezme; barkodun okunabilir olmasını koru.",
+      "Alüminyum haznesinin kabul bilgisini kontrol et."
+    ],
+    "mistakes": [
+      "Genel metal tahminini alüminyum doğrulaması saymak.",
+      "Basınçlı kabı delerek boşaltmaya çalışmak.",
+      "Bütün metal nesneleri içecek ambalajı makinesine götürmek."
+    ],
+    "aiTip": "Tek nesne ve sade arka plan kullan. Yerel model genel metal sınıfını tahmin eder; çelik ile alüminyumu ayırmaz. Genel metal sonucunda haritanın filtresiz açılması, her makinenin nesneyi kabul ettiği anlamına gelmez.",
+    "safetyNote": "Sprey kutusunu delme, yakma veya ezme; etikete ve yerel teslim talimatına uy.",
+    "reuseIdeas": [
+      "Sağlam ve keskin kenarı olmayan bir kutuyu düzenleyici olarak kullan.",
+      "Tehlikeli ürün kabını el işi malzemesine dönüştürme."
+    ],
+    "sources": [
+      {
+        "title": "DOA · Ambalaj iadesi ve sistem kapsamı",
+        "url": "https://doa.gov.tr/"
+      },
+      {
+        "title": "US EPA · Evsel tehlikeli atıklar",
+        "url": "https://www.epa.gov/hw/household-hazardous-waste-hhw"
+      }
+    ],
     "questions": [
       {
-        "questionText": "Alüminyum bir kutuyu sıfırdan üretmek yerine geri dönüştürmek yaklaşık yüzde kaç oranında enerji tasarrufu sağlar?",
-        "options": ["%20", "%50", "%95"],
+        "questionText": "Genel metal tahmini hangisini doğrulamaz?",
+        "options": [
+          "Nesnenin görsel bir malzeme tahmini olduğunu",
+          "Kesin alüminyum ve depozito uygunluğunu",
+          "Sonucun kontrol edilmesi gerektiğini"
+        ],
+        "correctOptionIndex": 1
+      },
+      {
+        "questionText": "Basınçlı sprey kabıyla ne yapılmamalıdır?",
+        "options": [
+          "Delmek veya yakmak",
+          "Etiketini okumak",
+          "Yerel teslim talimatını sormak"
+        ],
+        "correctOptionIndex": 0
+      },
+      {
+        "questionText": "DOA kutusu iade öncesinde nasıl tutulmalıdır?",
+        "options": [
+          "Ezilip barkodu sökülerek",
+          "Başka atıklarla doldurularak",
+          "Ezilmeden ve barkodu okunur halde"
+        ],
         "correctOptionIndex": 2
-      },
-      {
-        "questionText": "Evdeki atığın Çelik mi yoksa Alüminyum mu olduğunu en basit hangi yöntemle anlarsınız?",
-        "options": ["Suya atıp batmasına bakarak", "Mıknatıs yapıştırarak (Yapışıyorsa çelik)", "Bükerek esnekliğini ölçerek"],
-        "correctOptionIndex": 1
-      },
-      {
-        "questionText": "Metallerin (çelik ve alüminyum) geri dönüşümü hakkında aşağıdakilerden hangisi doğrudur?",
-        "options": ["Sadece 5 kez dönüştürülebilirler", "Kalitelerinden ödün vermeden sonsuz kez dönüştürülebilirler", "Geri dönüştürüldüklerinde sadece inşaat çivisi olabilirler"],
-        "correctOptionIndex": 1
       }
     ]
   },
   {
     "categoryId": "modul-5",
-    "title": "Elektronik Atıklar (E-Atık): Gizli Zehir ve Kentsel Madencilik",
-    "contentBody": "1. Teknolojinin Karanlık Yüzü\nBozulan telefonlar, kablolar, piller ve devre kartları dünyada en hızlı büyüyen atık türüdür. E-atıklar kurşun, cıva, kadmiyum ve berilyum gibi son derece toksik (zehirli) ağır metaller içerir. Çöpe atılıp doğaya bırakıldıklarında, bu ağır metaller yağmur sularıyla yeraltı sularına ve toprağa sızarak tüm ekosistemi ve insan sağlığını tehdit eder.\n\n2. Kentsel Madencilik (Urban Mining)\n1 ton atık cep telefonundan elde edilen altın miktarı, doğadaki 1 ton altın cevherinden elde edilenden daha fazladır. E-atıkların içindeki altın, gümüş, platin, bakır ve lityum gibi değerli madenlerin elektronik anakartlardan kimyasal yollarla geri kazanılması işlemine 'kentsel madencilik' denir.\n\n3. Pillerin Tehlikesi\nÖzellikle lityum-iyon piller yanlışlıkla normal çöp kırma makinelerine girerse patlayarak devasa yangınlara sebep olurlar. Bu nedenle e-atıklar standart geri dönüşüm tesislerine değil, özel izolasyonlu e-atık bertaraf merkezlerine gönderilmelidir.\n\n4. Veri Güvenliği ve Döngü\nBir bilgisayarı veya telefonu geri dönüşüme yollarken fiziksel imha işlemlerinden önce veri güvenliği (harddisklerin profesyonelce silinmesi) büyük önem taşır. Cihazlar demonte edilir; plastiği, camı ve değerli metalleri ayrılarak tekrar teknoloji endüstrisine kazandırılır.\n\n5. Yapay Zeka Tarama İpuçları\nElektronik kabloları veya küçük donanımları (fare, adaptör) tararken arka planın desensiz ve sade (örneğin düz bir masa) olması çok önemlidir. Karmaşık zeminler, kabloların ince hatlarını yutarak yapay zekanın nesneyi tanımasını engeller.",
+    "title": "Elektronik ve Piller: Güvenli Geri Kazanım",
+    "summary": "Cihazdaki veriyi koru; pili ve elektroniği ambalaj kutusundan uzak tut.",
+    "collectionRoute": "Üretici geri alma programı, yetkili elektronik atık veya pil toplama noktası.",
+    "contentBody": "Elektronik cihazlar farklı malzemeler içerir. Onarım ve yeniden kullanım mümkünse önce bunları değerlendir. Kullanım ömrü bittiğinde elektronik parçalar için uygun toplama ve işleme altyapısı gerekir.\n\nTeslimden önce kişisel verileri güvenli biçimde kaldırmak da atık yönetiminin bir parçasıdır. Pilin kimyası, fiziksel durumu ve cihazın üretici talimatı güvenli toplama yolunu etkiler. Fotoğraf pilin güvenli olduğunu kanıtlayamaz.",
+    "acceptedExamples": [
+      "Yetkili elektronik toplama noktasına eski telefon veya bilgisayar.",
+      "Üreticinin talimatına göre ayrı teslim edilen kullanılmış pil.",
+      "Onarılabilir cihaz için güvenilir onarım veya yeniden kullanım kanalı."
+    ],
+    "excludedExamples": [
+      "Elektroniği kağıt, plastik veya cam ambalaj kutusuna bırakmak.",
+      "Pili DOA içecek ambalajı makinesine atmak.",
+      "Şişmiş veya sızıntılı pili normal toplama kabına rastgele bırakmak."
+    ],
+    "preparation": [
+      "Cihazı kapat, hesaplarını kaldır ve verilerini güvenli biçimde sil.",
+      "Pili ancak kullanıcı tarafından çıkarılabiliyorsa ve güvenliyse üretici talimatına göre ayır.",
+      "Hasarlı pil için toplamadan önce yetkili noktadan yönlendirme al."
+    ],
+    "mistakes": [
+      "Pilin dış görünüşünden kimyasını kesin çıkarmak.",
+      "Gömülü pili zorlayarak sökmek.",
+      "Boşalmış pilin hiçbir risk taşımadığını varsaymak."
+    ],
+    "aiTip": "Yerel altı sınıflı modelin ayrı elektronik veya pil sınıfı yoktur. Bu nesnelerde genel sınıf tahmini yanlış olabilir; bu rehberi ve ürün etiketini esas al. Bulut analizi de uzman güvenlik incelemesinin yerini tutmaz.",
+    "safetyNote": "Şişmiş, sıcak veya sızıntılı pili delme, açma ya da fotoğraf için elleme.",
+    "reuseIdeas": [
+      "Güvenli cihazı onar veya kişisel verilerini silerek bağışla.",
+      "Pil ve devre kartlarından evde el işi malzemesi üretme."
+    ],
+    "sources": [
+      {
+        "title": "US EPA · Elektronik bağışı ve geri dönüşümü",
+        "url": "https://www.epa.gov/recycle/electronics-donation-and-recycling"
+      },
+      {
+        "title": "US EPA · Kullanılmış ev tipi piller",
+        "url": "https://www.epa.gov/recycle/used-household-batteries"
+      }
+    ],
     "questions": [
       {
-        "questionText": "E-Atıkların çöpe atılıp doğaya bırakılması neden sıradan atıklardan çok daha tehlikelidir?",
-        "options": ["Kötü koku yaydıkları için", "İçerdikleri ağır metaller ve zehirli asitler yeraltı sularına sızdığı için", "Çok yer kapladıkları için"],
+        "questionText": "Cihaz tesliminden önce hangi işlem önemlidir?",
+        "options": [
+          "Kişisel bilgileri güvenli biçimde silmek",
+          "Pili delmek",
+          "Cihazı ambalaj kutusuna atmak"
+        ],
+        "correctOptionIndex": 0
+      },
+      {
+        "questionText": "Yerel görsel model elektronik atığı kesin tanır mı?",
+        "options": [
+          "Evet, her cihazı tanır",
+          "Hayır, ayrı elektronik sınıfı yoktur",
+          "Yalnızca pilin kimyasını kesin tanır"
+        ],
         "correctOptionIndex": 1
       },
       {
-        "questionText": "1 ton atık cep telefonunda, doğadaki 1 ton cevhere kıyasla daha fazla bulunan değerli maden hangisidir?",
-        "options": ["Gümüş", "Platin", "Altın"],
+        "questionText": "Şişmiş pilde doğru yaklaşım hangisidir?",
+        "options": [
+          "Evde keserek açmak",
+          "Cam kutusuna atmak",
+          "Ellemeden yetkili toplama yönlendirmesi almak"
+        ],
         "correctOptionIndex": 2
-      },
-      {
-        "questionText": "Elektronik devrelerdeki altın, bakır gibi madenlerin çöplerden geri kazanılması işlemine ne ad verilir?",
-        "options": ["Derin Madencilik", "Kentsel Madencilik (Urban Mining)", "Biyolojik Çözünme"],
-        "correctOptionIndex": 1
       }
     ]
   },
   {
     "categoryId": "modul-6",
-    "title": "Kompozit Atıklar (Tetra Pak): Ayrıştırılması Zor Katmanlar",
-    "contentBody": "1. Kompozit Nedir?\nSüt, meyve suyu ve hazır çorba kutuları dışarıdan sadece kağıt gibi görünse de aslında 'kompozit' adı verilen çok katmanlı yapıya sahiptirler. Tipik bir uzun ömürlü karton kutunun (Tetra Pak) %75'i kağıt, %20'si polietilen (plastik) ve %5'i sıvı ile havayı tamamen kesen alüminyum folyodan oluşur.\n\n2. Geri Dönüşüm Neden Zordur?\nBirbirine sımsıkı preslenmiş olan bu kağıt, plastik ve alüminyum katmanlarını birbirinden ayırmak teknolojik olarak zordur. Bu nedenle kompozit atıklar standart kağıt geri dönüşüm hatlarına atılamaz. Sadece 'hidrapulper' (dev karıştırıcı kazanlar) teknolojisine sahip özel tesislerde su eşliğinde saatlerce şiddetli şekilde döndürülerek katmanlarına ayrıştırılırlar.\n\n3. Yeni Hayat\nAyrışan %75'lik kaliteli uzun selüloz lifleri (kağıt kısmı) genellikle tuvalet kağıdı, peçete ve karton üretiminde kullanılır. Geriye kalan %25'lik plastik ve alüminyum karışımı ise (PolyAl olarak bilinir) eritilip preslenerek park bankları, bahçe mobilyaları, saksılar ve çatı kaplama malzemesi gibi suya dayanıklı sert ürünlere dönüştürülür.\n\n4. Tüketici Sorumluluğu\nKutunun içinde kalan az miktarda süt veya meyve suyu zamanla koku ve mantar yaparak geri dönüşüm kalitesini düşürür. İdeal olan, kutuyu atmadan önce çalkalayıp düzleştirmektir (hacim tasarrufu).\n\n5. Yapay Zeka Tarama İpuçları\nYapay zeka kompozit kutuları genellikle üzerindeki marka tasarımlarından tanır. Taratırken pipet girişini veya vidalı kapağını (kutunun üst kısmını) da kameraya göstermek algoritmanın bu yapıyı sıradan bir karton değil, sıvı saklama kabı olarak sınıflandırmasını kolaylaştırır.",
+    "title": "Kompozit Ambalaj: Tek Görüntü, Birden Çok Katman",
+    "summary": "Süt ve meyve suyu kutularını sıradan kağıttan ayır.",
+    "collectionRoute": "Belediyenin kompozit ambalaj kabul ettiği ayrı toplama sistemi.",
+    "contentBody": "Kompozit ambalaj birden fazla malzemenin birlikte kullanılmasıyla oluşur. Dış yüzeyi kağıt görünse de iç katmanlar farklı olabilir; paket yapısı ürüne göre değişir.\n\nAyrı toplama ve uygun tesise yönlendirme önemlidir. Görüntü sınıflandırması çoğunlukla dış yüzeyi görür. Bu yüzden sıradan kartona benzeyen bir sonuç, katmanların gerçekten ayrılabildiğini veya o noktada kabul edildiğini kanıtlamaz.",
+    "acceptedExamples": [
+      "Yerel toplama programının kabul ettiği boş içecek kartonu.",
+      "Yerel programa göre ayrı biriktirilen çok katmanlı ambalaj."
+    ],
+    "excludedExamples": [
+      "Kompozit kutuyu otomatik olarak DOA şişesi saymak.",
+      "Yemek veya sıvı dolu ambalaj.",
+      "Yerel kabul bilgisi olmadan karışık malzemeli her ürünü aynı akışa vermek."
+    ],
+    "preparation": [
+      "İçeriği boşalt.",
+      "Ürünün ambalaj bilgisine bak ve yerel toplama yolunu doğrula.",
+      "Yerel talimat uygunsa hacmini azalt; kuru biriktir."
+    ],
+    "mistakes": [
+      "Marka veya renk görmenin malzeme doğrulaması olduğunu düşünmek.",
+      "Katmanları evde bıçakla ayırmaya çalışmak.",
+      "Bütün içecek ambalajlarının depozitolu olduğunu varsaymak."
+    ],
+    "aiTip": "Kutunun kapak, yan yüzey ve ambalaj açıklamasını görünür tut. Yerel modelde kompozit sınıfı yoktur; karton olarak tahmin edebilir. Ürünün üzerindeki malzeme bilgisi ve yerel kabul kuralı belirleyicidir.",
+    "safetyNote": "Katmanları sökmek için kesici alet kullanmana gerek yoktur.",
+    "reuseIdeas": [
+      "Temiz kutuyu kesici alet gerektirmeyen bir düzenleme projesinde kullan.",
+      "Sıcak yiyecek veya içecek için yeniden kullanım uygunluğunu varsayma."
+    ],
+    "sources": [
+      {
+        "title": "T.C. Dışişleri Bakanlığı · Sıfır Atık tanıtımı, kompozit atık",
+        "url": "https://www.mfa.gov.tr/site_media/html/sifir-atik/ek-3.pdf"
+      }
+    ],
     "questions": [
       {
-        "questionText": "Süt ve meyve suyu kutularının (Tetra Pak) geri dönüştürülmesini çok zorlaştıran temel özellik nedir?",
-        "options": ["Sadece kağıttan üretilmeleri", "Boyalarının zehirli olması", "Kağıt, plastik ve alüminyumun iç içe katmanlar halinde preslenmiş olması"],
+        "questionText": "Kompozit ambalajın temel özelliği nedir?",
+        "options": [
+          "Tamamının cam olması",
+          "Her zaman depozitolu olması",
+          "Birden fazla malzemenin birlikte kullanılması"
+        ],
         "correctOptionIndex": 2
       },
       {
-        "questionText": "Kompozit kutuların geri dönüşümünden geriye kalan plastik/alüminyum (PolyAl) karışımı genellikle ne üretiminde kullanılır?",
-        "options": ["Park bankları ve dış mekan malzemeleri", "Yeni süt kutuları", "Otomobil lastikleri"],
-        "correctOptionIndex": 0
+        "questionText": "Yerel modelin karton tahmini neyi kanıtlamaz?",
+        "options": [
+          "Kutunun dış görünüşü için bir tahmin olduğunu",
+          "Kutunun kompozit olmadığını ve tesiste kesin kabul edildiğini",
+          "Sonucun kontrol edilebileceğini"
+        ],
+        "correctOptionIndex": 1
       },
       {
-        "questionText": "Yapay zekanın kompozit kutuları sıradan kağıttan ayırabilmesi için tarama esnasında hangi detayın görünmesi önemlidir?",
-        "options": ["Kutunun altı", "Pipet deliği veya plastik kapağı", "Sadece son kullanma tarihi"],
-        "correctOptionIndex": 1
+        "questionText": "Toplamadan önce ilk hazırlık hangisidir?",
+        "options": [
+          "İçeriği boşaltmak",
+          "Katmanları bıçakla ayırmak",
+          "Sıvıyla dolu bırakmak"
+        ],
+        "correctOptionIndex": 0
       }
     ]
   },
   {
     "categoryId": "modul-7",
-    "title": "Bitkisel Atık Yağlar: Suyu Boğan Sarı Tehlike",
-    "contentBody": "1. Ekolojik Yıkım Etkisi\nKızartma sonrasında lavaboya dökülen kullanılmış bitkisel atık yağlar, çevresel yıkımın sinsi failleridir. Yağ sudan hafif olduğu için nehir, göl ve deniz yüzeyini ince bir film tabakası gibi kaplar. Bu tabaka su altı ekosistemine güneş ışığının ve oksijenin geçişini engelleyerek deniz canlılarının boğulmasına neden olur. Sadece 1 litre atık yağ, 1 milyon litre temiz içme suyunu kullanılmaz hale getirir.\n\n2. Kanalizasyon Canavarları (Fatberg)\nLavaboya dökülen sıvı yağlar, soğuk kanalizasyon borularında ıslak mendil ve diğer atıklarla birleşerek beton gibi sertleşen devasa tıkanıklıklara ('fatberg') neden olur. Bu durum altyapı çöküşlerine ve taşkınlara yol açar.\n\n3. Esterleşme ve Biyodizel\nBilinçli tüketiciler tarafından ayrı şişelerde biriktirilip belediyelerin yağ kumbaralarına atılan bu atıklar, tesislerde 'transesterifikasyon' (esterleşme) adı verilen kimyasal bir reaksiyondan geçirilir. Yağın içindeki gliserin ayrıştırılır ve geriye temiz ve çevreci bir yakıt olan 'Biyodizel' kalır. Ayrıca ayrışan gliserin sabun ve kozmetik sanayisinde kullanılır.\n\n4. İklim Değişikliğine Etkisi\nFosil yakıtlar (petrol dizeli) yerine atık yağdan üretilen biyodizelin kullanılması, karbon emisyonlarını %70 ila %90 oranında azaltarak sera gazı salınımını doğrudan durdurur.\n\n5. Yapay Zeka Tarama İpuçları\nKameranın atık yağı algılayabilmesi için formunu görmesi gerekir. Atık yağı şeffaf bir pet şişede biriktirin. Yapay zekaya taratırken, sıvının sarı/kahverengi rengini görebilmesi için şişenin etrafında iyi bir ışıklandırma olmasına özen gösterin.",
-    "questions": [
+    "title": "Bitkisel Atık Yağ: Lavabodan Uzak Tut",
+    "summary": "Soğut, ayrı biriktir ve yetkili toplama yolunu öğren.",
+    "collectionRoute": "Belediyenin bitkisel atık yağ toplama noktası veya yetkili toplayıcı.",
+    "contentBody": "Kullanılmış yemeklik yağı lavaboya, toprağa veya suya dökmemek temel adımdır. Toplama programı uygun yağı geri kazanıma yönlendirebilir; bu süreç evde yapılan bir işlem değildir.\n\nYağ şişesinin fotoğrafından içerik türü, miktarı veya geri kazanım uygunluğu kesin belirlenemez. EcoVision bir toplama hizmeti veya analiz laboratuvarı değildir; teslim koşullarını belediyeden doğrulaman gerekir.",
+    "acceptedExamples": [
+      "Programın kabul ettiği ayrı biriktirilmiş kullanılmış yemeklik yağ.",
+      "Sızdırmaz ve belirgin etiketli toplama kabı."
+    ],
+    "excludedExamples": [
+      "Motor yağı, çözücü veya deterjanla karıştırılmış sıvı.",
+      "Sıcak yağı dayanıksız kaba doldurmak.",
+      "Yağlı şişeyi içindekini boşaltmadan plastik ambalaj kutusuna atmak."
+    ],
+    "preparation": [
+      "Yağın tamamen soğumasını bekle.",
+      "Uygun, sızdırmaz bir kapta ayrı biriktir ve içeriği etiketle.",
+      "Belediyenin teslim noktasını ve kabul koşullarını sor."
+    ],
+    "mistakes": [
+      "Az miktardaki yağı lavaboya dökmenin zararsız olduğunu sanmak.",
+      "Farklı atık sıvıları aynı kapta toplamak.",
+      "Fotoğraftan litre veya önlenen kirlilik miktarı hesaplamak."
+    ],
+    "aiTip": "Yerel modelin yağ sınıfı yoktur; şişeyi plastik veya cam sanabilir. Tehlikeli sıvıyı açıp koklayarak doğrulamaya çalışma. İçeriği bilmiyorsan tahmin yerine yetkili toplama noktasına danış.",
+    "safetyNote": "Evde yağdan yakıt üretmeyi deneme; kimyasallarla karıştırma.",
+    "reuseIdeas": [
+      "Uygun pişirme planıyla atık yağ oluşumunu azalt.",
+      "Atık yağı gıda veya kozmetik ürünü olarak yeniden kullanma."
+    ],
+    "sources": [
       {
-        "questionText": "Sadece 1 litre atık kızartma yağının lavaboya dökülmesi ne kadar temiz içme suyunu kirletir?",
-        "options": ["1.000 Litre", "10.000 Litre", "1.000.000 Litre"],
-        "correctOptionIndex": 2
+        "title": "Çevre, Şehircilik ve İklim Değişikliği İl Müdürlüğü · Bitkisel atık yağlar",
+        "url": "https://bartin.csb.gov.tr/haberler/bitkisel-atik-yaglar-221056"
       },
       {
-        "questionText": "Toplanan atık yağlar kimyasal işlemlerden geçirildikten sonra hangi temiz ürüne dönüştürülür?",
-        "options": ["Biyodizel yakıta", "Sentetik motor yağına", "Tarım ilacına"],
+        "title": "Çankaya Belediyesi · Bitkisel atık yağ toplama",
+        "url": "https://www.cankaya.bel.tr/hizmetler/bitkisel-atik-yaglarin-toplanmasi"
+      }
+    ],
+    "questions": [
+      {
+        "questionText": "Kullanılmış yemeklik yağ nereye dökülmemelidir?",
+        "options": [
+          "Yetkili teslim kabına",
+          "Lavaboya, toprağa veya suya",
+          "Uygun ayrı biriktirme kabına"
+        ],
+        "correctOptionIndex": 1
+      },
+      {
+        "questionText": "Biriktirmeden önce yağ için ne yapılmalıdır?",
+        "options": [
+          "Tamamen soğuması beklenmelidir",
+          "Deterjan eklenmelidir",
+          "Sıcakken ince poşete konmalıdır"
+        ],
         "correctOptionIndex": 0
       },
       {
-        "questionText": "Atık yağlar su altı ekosistemine (denizler, göller) temelde nasıl zarar verir?",
-        "options": ["Suyu dondurarak", "Su yüzeyini kaplayarak oksijen ve güneş ışığının geçişini engelleyerek", "Balıkların midesinde genleşerek"],
-        "correctOptionIndex": 1
+        "questionText": "Yerel model şişedeki yağ miktarını ölçer mi?",
+        "options": [
+          "Evet, litreyi kesin verir",
+          "Yalnızca sıcak yağda ölçer",
+          "Hayır; fotoğraftan miktar doğrulamaz"
+        ],
+        "correctOptionIndex": 2
       }
     ]
   },
   {
     "categoryId": "modul-8",
-    "title": "Tekstil ve Kumaş Atıkları: Hızlı Modanın Ağır Bedeli",
-    "contentBody": "1. Hızlı Moda (Fast Fashion) Endüstrisi\nGünümüzde tekstil endüstrisi, petrol sektöründen sonra dünyayı en çok kirleten ikinci endüstridir. Pamuk tarlalarında aşırı su ve kimyasal ilaç kullanımı, polyester üretiminde fosil yakıtların harcanması büyük bir ekolojik iz bırakır. Örneğin, sadece bir adet pamuklu tişört üretmek için yaklaşık 2.700 litre su harcanır. Bu miktar, bir insanın 2.5 yıllık içme suyu ihtiyacına eşdeğerdir.\n\n2. Tekstil Çöplükleri\nKullanılmayan kıyafetlerin çöpe atılması, onların doğada biyolojik olarak parçalanıp yok olacağı anlamına gelmez. Özellikle polyester ve naylon gibi sentetik kumaşlar aslında birer plastiktir ve doğada çözünmeleri 200 yıldan fazla sürer. Çöplüklere yığılan bu giysiler toprağa ve yeraltı sularına kimyasal boyalar sızdırır.\n\n3. Geri Dönüşüm Mekanizması\nBelediyelerin tekstil kumbaralarına atılan kıyafetler önce manuel olarak ayrıştırılır. Giyilebilir durumda olanlar ikinci el mağazalarına veya ihtiyaç sahiplerine gönderilir. Yıpranmış ve yırtık olanlar ise dev makinelerde ('shoddy' işlemi) doğranarak küçük elyaf parçalarına dönüştürülür.\n\n4. Yeni Kullanım Alanları\nKumaşlardan elde edilen bu geri dönüştürülmüş elyaflar, tekrar iplik yapılarak yeni kazaklara dönüşebileceği gibi; çoğu zaman otomobil kaporta yalıtımında, inşaat izolasyon malzemelerinde veya endüstriyel temizlik bezlerinde dolgu maddesi olarak kullanılır.\n\n5. Yapay Zeka Tarama İpuçları\nKamera, düzgün katlanmış eski bir kıyafeti bazen renkli bir kağıt veya plastik örtü zannedebilir. Kumaşı taratırken tekstilin dokusunu (örgülerini), yaka, düğme veya kol gibi giysi detaylarını kadraja dahil etmek sınıflandırma başarısını garantiler.",
+    "title": "Tekstil: Önce Onar ve Yeniden Kullan",
+    "summary": "Giyilebilir kıyafet ile geri kazanılacak kumaşı ayrı değerlendir.",
+    "collectionRoute": "Bağış ve yeniden kullanım kanalı veya belediyenin tekstil toplama sistemi.",
+    "contentBody": "Kullanılmayan her kıyafetin hemen atık olması gerekmez. Onarım, paylaşım ve ikinci el kullanım ürün ömrünü uzatabilir. Kullanılamayan kumaş için kabul yolu malzemeye ve toplama programına göre değişir.\n\nÜzerindeki bakım etiketi ve ürünün durumu, fotoğraftaki renk ve dokudan daha çok bilgi verebilir. EcoVision tekstil lifinin kimyasını veya ürünün yeniden kullanım güvenliğini ölçmez.",
+    "acceptedExamples": [
+      "Giyilebilir, temiz ve kuru kıyafetler için uygun bağış kanalı.",
+      "Toplama programının kabul ettiği kullanılmaz tekstiller.",
+      "Ayrı paketlenmiş ve durumu belirtilmiş tekstil."
+    ],
+    "excludedExamples": [
+      "Kimyasal veya yağla kirlenmiş tekstili normal bağışa vermek.",
+      "Islak veya küflü kıyafeti kullanılabilir ürünle karıştırmak.",
+      "Yerel kabulü doğrulamadan ayakkabı ve dolgulu ürünleri aynı akışa vermek."
+    ],
+    "preparation": [
+      "Kullanılabilir ve atık durumdakileri ayır.",
+      "Temiz ve kuru tut; toplama programının paketleme talimatına uy.",
+      "Bağış ile geri kazanımın farklı teslim yolları olabileceğini kontrol et."
+    ],
+    "mistakes": [
+      "Her kıyafeti doğada kısa sürede çözünen organik malzeme sanmak.",
+      "Fotoğraftan lif oranını kesin tahmin etmek.",
+      "Bağışı ölçülmüş karbon tasarrufu olarak otomatik kaydetmek."
+    ],
+    "aiTip": "Yerel modelde tekstil sınıfı bulunmaz. Kumaşı kağıt veya plastik sanabilir. Lif bileşimi için etikete bak; uygulama skoru, pamuk veya polyester oranını doğrulamaz.",
+    "safetyNote": "Kimyasalla kirlenmiş kumaşta normal yeniden kullanım önerisini uygulama.",
+    "reuseIdeas": [
+      "Küçük bir yırtığı onar; kullanılabilir ürünü paylaş.",
+      "Temiz ve uygun eski kumaşı temizlik bezi olarak değerlendir."
+    ],
+    "sources": [
+      {
+        "title": "Kadıköy Belediyesi · Tekstil atıkları ve ikinci el tekstiller",
+        "url": "https://cevre.kadikoy.bel.tr/icerik/tekstil-atiklari"
+      }
+    ],
     "questions": [
       {
-        "questionText": "Pamuklu tek bir tişört üretmek için tarım aşamasından itibaren harcanan su miktarı yaklaşık ne kadardır?",
-        "options": ["50 Litre", "500 Litre", "2.700 Litre"],
+        "questionText": "Giyilebilir bir kıyafet için öncelikli seçenek hangisidir?",
+        "options": [
+          "Hemen yakmak",
+          "Plastik ambalaj kutusuna atmak",
+          "Onarmak veya yeniden kullanmak"
+        ],
         "correctOptionIndex": 2
       },
       {
-        "questionText": "Polyester ve naylon gibi sentetik kumaş atıklarının doğadaki gerçek statüsü nedir?",
-        "options": ["Organik gübredirler", "Onlar aslında birer plastiktir ve yüzyıllarca çözünmezler", "Metal sınıfına girerler"],
-        "correctOptionIndex": 1
+        "questionText": "Lif bileşimi için hangi bilgi daha anlamlıdır?",
+        "options": [
+          "Ürünün malzeme etiketi",
+          "Fotoğraftaki arka plan rengi",
+          "Modelin genel plastik skoru"
+        ],
+        "correctOptionIndex": 0
       },
       {
-        "questionText": "Kullanılamaz durumdaki eski kıyafetler geri dönüşüm makinelerinde parçalanarak öncelikle hangi forma dönüştürülür?",
-        "options": ["Elyaf ve dolgu malzemesine", "Plastik polimere", "Sıvı hammaddeye"],
-        "correctOptionIndex": 0
+        "questionText": "Bağışlanabilir ve atık tekstiller nasıl hazırlanmalıdır?",
+        "options": [
+          "Islak halde aynı pakete konmalıdır",
+          "Durumlarına göre ayrı ve kuru tutulmalıdır",
+          "Yağla kaplanmalıdır"
+        ],
+        "correctOptionIndex": 1
       }
     ]
   },
   {
     "categoryId": "modul-9",
-    "title": "Organik Evsel Atıklar: Çöpten Kara Altına",
-    "contentBody": "1. Organik Atık Nedir?\nMeyve-sebze kabukları, çay posası, yumurta kabukları, kahve telveleri ve bahçe budama atıkları organik (biyobozunur) atıklar sınıfına girer. Normal şartlarda bu atıklar doğanın en faydalı gübreleridir.\n\n2. Çöplüklerdeki Gizli Tehlike: Metan\nOrganik atıklar plastik torbaların içinde havasız (oksijensiz - anaerobik) çöp dağlarının altına gömüldüğünde doğal yollarla çürüyemezler. Oksijensiz ortamda çürüdükleri için karbondioksitten 21 kat daha güçlü bir sera gazı olan 'Metan' gazı salgılarlar. Küresel ısınmanın gizli tetikleyicilerinden biri de çöplüklere giden muz kabuklarıdır.\n\n3. Biyogaz Teknolojisi\nModern atık yönetim tesislerinde organik atıklar dev kapalı tanklara (biyoreaktör) alınır. Burada özel bakterilerle fermente edilerek 'Biyogaz' (metan ve karbondioksit karışımı) elde edilir. Bu gaz yakılarak binlerce hanenin elektrik ihtiyacını karşılayan yeşil enerjiye dönüştürülür.\n\n4. Kompost (Kara Altın)\nEvde bile yapılabilecek en basit geri dönüşüm yöntemidir. Organik atıkların hava, nem ve mikroorganizmalar yardımıyla kontrollü çürütülmesi işlemidir. Sonuçta ortaya çıkan toprak benzeri yapıya 'Kompost' denir. Tarımda toprak verimliliğini inanılmaz derecede artırdığı için buna kentsel çiftçilikte 'kara altın' denir.\n\n5. Yapay Zeka Tarama İpuçları\nYapay zeka meyve sebze kabuklarını formlarından (bir elma veya muz kabuğu formundayken) kolayca tanır. Ancak atıklar tamamen sıvılaşıp çamur kıvamına gelmişse tanımlamak zorlaşır. Organik atıkları taratırken parçaların ne olduğu henüz seçilebilir durumdayken okutmak gerekir.",
+    "title": "Organik Atıklar: Önce İsrafı Azalt",
+    "summary": "Gıda kaybını önle; uygun organikleri komposta yönlendir.",
+    "collectionRoute": "Uygun ev tipi kompost veya belediyenin kabul ettiği organik atık programı.",
+    "contentBody": "Yenebilir gıdanın israfını önlemek ilk tercihtir. Kalan uygun organik maddeler kontrollü kompost sisteminde değerlendirilebilir. Kompost, yalnızca yiyeceği bir kaba koyup bekletmekten ibaret değildir; hava ve nem yönetimi gerektirir.\n\nEv tipi ve endüstriyel sistemler aynı malzemeleri kabul etmeyebilir. Uygulama bir fotoğraftan ürünün yenilebilirliğini, hijyenini veya kompostun hazır olduğunu doğrulayamaz.",
+    "acceptedExamples": [
+      "Uygun kompost sistemi için meyve ve sebze artıkları.",
+      "Sisteme uygun kahve telvesi ve kuru yaprak.",
+      "Yerel organik toplama programının açıkça kabul ettiği malzemeler."
+    ],
+    "excludedExamples": [
+      "Ev tipi kompostta et, süt ürünü ve yağ; sistem talimatını izle.",
+      "Plastik etiket ve ambalaj.",
+      "Endüstriyel kompost gerektiren ürünü otomatik olarak ev kompostuna atmak."
+    ],
+    "preparation": [
+      "Önce tüketilebilir gıdayı israf etmeden değerlendir.",
+      "Organik maddeden plastik etiket ve ambalajı ayır.",
+      "Kullandığın kompost sisteminin nem, hava ve malzeme talimatını izle."
+    ],
+    "mistakes": [
+      "Kompostlanabilir etiketini her ev sisteminde uygunluk saymak.",
+      "Organik atığı DOA makinesine götürmek.",
+      "Her organik sınıflandırmayı gerçekleşmiş kompost üretimi saymak."
+    ],
+    "aiTip": "Yerel altı sınıflı modelin ayrı organik sınıfı yoktur. Görselden gıdanın tüketim güvenliği belirlenemez. Belirsiz sonuçta bu rehberi ve yerel organik toplama programını kullan.",
+    "safetyNote": "Şüpheli gıdayı fotoğraf analizine güvenerek tüketme.",
+    "reuseIdeas": [
+      "Alışveriş ve porsiyon planıyla yenebilir gıdanın israfını azalt.",
+      "Uygun mutfak artıklarını doğru kompost sistemine ayır."
+    ],
+    "sources": [
+      {
+        "title": "US EPA · Evde kompost",
+        "url": "https://www.epa.gov/recycle/composting-home"
+      }
+    ],
     "questions": [
       {
-        "questionText": "Çöplüklerde oksijensiz kalan organik atıklar, küresel ısınmayı tetikleyen hangi güçlü sera gazını üretir?",
-        "options": ["Karbon monoksit", "Metan", "Ozon"],
-        "correctOptionIndex": 1
+        "questionText": "Yenebilir gıda için ilk tercih nedir?",
+        "options": [
+          "İsrafı önlemek",
+          "DOA makinesine götürmek",
+          "Ambalajla karıştırmak"
+        ],
+        "correctOptionIndex": 0
       },
       {
-        "questionText": "Organik atıkların kontrollü çürütülmesiyle elde edilen, tarımda 'kara altın' olarak bilinen ürün nedir?",
-        "options": ["Biyo-kömür", "Torf", "Organik gübre (Kompost)"],
+        "questionText": "Ev tipi kompost için hangisi ayrıca değerlendirilmelidir?",
+        "options": [
+          "Kuru yaprak",
+          "Meyve kabuğu",
+          "Et, süt ürünü ve yağ"
+        ],
         "correctOptionIndex": 2
       },
       {
-        "questionText": "Organik atıklardan kapalı tanklarda (biyoreaktör) fermentasyon yoluyla elde edilen ve elektrik üretiminde kullanılan enerjiye ne ad verilir?",
-        "options": ["Biyogaz", "Hidrojen yakıtı", "Jeotermal enerji"],
-        "correctOptionIndex": 0
+        "questionText": "Kompostlanabilir etiketi ne anlama gelmez?",
+        "options": [
+          "Bir işleme koşulu olabileceği",
+          "Her ev kompostunda kesin uygunluk",
+          "Üretici talimatının kontrol edilebileceği"
+        ],
+        "correctOptionIndex": 1
       }
     ]
   },
   {
     "categoryId": "modul-10",
-    "title": "Tehlikeli ve Tıbbi Atıklar: İzole Edilmiş Sistemler",
-    "contentBody": "1. Tehlikeli Atık Kategorisi\nTarihi geçmiş veya kullanılmayan ilaçlar, bataryalar (piller), şırıngalar (enjektörler), kullanılmış iğne uçları, cıvalı termometreler, boya kutuları ve motor yağları standart atık sınıfına girmez. Bu atıklar patlayıcı, yanıcı, toksik (zehirleyici) ve bulaşıcı (enfeksiyöz) özelliklere sahip olabilir.\n\n2. Geri Dönüşüm Sürecine Etkisi\nBir tek şırınganın veya bir paket zehirli ilacın standart plastik/kağıt geri dönüşüm bandına karışması tüm hattı durdurabilir ve tesis çalışanları için ölümcül enfeksiyon veya zehirlenme riski yaratır. Bu yüzden hiçbir tehlikeli atık evsel veya normal geri dönüşüm kutularına KESİNLİKLE atılmamalıdır.\n\n3. Bertaraf ve İmha (Yakma Tesisleri)\nTehlikeli atıklar geri dönüştürülmezler, özel yöntemlerle 'bertaraf' edilirler. Bu atıklar lisanslı, kalın yalıtımlı araçlarla toplanır. Atmosfere zehirli gaz salınımını engelleyen ağır baca filtrelerine sahip 'İnsineratör' (yakma) fırınlarında 1000°C'nin üzerinde sıcaklıklarda tamamen yakılarak steril küllere dönüştürülür. Elde edilen zararsız kül özel depolama alanlarına (lot) gömülür.\n\n4. Bireysel Sorumluluk (Ne Yapmalısınız?)\nTarihi geçmiş ilaçlar lavaboya veya klozete dökülmemelidir; aksi takdirde su arıtma tesislerinde bile temizlenemezler ve içme sularına karışarak hormon bozukluklarına sebep olurlar. Bu atıklar eczanelerde bulunan 'Atık İlaç Kumbaralarına' bırakılmalı, piller marketlerdeki pil kutularına, tıbbi atıklar ise hastane/sağlık ocaklarındaki sarı-kırmızı tehlikeli atık poşetlerine teslim edilmelidir.\n\n5. Yapay Zeka (EcoVision) Güvenlik Protokolü\nEcoVision sistemi bir şırınga, ilaç kutusu veya tehlikeli bir sıvı kabı algıladığında geri dönüşüm puanı veya rozet VERMEZ. Sistem doğrudan 'Güvenlik Protokolüne' geçer. Ekran uyarı rengine (kırmızıya) bürünür ve kullanıcıya bu atığı asla normal kutulara atmaması, özel toplama noktalarına ulaştırması gerektiği konusunda zorunlu bir bilgilendirme ekranı sunar.",
-    "questions": [
+    "title": "Tehlikeli ve Tıbbi Atıklar: Güvenlik Önce Gelir",
+    "summary": "Bilinmeyen maddeyi açma; kesici, ilaç ve kimyasal için yetkili yönlendirme al.",
+    "collectionRoute": "Atık türüne uygun yetkili toplama kanalı; yerel belediye veya sağlık kuruluşundan teslim koşulu öğrenilir.",
+    "contentBody": "Tehlikeli ürün artıkları ve kesici-delici atıklar normal ambalaj toplama akışına verilmez. Atığın türü, etiketi ve fiziksel durumu doğru teslim yöntemini belirler; tek bir bertaraf yöntemi bütün atıklar için geçerli değildir.\n\nFotoğraf tahmini bir güvenlik sertifikası değildir. Yerel modelin ayrı tıbbi veya tehlikeli atık sınıfı olmadığı için güvenli olduğu sonucunu çıkaramazsın. Şüpheli bir maddeyi doğrulamak için açma, koklama veya başka bir maddeyle karıştırma.",
+    "acceptedExamples": [
+      "Yetkili birimin kabul ettiği ilaç ve kimyasal atık teslimi.",
+      "Kesici-delici atık için yetkili sağlık biriminin yönlendirdiği güvenli kanal."
+    ],
+    "excludedExamples": [
+      "Şırınga, iğne ve ilaçları normal ambalaj kutusuna atmak.",
+      "Kimyasalı lavaboya veya toprağa dökmek.",
+      "İçeriği bilinmeyen bir kabı başka sıvılarla karıştırmak."
+    ],
+    "preparation": [
+      "Güvenli mesafeden etiketi ve ürün talimatını kontrol et.",
+      "Maddeyi açmadan yerel yetkili kurumdan teslim yönlendirmesi al.",
+      "Çocukların erişemeyeceği güvenli konumda tut; hasarlı kap için uzman yönlendirmesi iste."
+    ],
+    "mistakes": [
+      "Her tehlikeli atığın aynı işlemle geri kazanıldığını düşünmek.",
+      "Her eczane veya sağlık kuruluşunun her atığı koşulsuz aldığını varsaymak.",
+      "Yüksek model skorunu tehlikesizlik garantisi saymak."
+    ],
+    "aiTip": "Model tıbbi atığı güvenilir biçimde tespit edip güvenliğini onaylayamaz. Puan veya renkli sonuç güvenlik kararı değildir. Nesneden şüpheleniyorsan taramaya devam etmek yerine yetkili teslim yolunu öğren.",
+    "safetyNote": "İğneye veya sızıntılı kaba elle temas etme. Kimyasalı koklama, açma veya karıştırma.",
+    "reuseIdeas": [
+      "Tehlikeli atık için evde ileri dönüşüm deneme.",
+      "Ürünü ihtiyacın kadar alarak tehlikeli artık oluşumunu azalt."
+    ],
+    "sources": [
       {
-        "questionText": "Tarihi geçmiş ilaçlar lavaboya veya tuvalete dökülürse ne gibi bir sonuç ortaya çıkar?",
-        "options": ["Su arıtma tesisleri bunları kolayca temizler", "Su arıtma tesislerinde temizlenemez ve su kaynaklarına karışarak doğayı tehdit eder", "Kanalizasyon borularını temizler"],
-        "correctOptionIndex": 1
+        "title": "US EPA · Evsel tehlikeli atıkların güvenli yönetimi",
+        "url": "https://www.epa.gov/hw/household-hazardous-waste-hhw"
       },
       {
-        "questionText": "Tıbbi ve tehlikeli atıklar (şırıngalar, tarihi geçmiş ilaçlar) genellikle nasıl imha edilir (bertaraf edilir)?",
-        "options": ["Özel yalıtımlı ve filtreli (İnsineratör) fırınlarda çok yüksek ısıda yakılarak sterilize edilir", "Derin denizlere atılarak çözünmeye bırakılır", "Plastik tesislerinde eritilerek yeni şırınga yapılır"],
+        "title": "US EPA · Pillerin özel toplama gereksinimleri",
+        "url": "https://www.epa.gov/recycle/used-household-batteries"
+      }
+    ],
+    "questions": [
+      {
+        "questionText": "Bilinmeyen kimyasalın içeriği nasıl kontrol edilmemelidir?",
+        "options": [
+          "Etiketi okuyarak",
+          "Yetkili birime danışarak",
+          "Açıp koklayarak veya başka maddeyle karıştırarak"
+        ],
+        "correctOptionIndex": 2
+      },
+      {
+        "questionText": "Modelin yüksek skoru tehlikesizlik garantisi midir?",
+        "options": [
+          "Hayır, güvenlik incelemesi değildir",
+          "Evet, her zaman",
+          "Yalnızca parlak fotoğrafta"
+        ],
         "correctOptionIndex": 0
       },
       {
-        "questionText": "EcoVision sistemi kamerada tıbbi bir atık (ör. şırınga) algıladığında kullanıcıya hangi reaksiyonu verir?",
-        "options": ["Özel atık sınıfı olduğu için 100 Puan verir", "Atığı görmezden gelir ve analiz sonucunu gizler", "Puan vermez, ekranı kırmızıya çevirerek 'Tehlikeli Atık Uyarısı' verir ve bilgilendirir"],
-        "correctOptionIndex": 2
+        "questionText": "Kesici-delici atık için doğru yaklaşım nedir?",
+        "options": [
+          "Normal plastik kutusuna atmak",
+          "Yetkili sağlık biriminin güvenli teslim yönlendirmesini almak",
+          "Çıplak elle ayırmak"
+        ],
+        "correctOptionIndex": 1
       }
     ]
   }

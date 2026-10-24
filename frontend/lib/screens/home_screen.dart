@@ -11,7 +11,7 @@ import 'eco_market_screen.dart';
 import 'avatar_evolution_screen.dart';
 import 'education_guide_screen.dart';
 import 'leaderboard_screen.dart';
-import 'detailed_carbon_screen.dart';
+import 'carbon_footprint_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -208,7 +208,7 @@ class _EcoCenter extends StatelessWidget {
       (
         'Karbon Ayak İzi',
         Icons.co2_rounded,
-        () => DetailedCarbonScreen(apiService: apiService),
+        () => CarbonFootprintScreen(apiService: apiService),
       ),
     ];
     return Column(

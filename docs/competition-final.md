@@ -4,7 +4,7 @@ EcoVision helps users identify waste from a photo, check the correct sorting rou
 
 Initial user hypothesis: university students and campus/dormitory residents, potentially starting around Kayseri and AGU. Universities, dormitory operators and municipalities are potential institutional partners. An institutional participation-analytics licence is a business hypothesis; no signed agreement, revenue or willingness-to-pay result is claimed.
 
-The differentiator is the integrated photo → clarification → packaging-rule check → relevant point → directions → optional declared action flow. DOA already supplies return-point discovery and its own return/payment system; EcoVision does not replace either.
+The differentiator is the integrated photo → material estimate/uncertainty → relevant point → directions flow, with a linked source-based sorting guide. The current UI does not require a packaging-rule questionnaire or expose the former scan-result action-entry form. DOA already supplies return-point discovery and its own return/payment system; EcoVision does not replace either.
 
 The product's real AI role is visual material classification. DOA eligibility rules, Haversine distance, schedule evaluation, XP and carbon arithmetic are deterministic. Gemini API use does not mean the application was built in AI Studio Build mode. Local model training and validation must be reported only with the actual generated metrics/model artifacts.
 

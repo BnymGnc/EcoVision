@@ -15,13 +15,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class EducationController {
     private final EducationProgressService education;
     private final CurrentUserService currentUser;
+    private final com.ecovision.backend.service.EducationQuizCatalog quizzes;
 
     public EducationController(
             EducationProgressService education,
-            CurrentUserService currentUser
+            CurrentUserService currentUser,
+            com.ecovision.backend.service.EducationQuizCatalog quizzes
     ) {
         this.education = education;
         this.currentUser = currentUser;
+        this.quizzes = quizzes;
     }
 
     @GetMapping("/progress")
@@ -31,8 +34,11 @@ public class EducationController {
 
     @PostMapping("/complete/{categoryId}")
     public EducationCompletionResponse complete(
-            @PathVariable String categoryId
+            @PathVariable String categoryId,
+            @org.springframework.web.bind.annotation.RequestBody(required = false) com.ecovision.backend.service.EducationQuizCatalog.Submission submission
     ) {
-        return education.complete(currentUser.currentUser(), categoryId);
+        return education.complete(currentUser.currentUser(), categoryId, submission);
     }
+    @GetMapping("/quiz/{categoryId}")
+    public java.util.Map<String,Object> quiz(@PathVariable String categoryId) { return quizzes.publicQuiz(categoryId); }
 }

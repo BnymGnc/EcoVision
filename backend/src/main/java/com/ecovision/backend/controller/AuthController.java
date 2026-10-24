@@ -28,15 +28,18 @@ public class AuthController {
     private final AuthService authService;
     private final CurrentUserService currentUserService;
     private final ProfileService profileService;
+    private final com.ecovision.backend.security.AccessTokenRevocations revocations;
 
     public AuthController(
             AuthService authService,
             CurrentUserService currentUserService,
-            ProfileService profileService
+            ProfileService profileService,
+            com.ecovision.backend.security.AccessTokenRevocations revocations
     ) {
         this.authService = authService;
         this.currentUserService = currentUserService;
         this.profileService = profileService;
+        this.revocations = revocations;
     }
 
     @PostMapping("/register")
@@ -60,8 +63,10 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@Valid @RequestBody RefreshTokenRequest request) {
+    public ResponseEntity<Void> logout(@Valid @RequestBody RefreshTokenRequest request,
+            @org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String authorization) {
         authService.logout(request.refreshToken());
+        revocations.revokeHeader(authorization);
         return ResponseEntity.noContent().build();
     }
 
