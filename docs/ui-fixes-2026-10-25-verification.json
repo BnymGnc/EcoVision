@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-25",
+  "scope": "Local UI fixes and build verification; no live database writes or deployment",
+  "flutterTests": {
+    "command": "flutter test --no-pub --concurrency=1 --reporter=expanded",
+    "passed": 133,
+    "failed": 0,
+    "durationSeconds": 170,
+    "newRegressionTests": 9,
+    "missionStress": {"records": 200, "width": 320, "height": 640, "textScale": 1.6},
+    "scannerViewports": [[930, 830], [320, 480], [390, 844]],
+    "scannerTextScale": 1.5
+  },
+  "staticAnalysis": {"command": "dart analyze lib test", "issues": 0},
+  "android": {
+    "gradle": "8.12",
+    "launcherJvm": "JBR 21.0.8",
+    "daemonJvm": "21",
+    "configurationPassed": true,
+    "configurationSeconds": 56,
+    "debugBuildPassed": true,
+    "gradleBuildSeconds": 393.3,
+    "artifact": "frontend/build/app/outputs/flutter-apk/app-debug.apk",
+    "bytes": 94703236,
+    "sha256": "e7f17b56a937515995800196bd533c4d28745f0b8c86bc9d9bec0c3c6fd3b196",
+    "installedOnPhone": false,
+    "releaseTestedThisRun": false
+  },
+  "chrome": {
+    "url": "http://127.0.0.1:7357",
+    "debugBuildSeconds": 72.8,
+    "flutterViewPresent": true,
+    "visibleState": "Initially unavailable; after health recovered, restored session and home rendered",
+    "restoredSessionHomeVerified": true,
+    "liveAuthenticatedFlowVerified": false
+  },
+  "render": {
+    "publicOpenApiChecked": true,
+    "mapPathsObserved": ["/api/map-pins", "/api/map-pins/{id}", "/api/map-pins/nearest", "/api/map-pins/nearby"],
+    "searchRoutePresent": false,
+    "lateHealthCheck": "Initial timeouts; later HTTP 200 with the actual application body",
+    "rootCauseOfOutageProven": false,
+    "databaseInventoryVerifiedThisRun": false,
+    "deployedOrPushed": false
+  }
+}

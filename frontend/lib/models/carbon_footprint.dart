@@ -1,3 +1,5 @@
+import 'carbon_numeric_input.dart';
+
 enum CarbonFootprintTier {
   natureGuardian('Doğa Koruyucusu'),
   openToGrowth('Gelişime Açık'),
@@ -65,21 +67,45 @@ abstract final class CarbonFootprintCalculator {
     required List<CarbonQuestion> questions,
     required Map<int, int> selectedOptionIndexes,
     CarbonConsumptionData? consumption,
+    Map<int, double> numericAnswers = const {},
   }) {
-    if (selectedOptionIndexes.length != questions.length) {
-      throw StateError('Karbon hesabı için tüm sorular yanıtlanmalıdır.');
+    if (numericAnswers.keys.any((id) => !questions.any((q) => q.id == id))) {
+      throw ArgumentError('Bilinmeyen soru için sayısal yanıt');
     }
 
     final annualByQuestion = <int, double>{};
     for (final question in questions) {
       final selectedIndex = selectedOptionIndexes[question.id];
-      if (selectedIndex == null ||
-          selectedIndex < 0 ||
-          selectedIndex >= question.options.length) {
+      final numeric = numericAnswers[question.id];
+      final spec = CarbonNumericInputs.fields[question.id];
+      if ((selectedIndex == null &&
+              (numeric == null || spec == null || spec.requiresOption)) ||
+          (selectedIndex != null &&
+              (selectedIndex < 0 ||
+                  selectedIndex >= question.options.length))) {
         throw StateError('${question.id}. soru için geçerli bir yanıt yok.');
       }
-      annualByQuestion[question.id] = question.options[selectedIndex].kgOfCo2
-          .toDouble();
+      final optionKg = question.options[selectedIndex ?? 0].kgOfCo2.toDouble();
+      annualByQuestion[question.id] = numeric == null
+          ? optionKg
+          : spec!.annualKg(numeric, optionKg);
+    }
+
+    if (numericAnswers.containsKey(2)) {
+      if (selectedOptionIndexes[1] == 3) annualByQuestion[1] = 0;
+      if (selectedOptionIndexes[4] == 3) annualByQuestion[4] = 0;
+    }
+    if (numericAnswers.containsKey(11)) {
+      final members = consumption?.householdMembers ?? 1;
+      if (members < 1 || members > 50) {
+        throw ArgumentError('Hane kişi sayısı geçersiz');
+      }
+      annualByQuestion[11] = annualByQuestion[11]! / members;
+      annualByQuestion[12] = 0;
+      if (selectedOptionIndexes[9] == 3) {
+        annualByQuestion[9] = 0;
+        annualByQuestion[10] = 0;
+      }
     }
 
     void validateAmount(double value) {
@@ -123,12 +149,14 @@ abstract final class CarbonFootprintCalculator {
     }
     final totalKg = annualByQuestion.values
         .fold(0.0, (sum, kg) => sum + kg)
-        .round();
+        .round()
+        .clamp(0, 50000000);
 
     return CarbonFootprintResult(
       annualKg: totalKg,
       tier: tierForKg(totalKg),
-      consumptionAdjusted: details?.hasValues ?? false,
+      consumptionAdjusted:
+          numericAnswers.isNotEmpty || (details?.hasValues ?? false),
     );
   }
 

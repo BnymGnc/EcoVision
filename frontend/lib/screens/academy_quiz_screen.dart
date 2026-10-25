@@ -152,77 +152,104 @@ class _AcademyQuizScreenState extends State<AcademyQuizScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: colors.surface,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: colors.shadow.withValues(alpha: 0.04),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Row(
+          Expanded(
+            child: ListView(
+              key: const ValueKey('academy-question-content'),
+              padding: EdgeInsets.zero,
               children: [
-                Text(
-                  'Soru ${_questionIndex + 1} / ${widget.module.questions.length}',
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-                const Spacer(),
-                Icon(Icons.bolt_rounded, color: colors.primary, size: 18),
-                const SizedBox(width: 4),
-                Text(
-                  '$_correctCount doğru',
-                  style: TextStyle(
-                    color: colors.primary,
-                    fontWeight: FontWeight.w900,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colors.shadow.withValues(alpha: 0.04),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Soru ${_questionIndex + 1} / ${widget.module.questions.length}',
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(Icons.bolt_rounded, color: colors.primary, size: 18),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$_correctCount doğru',
+                        style: TextStyle(
+                          color: colors.primary,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(height: 14),
+                _QuizProgress(
+                  value: (_questionIndex + 1) / widget.module.questions.length,
+                ),
+                const SizedBox(height: 30),
+                Text(
+                  _question.questionText,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                for (var index = 0; index < _question.options.length; index++)
+                  Padding(
+                    padding: EdgeInsets.only(
+                      bottom: index < _question.options.length - 1 ? 12 : 0,
+                    ),
+                    child: _QuizOption(
+                      label: _question.options[index],
+                      selected: _selectedOption == index,
+                      confirmed: _confirmed,
+                      correct: index == _question.correctOptionIndex,
+                      onTap: _confirmed
+                          ? null
+                          : () {
+                              EcoHaptics.selection();
+                              setState(() => _selectedOption = index);
+                            },
+                    ),
+                  ),
+                if (_confirmed) ...[
+                  const SizedBox(height: 12),
+                  _AnswerFeedback(
+                    correct: _selectedOption == _question.correctOptionIndex,
+                    correctAnswer:
+                        _question.options[_question.correctOptionIndex],
+                  ),
+                ],
+                if (_error != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: colors.error),
+                  ),
+                  TextButton(
+                    onPressed: _claimCompletion,
+                    child: const Text('Puanı Tekrar Al'),
+                  ),
+                ],
               ],
             ),
           ),
-          const SizedBox(height: 14),
-          _QuizProgress(
-            value: (_questionIndex + 1) / widget.module.questions.length,
-          ),
-          const SizedBox(height: 30),
-          Text(
-            _question.questionText,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 22),
-          Expanded(
-            child: ListView.separated(
-              itemCount: _question.options.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
-              itemBuilder: (context, index) => _QuizOption(
-                label: _question.options[index],
-                selected: _selectedOption == index,
-                confirmed: _confirmed,
-                correct: index == _question.correctOptionIndex,
-                onTap: _confirmed
-                    ? null
-                    : () {
-                        EcoHaptics.selection();
-                        setState(() => _selectedOption = index);
-                      },
-              ),
-            ),
-          ),
-          if (_confirmed) ...[
-            _AnswerFeedback(
-              correct: _selectedOption == _question.correctOptionIndex,
-              correctAnswer: _question.options[_question.correctOptionIndex],
-            ),
-            const SizedBox(height: 12),
-          ],
+          const SizedBox(height: 12),
           FilledButton(
             onPressed: _submitting || _selectedOption == null
                 ? null
@@ -245,18 +272,6 @@ class _AcademyQuizScreenState extends State<AcademyQuizScreen> {
                         : 'Cevabı Onayla',
                   ),
           ),
-          if (_error != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              _error!,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: colors.error),
-            ),
-            TextButton(
-              onPressed: _claimCompletion,
-              child: const Text('Puanı Tekrar Al'),
-            ),
-          ],
         ],
       ),
     );

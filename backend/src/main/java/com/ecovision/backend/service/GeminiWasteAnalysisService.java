@@ -283,7 +283,7 @@ public class GeminiWasteAnalysisService {
                     material.displayName(),
                     confidence,
                     eligible,
-                    eligible ? "Ambalaj uygunluğunu kontrol et" : "DOA kapsamı dışında"
+                    eligible ? "Malzeme tahmini; DOA kabulü doğrulanmadı" : "DOA kapsamı dışında"
             );
             DetectedWasteResponse previous = unique.get(type);
             if (previous == null || previous.confidence() < confidence) {

@@ -44,6 +44,8 @@ def main():
     parser.add_argument("--profile-only", action="store_true")
     parser.add_argument("--academy-only", action="store_true")
     parser.add_argument("--core-only", action="store_true")
+    parser.add_argument("--community-only", action="store_true")
+    parser.add_argument("--map-only", action="store_true")
     args = parser.parse_args()
     OUTPUT.mkdir(parents=True, exist_ok=True)
     DIAGNOSTICS.mkdir(parents=True, exist_ok=True)
@@ -107,6 +109,9 @@ def main():
     thread.start()
     errors = []
     network = []
+    pending = []
+    failed = []
+    console_errors = []
     try:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(executable_path=r"C:\Program Files\Google\Chrome\Application\chrome.exe", headless=True,
@@ -119,6 +124,9 @@ def main():
                 if "google.com/maps/dir/" in req.url else None)
             page.on("pageerror", lambda error: errors.append(str(error)))
             page.on("console", lambda message: errors.append(message.text) if "overflowed by" in message.text else None)
+            page.on("console", lambda message: console_errors.append(message.text) if message.type == "error" else None)
+            page.on("request", lambda req: pending.append([req.method,urlsplit(req.url).path]) if req.url.startswith(API) else None)
+            page.on("requestfailed", lambda req: failed.append([urlsplit(req.url).path,req.failure]) if req.url.startswith(API) else None)
             page.on("requestfinished", lambda req: network.append([req.method, urlsplit(req.url).path, req.response().status]) if req.url.startswith(API) else None)
             page.goto("http://127.0.0.1:18743", wait_until="networkidle")
             page.locator("flt-semantics-placeholder").wait_for(state="attached", timeout=30000)
@@ -155,7 +163,70 @@ def main():
                 print("Route diagnosis:", page.locator("body").inner_text()[:1800], errors[:3], flush=True)
                 raise
             page.screenshot(path=str(OUTPUT / "home-390.png"))
-            if args.core_only:
+            if args.map_only:
+                with page.expect_response(lambda response: urlsplit(response.url).path == "/api/map-pins/search", timeout=45000) as initial_map:
+                    page.mouse.click(145, 795)
+                assert initial_map.value.status == 200
+                page.get_by_role("button", name="İl / ilçe seç", exact=True, include_hidden=True).wait_for(state="attached", timeout=30000)
+                page.wait_for_timeout(500)
+                with page.expect_response(lambda response: urlsplit(response.url).path == "/api/map-pins/locations", timeout=30000) as catalog:
+                    page.get_by_role("button", name="İl / ilçe seç", exact=True, include_hidden=True).evaluate("el => el.click()")
+                assert catalog.value.status == 200
+                page.get_by_text("İl ve ilçeye göre DOA noktaları", exact=True).wait_for(state="attached", timeout=30000)
+                page.screenshot(path=str(OUTPUT / "map-city-picker-390.png"))
+                # Dropdown semantics expose the placeholder as a label on the tappable parent.
+                page.mouse.click(180, 620)
+                page.wait_for_timeout(300)
+                city_names = list(json.loads((ROOT / 'frontend/assets/data/turkey_locations.json').read_text(encoding='utf-8'))['provinces'])
+                for _ in range(city_names.index('Kayseri')):
+                    page.keyboard.press('ArrowDown')
+                page.keyboard.press('Enter')
+                page.get_by_text(re.compile(r"66 kayıt: 29 makine")).wait_for(state="attached", timeout=10000)
+                with page.expect_response(lambda response: urlsplit(response.url).path == "/api/map-pins/search"
+                        and parse_qs(urlsplit(response.url).query).get("city") == ["Kayseri"], timeout=30000) as fetched:
+                    page.get_by_role("button", name="Haritada göster", exact=True, include_hidden=True).evaluate("el => el.click()")
+                assert fetched.value.status == 200
+                page.wait_for_timeout(500)
+                for width in [320, 390, 430]:
+                    page.set_viewport_size({"width": width, "height": 844})
+                    page.wait_for_timeout(300)
+                    page.screenshot(path=str(OUTPUT / f"map-city-{width}.png"))
+            elif args.community_only:
+                page.mouse.click(235,795)
+                page.get_by_role("textbox",name="Şehrindeki grupları ara",include_hidden=True).wait_for(state="attached",timeout=20000)
+                page.wait_for_timeout(500)
+                page.screenshot(path=str(DIAGNOSTICS / "community-before-search.png"))
+                page.mouse.click(155,175)
+                page.wait_for_timeout(250)
+                query="bulunmayan_grup_"+unique
+                try:
+                    with page.expect_response(lambda response: response.request.method=="GET"
+                            and urlsplit(response.url).path=="/api/groups"
+                            and parse_qs(urlsplit(response.url).query).get("query")==[query],timeout=30000) as searched:
+                        page.keyboard.type(query,delay=70)
+                except Exception:
+                    page.screenshot(path=str(DIAGNOSTICS / "community-search-failure.png"))
+                    print("Community search diagnosis:",page.locator("body").inner_text()[:2000],network[-12:],pending[-12:],failed[-8:],errors[:3],console_errors[:5],flush=True)
+                    raise
+                assert searched.value.status==200
+                page.wait_for_timeout(500)
+                page.screenshot(path=str(DIAGNOSTICS / "community-after-search.png"))
+                page.get_by_role("button",name="Yenile",exact=True,include_hidden=True).wait_for(state="attached",timeout=15000)
+                with page.expect_response(lambda response: response.request.method=="GET"
+                        and urlsplit(response.url).path=="/api/groups",timeout=30000) as refreshed:
+                    page.get_by_role("button",name="Yenile",exact=True,include_hidden=True).evaluate("el => el.click()")
+                assert refreshed.value.status==200
+                page.wait_for_timeout(400)
+                assert "Yeni Grup" not in page.locator("body").inner_text()
+                with page.expect_response(lambda response: response.request.method=="GET"
+                        and urlsplit(response.url).path=="/api/groups",timeout=30000) as refreshed:
+                    page.get_by_role("button",name="Topluluğu yenile",exact=True,include_hidden=True).evaluate("el => el.click()")
+                assert refreshed.value.status==200
+                for width in [320,390,430]:
+                    page.set_viewport_size({"width":width,"height":844})
+                    page.wait_for_timeout(400)
+                    page.screenshot(path=str(OUTPUT / f"community-refreshed-{width}.png"))
+            elif args.core_only:
                 with page.expect_response(lambda response: response.request.method == "GET"
                         and "/api/media/" in response.url, timeout=30000) as loaded:
                     page.mouse.click(330,795)
@@ -336,17 +407,17 @@ def main():
     finally:
         server.shutdown()
         server.server_close()
-    report = {"backend": "isolated local PostgreSQL test environment", "viewports": [390] if args.core_only else [320, 390, 768] if args.academy_only else [320, 390, 430] if args.profile_only else [390, 768, 1440],
+    report = {"backend": "isolated local PostgreSQL test environment", "viewports": [320,390,430] if args.community_only or args.map_only else [390] if args.core_only else [320, 390, 768] if args.academy_only else [320, 390, 430] if args.profile_only else [390, 768, 1440],
               "api_checks": ["register", "quests_200", "map_DIM_OR_material", "eligibility", "local_photo_inference"],
               "local_photo_endpoint_ms": analysis_ms, "provider": analysis["provider"],
-              "ui_flow": "private profile image, real photo upload, AI, guide, filtered map and directions intent" if args.core_only else "academy search, lesson, quiz, completion and one-time reward" if args.academy_only else "profile header and own monthly login calendar" if args.profile_only else "20-question survey",
+              "ui_flow": "map city inventory, Kayseri selection, filtered paged search" if args.map_only else "community search, empty-state refresh stays in list, AppBar refresh" if args.community_only else "private profile image, real photo upload, AI, guide, filtered map and directions intent" if args.core_only else "academy search, lesson, quiz, completion and one-time reward" if args.academy_only else "profile header and own monthly login calendar" if args.profile_only else "20-question survey",
               "browser_errors": errors}
     if args.academy_only:
         report["api_checks"].extend(["education_progress", "quiz_reward_balance_updated", "repeat_completion_no_points"])
     if args.core_only:
         report["api_checks"].extend(["private_media_authorization_header", "browser_photo_upload",
             "guide_for_glass", "glass_map_filter", "directions_real_coordinates"])
-    (ROOT / ("docs/security-core-browser-verification.json" if args.core_only else "docs/academy-browser-verification.json" if args.academy_only else "docs/profile-browser-verification.json" if args.profile_only else "docs/browser-verification.json")).write_text(json.dumps(report, indent=2), encoding="utf-8")
+    (ROOT / ("docs/map-city-browser-verification.json" if args.map_only else "docs/community-browser-verification.json" if args.community_only else "docs/security-core-browser-verification.json" if args.core_only else "docs/academy-browser-verification.json" if args.academy_only else "docs/profile-browser-verification.json" if args.profile_only else "docs/browser-verification.json")).write_text(json.dumps(report, indent=2), encoding="utf-8")
     print("Real Chrome checks passed; screenshots saved in docs/screenshots", flush=True)
 
 

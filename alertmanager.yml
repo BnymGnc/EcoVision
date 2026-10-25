@@ -1,0 +1,19 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: discord-webhook-relay
+  group_by:
+    - alertname
+    - service
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: discord-webhook-relay
+    webhook_configs:
+      # Alertmanager standart JSON gonderir. Discord veya Telegram'a teslim
+      # etmek icin bu URL bir formatlayici webhook/relay olmalidir.
+      - url: "https://example.invalid/ecovision-alerts-webhook"
+        send_resolved: true

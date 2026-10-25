@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/turkey_locations.dart';
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
 
@@ -18,10 +19,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _surnameController = TextEditingController();
   final _emailController = TextEditingController();
   final _ageController = TextEditingController();
+  final _neighborhoodController = TextEditingController();
 
   String? _city;
   String? _district;
-  String? _neighborhood;
 
   bool _loading = true;
   bool _saving = false;
@@ -39,6 +40,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _surnameController.dispose();
     _emailController.dispose();
     _ageController.dispose();
+    _neighborhoodController.dispose();
     super.dispose();
   }
 
@@ -69,17 +71,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _surnameController.text = user.surname;
     _emailController.text = user.email;
     _ageController.text = user.age?.toString() ?? '';
-    _city = _locations.containsKey(user.city) ? user.city : null;
-    final districts = _city == null
-        ? const <String, List<String>>{}
-        : _locations[_city]!;
-    _district = districts.containsKey(user.district) ? user.district : null;
-    final neighborhoods = _district == null
-        ? const <String>[]
-        : districts[_district]!;
-    _neighborhood = neighborhoods.contains(user.neighborhood)
-        ? user.neighborhood
+    _city = TurkishLocations.provinces.containsKey(user.city)
+        ? user.city
         : null;
+    _district =
+        TurkishLocations.districtsFor(_city ?? '').contains(user.district)
+        ? user.district
+        : null;
+    _neighborhoodController.text = user.neighborhood;
   }
 
   Future<void> _save() async {
@@ -96,7 +95,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             : int.parse(_ageController.text.trim()),
         city: _city!,
         district: _district!,
-        neighborhood: _neighborhood!,
+        neighborhood: _neighborhoodController.text.trim(),
       );
       if (!mounted) {
         return;
@@ -207,7 +206,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             return null;
                           }
                           final age = int.tryParse(value.trim());
-                          return age == null || age < 1 || age > 120
+                          return age == null || age < 13 || age > 120
                               ? 'Geçerli bir yaş girin'
                               : null;
                         },
@@ -215,12 +214,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       const SizedBox(height: 14),
                       DropdownButtonFormField<String>(
                         initialValue: _city,
+                        isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'İl',
                           hintText: 'İl seçin',
                           prefixIcon: Icon(Icons.location_city_outlined),
                         ),
-                        items: _locations.keys
+                        items: TurkishLocations.provinceNames
                             .map(
                               (value) => DropdownMenuItem(
                                 value: value,
@@ -233,7 +233,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           setState(() {
                             _city = value;
                             _district = null;
-                            _neighborhood = null;
+                            _neighborhoodController.clear();
                           });
                         },
                         validator: (value) =>
@@ -243,6 +243,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       DropdownButtonFormField<String>(
                         key: ValueKey('district-$_city'),
                         initialValue: _district,
+                        isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'İlçe',
                           hintText: 'Önce il, sonra ilçe seçin',
@@ -250,7 +251,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ),
                         items: _city == null
                             ? const <DropdownMenuItem<String>>[]
-                            : _locations[_city]!.keys
+                            : TurkishLocations.districtsFor(_city!)
                                   .map(
                                     (value) => DropdownMenuItem(
                                       value: value,
@@ -262,35 +263,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             ? null
                             : (value) => setState(() {
                                 _district = value;
-                                _neighborhood = null;
+                                _neighborhoodController.clear();
                               }),
                         validator: (value) =>
                             value == null ? 'Lütfen bir ilçe seçin' : null,
                       ),
                       const SizedBox(height: 14),
-                      DropdownButtonFormField<String>(
-                        key: ValueKey('neighborhood-$_city-$_district'),
-                        initialValue: _neighborhood,
+                      TextFormField(
+                        controller: _neighborhoodController,
+                        enabled: _district != null,
+                        textCapitalization: TextCapitalization.words,
+                        maxLength: 120,
                         decoration: const InputDecoration(
                           labelText: 'Mahalle',
-                          hintText: 'Önce ilçe seçin',
+                          hintText: 'Mahalleni yaz',
                           prefixIcon: Icon(Icons.home_work_outlined),
                         ),
-                        items: _city == null || _district == null
-                            ? const <DropdownMenuItem<String>>[]
-                            : _locations[_city]![_district]!
-                                  .map(
-                                    (value) => DropdownMenuItem(
-                                      value: value,
-                                      child: Text(value),
-                                    ),
-                                  )
-                                  .toList(),
-                        onChanged: _city == null || _district == null
-                            ? null
-                            : (value) => setState(() => _neighborhood = value),
-                        validator: (value) =>
-                            value == null ? 'Lütfen bir mahalle seçin' : null,
+                        validator: _required,
                       ),
                       const SizedBox(height: 22),
                       FilledButton.icon(
@@ -339,18 +328,3 @@ class _ProfileLoadError extends StatelessWidget {
     );
   }
 }
-
-const Map<String, Map<String, List<String>>> _locations = {
-  'Şanlıurfa': {
-    'Haliliye': ['Bahçelievler', 'Sırrın'],
-    'Karaköprü': ['Akbayır', 'Atakent'],
-  },
-  'Kayseri': {
-    'Melikgazi': ['Talas Yolu', 'Köşk'],
-    'Kocasinan': ['Erkilet', 'Sahabiye'],
-  },
-  'Ankara': {
-    'Çankaya': ['Bahçelievler', 'Kızılay'],
-    'Keçiören': ['Etlik', 'Kalaba'],
-  },
-};

@@ -12,6 +12,7 @@ from pathlib import Path
 import shlex
 import subprocess
 from urllib.parse import urlsplit
+from audit_locations_and_doa import audit
 
 ROOT = Path(__file__).resolve().parents[1]
 QUERY = """
@@ -21,9 +22,7 @@ select json_build_object(
  'dim', count(*) filter(where provider='DOA' and point_type='DIM'),
  'min', count(*) filter(where provider='DOA' and point_type='MIN'),
  'sdm', count(*) filter(where provider='DOA' and point_type='SDM'),
- 'source_points', json_agg(json_build_array(external_id,latitude,longitude)) filter(where provider='DOA'),
- 'sanliurfa_dim', count(*) filter(where provider='DOA' and point_type='DIM'
-   and (address ilike '%urfa%' or title ilike '%urfa%'))
+ 'source_points', json_agg(json_build_array(external_id,latitude,longitude,point_type)) filter(where provider='DOA')
 ) from map_pins
 """
 
@@ -63,6 +62,9 @@ def main():
         raise RuntimeError('Read-only database count check failed; connection details withheld')
     counts = json.loads(result.stdout)
     actual_points = {row[0]: (row[1], row[2]) for row in counts.pop('source_points') or []}
+    _, city_index = audit()
+    urfa_ids = {row['id'] for row in city_index if row['city'] == 'Şanlıurfa' and row['pointType'] == 'DIM'}
+    counts['sanliurfa_dim'] = len(urfa_ids.intersection(actual_points))
     source_points = {row['id']: (row['latitude'], row['longitude']) for row in records}
     ids_match = actual_points.keys() == source_points.keys()
     coordinates_match = ids_match and all(

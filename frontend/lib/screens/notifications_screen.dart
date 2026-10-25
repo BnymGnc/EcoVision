@@ -55,23 +55,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     body: FutureBuilder<List<AppNotification>>(
       future: _future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const EcoShimmerList(itemCount: 6);
-        if (snapshot.hasError)
+        }
+        if (snapshot.hasError) {
           return _State(
             icon: Icons.cloud_off_outlined,
             title: 'Bildirimler yüklenemedi',
             message: snapshot.error.toString(),
             action: _refresh,
           );
+        }
         final items = snapshot.data ?? const [];
-        if (items.isEmpty)
+        if (items.isEmpty) {
           return const _State(
             icon: Icons.notifications_none_rounded,
             title: 'Henüz bildirimin yok',
             message:
                 'Yeni rozetler, davetler ve şehir duyuruları burada görünecek.',
           );
+        }
         return RefreshIndicator(
           onRefresh: _refresh,
           child: ListView.separated(

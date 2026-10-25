@@ -39,8 +39,14 @@ class _AvatarEvolutionScreenState extends State<AvatarEvolutionScreen> {
 
   Future<void> _refresh() async {
     final next = _load();
-    setState(() => _future = next);
-    await next;
+    setState(() {
+      _future = next;
+    });
+    try {
+      await next;
+    } catch (_) {
+      /* The error view retains retry. */
+    }
   }
 
   Future<void> _equip(AvatarTier tier) async {

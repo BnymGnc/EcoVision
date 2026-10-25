@@ -67,17 +67,20 @@ class _SuperuserDashboardScreenState extends State<SuperuserDashboardScreen>
     child: FutureBuilder<List<ModerationReport>>(
       future: _reports,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const EcoShimmerList(itemCount: 5);
-        if (snapshot.hasError)
+        }
+        if (snapshot.hasError) {
           return _Error(message: snapshot.error.toString(), retry: _reload);
+        }
         final reports = snapshot.data ?? const [];
-        if (reports.isEmpty)
+        if (reports.isEmpty) {
           return const _Empty(
             icon: Icons.verified_user_outlined,
             title: 'Moderasyon kuyruğu temiz',
             message: 'Yeni kullanıcı ve grup bildirimleri burada görünür.',
           );
+        }
         return ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: reports.length,
@@ -96,7 +99,7 @@ class _SuperuserDashboardScreenState extends State<SuperuserDashboardScreen>
       final messages = report.isGroup
           ? await widget.apiService.auditGroupChat(report.groupId!)
           : await widget.apiService.auditUserChat(report.reportedUserId!);
-      if (mounted)
+      if (mounted) {
         await Navigator.push(
           context,
           MaterialPageRoute<void>(
@@ -108,6 +111,7 @@ class _SuperuserDashboardScreenState extends State<SuperuserDashboardScreen>
             ),
           ),
         );
+      }
     } catch (e) {
       if (mounted) _message(e);
     }
@@ -158,12 +162,15 @@ class _SuperuserDashboardScreenState extends State<SuperuserDashboardScreen>
     );
     if (action == null) return;
     try {
-      if (action == 'ban')
+      if (action == 'ban') {
         await widget.apiService.banUser(report.reportedUserId!);
-      if (action == 'suspend')
+      }
+      if (action == 'suspend') {
         await widget.apiService.suspendUser(report.reportedUserId!, 7);
-      if (action == 'unban')
+      }
+      if (action == 'unban') {
         await widget.apiService.unbanUser(report.reportedUserId!);
+      }
       _message('Moderasyon işlemi uygulandı.');
       _reload();
     } catch (e) {
@@ -220,10 +227,12 @@ class _SuperuserDashboardScreenState extends State<SuperuserDashboardScreen>
     child: FutureBuilder<List<UserProfile>>(
       future: _users,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const EcoShimmerList(itemCount: 6, showHeader: true);
-        if (snapshot.hasError)
+        }
+        if (snapshot.hasError) {
           return _Error(message: snapshot.error.toString(), retry: _reload);
+        }
         final users = snapshot.data ?? const [];
         return ListView(
           padding: const EdgeInsets.all(16),
@@ -435,7 +444,7 @@ class _BroadcastFormState extends State<_BroadcastForm> {
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext _) => ListView(
     padding: const EdgeInsets.all(20),
     children: [
       Icon(
@@ -472,22 +481,26 @@ class _BroadcastFormState extends State<_BroadcastForm> {
         onPressed: _sending
             ? null
             : () async {
-                if (_title.text.trim().isEmpty || _message.text.trim().isEmpty)
+                if (_title.text.trim().isEmpty ||
+                    _message.text.trim().isEmpty) {
                   return;
+                }
                 setState(() => _sending = true);
                 try {
                   final count = await widget.apiService.sendGlobalBroadcast(
                     title: _title.text,
                     message: _message.text,
                   );
+                  if (!mounted) return;
                   widget.onSent(count);
                   _title.clear();
                   _message.clear();
                 } catch (e) {
-                  if (mounted)
+                  if (mounted) {
                     ScaffoldMessenger.of(
                       context,
                     ).showSnackBar(SnackBar(content: Text(e.toString())));
+                  }
                 } finally {
                   if (mounted) setState(() => _sending = false);
                 }
@@ -522,7 +535,7 @@ class _AssignAdminState extends State<_AssignAdmin> {
   }
 
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext _) => Card(
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -546,18 +559,21 @@ class _AssignAdminState extends State<_AssignAdmin> {
                     setState(() => _busy = true);
                     try {
                       await widget.apiService.assignAdminRole(_email.text);
+                      if (!mounted) return;
                       widget.onDone();
-                      if (mounted)
+                      if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Yönetici rolü atandı.'),
                           ),
                         );
+                      }
                     } catch (e) {
-                      if (mounted)
+                      if (mounted) {
                         ScaffoldMessenger.of(
                           context,
                         ).showSnackBar(SnackBar(content: Text(e.toString())));
+                      }
                     } finally {
                       if (mounted) setState(() => _busy = false);
                     }

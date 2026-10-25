@@ -1,0 +1,81 @@
+{
+  "date": "2026-10-24",
+  "scope": "Local Android toolchain repair, Flutter diagnostics and debug APK build; no deployment or phone installation",
+  "toolchain": {
+    "flutter": "3.35.7",
+    "dart": "3.9.2",
+    "gradle": "8.12",
+    "agp_before": "8.9.1",
+    "agp_after": "8.10.1",
+    "kotlin": "2.1.0",
+    "build_jvm": "Android Studio JBR 21.0.8",
+    "daemon_criteria": "toolchainVersion=21",
+    "observed_original_launcher": "Oracle Java 25; VS Code Java extension also bundled 25.0.4.1",
+    "global_java_installation_or_user_PATH_changed": false
+  },
+  "sdk_repair": {
+    "evidence": "sky_engine/lib/async contained zero source files; analyzer crashed with No definition of type Future",
+    "engine": "d3d45dcf251823c1769909cd43698d126db38deb",
+    "source": "https://storage.googleapis.com/flutter_infra_release/flutter/d3d45dcf251823c1769909cd43698d126db38deb/sky_engine.zip",
+    "archive_sha256": "9d7a4252405e16925eb4611ba6b9505bb3ec7c191d23619fcc7a6ea129f3fdc1",
+    "archive_entries": 282,
+    "action": "Restore the exact matching official generated SDK package; verify future.dart matches the archive",
+    "SDK_version_upgraded": false,
+    "cache_backup_alone_fixed_issue": false
+  },
+  "flutter_analysis": {
+    "command": "flutter analyze --no-pub",
+    "application_diagnostics_before": 91,
+    "application_diagnostics_after": 0,
+    "final_run_seconds": 64.4,
+    "mechanical_dart_fix_changes": 78,
+    "mechanical_dart_fix_files": 23,
+    "excluded_generated_paths": ["build/**", ".dart_tool/**"],
+    "application_lint_rules_disabled": false
+  },
+  "tests": {
+    "command": "flutter test --no-pub --concurrency=1",
+    "passed": 119,
+    "duration_seconds": 49,
+    "added_regressions": [
+      "avatar haptic completion after screen disposal cannot open a dialog",
+      "members sheet reuses prefetched members without a duplicate initial request",
+      "member prefetch failure is observed and displayed instead of an unhandled exception"
+    ]
+  },
+  "apk": {
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_android.ps1 -Offline",
+    "status": "passed",
+    "gradle_seconds": 149.6,
+    "path": "frontend/build/app/outputs/flutter-apk/app-debug.apk",
+    "bytes": 97284372,
+    "sha256": "6be486485841e5872749771a4b77ba8c836367a68f718d04b9a64c0f80d7a99b",
+    "flutter_native_libraries": ["lib/arm64-v8a/libflutter.so"],
+    "avatar_20_packaged": true,
+    "profile": "debug, not store-signed",
+    "secrets": "Real constants.dart, .env and signing keys excluded from isolated source copy; constants.example.dart used",
+    "task_scope": "Only the isolated script qualifies assembleDebug as :app:assembleDebug; dependency tasks remain intact; no lint rule disabled"
+  },
+  "resource_and_network_findings": {
+    "host_memory_total_kB": 8001384,
+    "host_free_physical_memory_observed_kB": 3472,
+    "gradle_private_commit_observed_MiB": 2361,
+    "note": "Private commit is not physical resident RAM; this is not evidence for a Render OOM",
+    "new_heap_max_MiB": 1024,
+    "new_metaspace_max_MiB": 384,
+    "new_code_cache_max_MiB": 128,
+    "gradle_workers": 1,
+    "kotlin_compiler_strategy": "in-process",
+    "cancelled_attempts": "Concurrent test/long Gradle attempts were deliberately stopped during diagnosis; not counted as passes",
+    "network_evidence": "Thread stack was inside Gradle SSL/HTTP artifact download. Unqualified Flutter assembleDebug reached file_picker:extractDebugAnnotations and requested uncached lint/uast/compiler artifacts.",
+    "qualified_offline_gradle_check": "Passed :app:assembleDebug --offline --no-daemon in 53 seconds; 274 tasks",
+    "docker_cleanup": "No running containers; idle local Docker Desktop stopped. No volumes or databases deleted."
+  },
+  "remaining": [
+    "Third-party plugins still emit Java 8 target and Groovy deprecation warnings; dependency caches were not patched and warnings were not suppressed",
+    "Some Android SDK licences need user review/acceptance",
+    "Doctor still misdecodes the Unicode SDK path on this machine; SDK relocation was not performed",
+    "Visual Studio is missing for Windows desktop, not for Android",
+    "No physical-phone run, live API/Gemini test, Play Store signing, Render deployment or Git push in this task"
+  ]
+}

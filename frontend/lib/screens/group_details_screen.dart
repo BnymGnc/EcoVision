@@ -45,6 +45,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
     setState(() {
       _events = widget.apiService.fetchGroupEvents(_group.id);
       _members = _loadMembersWithFriendContext();
+      _members.ignore();
     });
   }
 
@@ -116,6 +117,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
       builder: (_) => _RoleAwareMembersSheet(
         apiService: widget.apiService,
         group: _group,
+        initialMembers: _members,
         onChanged: _reload,
       ),
     );
@@ -896,11 +898,13 @@ class _RoleAwareMembersSheet extends StatefulWidget {
   const _RoleAwareMembersSheet({
     required this.apiService,
     required this.group,
+    required this.initialMembers,
     required this.onChanged,
   });
 
   final ApiService apiService;
   final CommunityGroup group;
+  final Future<List<EventMember>> initialMembers;
   final VoidCallback onChanged;
 
   @override
@@ -908,22 +912,15 @@ class _RoleAwareMembersSheet extends StatefulWidget {
 }
 
 class _RoleAwareMembersSheetState extends State<_RoleAwareMembersSheet> {
-  final _username = TextEditingController();
   late Future<List<EventMember>> _members;
   late Future<List<GroupJoinRequest>> _requests;
-  bool _adding = false;
   int _tabIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _reload();
-  }
-
-  @override
-  void dispose() {
-    _username.dispose();
-    super.dispose();
+    _members = widget.initialMembers;
+    _requests = Future.value(const []);
   }
 
   void _reload() {
@@ -947,28 +944,6 @@ class _RoleAwareMembersSheetState extends State<_RoleAwareMembersSheet> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.toString())));
-    }
-  }
-
-  Future<void> _addMember() async {
-    final username = _username.text.trim();
-    if (username.isEmpty || _adding) return;
-    setState(() => _adding = true);
-    try {
-      await widget.apiService.addCommunityGroupMember(
-        widget.group.id,
-        username,
-      );
-      _username.clear();
-      _reload();
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
-      }
-    } finally {
-      if (mounted) setState(() => _adding = false);
     }
   }
 
@@ -1218,133 +1193,9 @@ class _RoleAwareMembersSheetState extends State<_RoleAwareMembersSheet> {
   );
 }
 
-class _MembersSheet extends StatelessWidget {
-  const _MembersSheet({
-    required this.apiService,
-    required this.group,
-    required this.members,
-    required this.onChanged,
-  });
-
-  final ApiService apiService;
-  final CommunityGroup group;
-  final Future<List<EventMember>> members;
-  final VoidCallback onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final currentUserId = apiService.currentUser?.id;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
-      child: Column(
-        children: [
-          const EcoSheetHandle(),
-          const ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(
-              'Grup Üyeleri',
-              style: TextStyle(fontWeight: FontWeight.w900),
-            ),
-          ),
-          Expanded(
-            child: FutureBuilder<List<EventMember>>(
-              future: members,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const EcoShimmerList(itemCount: 5);
-                }
-                final users = snapshot.data ?? const [];
-                return ListView.separated(
-                  itemCount: users.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    final friend = apiService.confirmedFriend(user.userId);
-                    return ListTile(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => PublicProfileScreen(
-                            apiService: apiService,
-                            userId: user.userId,
-                          ),
-                        ),
-                      ),
-                      leading: PrivacyAwareAvatar(
-                        userId: user.userId,
-                        currentUserId: currentUserId,
-                        avatarLevel: user.avatarLevel,
-                        highestAvatarLevel: user.highestAvatarLevel,
-                        profileImagePreference: user.profileImagePreference,
-                        adult: user.adult,
-                        profileVisibility: user.profileVisibility,
-                        profilePictureUrl:
-                            user.profilePictureUrl ?? friend?.profilePictureUrl,
-                        selectedAvatarPath:
-                            user.selectedAvatarPath ??
-                            friend?.selectedAvatarPath,
-                        friendshipStatus:
-                            user.friendshipStatus ??
-                            (friend == null ? null : 'ACCEPTED'),
-                      ),
-                      title: Text(user.fullName),
-                      subtitle: Text(user.isAdmin ? 'Grup yöneticisi' : 'Üye'),
-                      trailing:
-                          group.isAdmin &&
-                              user.userId != currentUserId &&
-                              user.userId != group.creatorId
-                          ? PopupMenuButton<String>(
-                              onSelected: (value) async {
-                                if (value == 'admin') {
-                                  await apiService.promoteCommunityGroupAdmin(
-                                    group.id,
-                                    user.userId,
-                                  );
-                                } else {
-                                  await apiService.removeCommunityGroupMember(
-                                    group.id,
-                                    user.userId,
-                                  );
-                                }
-                                onChanged();
-                                if (context.mounted) Navigator.pop(context);
-                              },
-                              itemBuilder: (_) => [
-                                if (!user.isAdmin)
-                                  const PopupMenuItem(
-                                    value: 'admin',
-                                    child: Text('Yönetici Yap'),
-                                  ),
-                                PopupMenuItem(
-                                  value: 'remove',
-                                  child: Text(
-                                    'Gruptan Çıkar',
-                                    style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.error,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            )
-                          : user.isAdmin
-                          ? const Icon(Icons.verified_user_outlined)
-                          : null,
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class CreateGroupEventSheet extends StatefulWidget {
   const CreateGroupEventSheet({
+    super.key,
     required this.apiService,
     required this.group,
     required this.onCreated,

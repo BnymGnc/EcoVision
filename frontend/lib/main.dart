@@ -25,7 +25,7 @@ class EcoVisionApp extends StatefulWidget {
 class _EcoVisionAppState extends State<EcoVisionApp> {
   late final ThemeController _themeController;
   late final ApiService _apiService;
-  late final Future<_StartupRoute> _startup;
+  late Future<_StartupRoute> _startup;
 
   @override
   void initState() {
@@ -76,6 +76,61 @@ class _EcoVisionAppState extends State<EcoVisionApp> {
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
                   return const SplashScreen();
+                }
+                if (snapshot.hasError) {
+                  return Scaffold(
+                    body: SafeArea(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.cloud_off_outlined,
+                                size: 88,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(height: 20),
+                              Text(
+                                'Bağlantı kurulamadı',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineSmall,
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Oturumun korundu. Bağlantını kontrol edip tekrar deneyebilirsin.',
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 20),
+                              FilledButton.icon(
+                                onPressed: () => setState(() {
+                                  _startup = _initialize();
+                                }),
+                                icon: const Icon(Icons.refresh_rounded),
+                                label: const Text('Yeniden Dene'),
+                              ),
+                              TextButton(
+                                onPressed: () async {
+                                  await _apiService.logout();
+                                  if (mounted) {
+                                    setState(() {
+                                      _startup = Future.value(
+                                        const _StartupRoute.auth(),
+                                      );
+                                    });
+                                  }
+                                },
+                                child: const Text('Başka hesapla giriş yap'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
                 }
                 final route = snapshot.data ?? const _StartupRoute.auth();
                 if (!route.authenticated) {

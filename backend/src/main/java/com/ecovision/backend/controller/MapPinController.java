@@ -3,6 +3,7 @@ package com.ecovision.backend.controller;
 import com.ecovision.backend.dto.MapPinResponse;
 import com.ecovision.backend.service.AdminService;
 import com.ecovision.backend.service.DoaMapService;
+import com.ecovision.backend.service.DoaLocationService;
 import java.util.List;
 import java.util.Set;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,10 +16,30 @@ import org.springframework.web.bind.annotation.RestController;
 public class MapPinController {
     private final AdminService adminService;
     private final DoaMapService doaMapService;
+    private final DoaLocationService locations;
 
-    public MapPinController(AdminService adminService, DoaMapService doaMapService) {
+    public MapPinController(AdminService adminService, DoaMapService doaMapService, DoaLocationService locations) {
         this.adminService = adminService;
         this.doaMapService = doaMapService;
+        this.locations = locations;
+    }
+
+    @GetMapping("/locations")
+    public DoaLocationService.Inventory locations() { return locations.inventory(); }
+
+    @GetMapping("/search")
+    public DoaMapService.Page search(
+            @RequestParam double lat, @RequestParam double lng,
+            @RequestParam(required = false) Double radiusKm,
+            @RequestParam(defaultValue = "100") Integer limit, @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "") Set<String> materials,
+            @RequestParam(defaultValue = "DIM") Set<String> pointTypes,
+            @RequestParam(defaultValue = "false") boolean openOnly,
+            @RequestParam(required = false) String city, @RequestParam(required = false) String district,
+            @RequestParam(required = false) Double south, @RequestParam(required = false) Double north,
+            @RequestParam(required = false) Double west, @RequestParam(required = false) Double east) {
+        return doaMapService.search(lat, lng, radiusKm, limit, offset, materials, pointTypes, openOnly,
+                south, north, west, east, locations.ids(city, district));
     }
 
     @GetMapping("/nearby")

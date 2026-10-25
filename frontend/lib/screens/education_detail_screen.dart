@@ -33,8 +33,9 @@ class EducationDetailScreen extends StatelessWidget {
 
   Future<void> _openSource(BuildContext context, AcademySource source) async {
     try {
-      if (await launchUrl(source.url, mode: LaunchMode.externalApplication))
+      if (await launchUrl(source.url, mode: LaunchMode.externalApplication)) {
         return;
+      }
     } catch (_) {
       // Keep the lesson open if the platform cannot launch a browser.
     }

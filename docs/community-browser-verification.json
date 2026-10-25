@@ -1,0 +1,19 @@
+{
+  "backend": "isolated local PostgreSQL test environment",
+  "viewports": [
+    320,
+    390,
+    430
+  ],
+  "api_checks": [
+    "register",
+    "quests_200",
+    "map_DIM_OR_material",
+    "eligibility",
+    "local_photo_inference"
+  ],
+  "local_photo_endpoint_ms": 173.94000000001597,
+  "provider": "ONNX_CPU",
+  "ui_flow": "community search, empty-state refresh stays in list, AppBar refresh",
+  "browser_errors": []
+}

@@ -28,6 +28,8 @@ hs_err_pid*.log
 replay_pid*.log
 backend/uploads/
 .venv-ml/
+__pycache__/
+*.py[cod]
 ml/cache/
 ml/dataset/
 ml/benchmark-images/

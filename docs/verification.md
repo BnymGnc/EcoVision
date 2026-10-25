@@ -2,7 +2,46 @@
 
 Tarih: 24 Ekim 2026. Çalışma alanı EcoVision Flutter + Spring Boot deposudur. Bu rapor canlı Render/Neon üzerinde işlem yapılmış veya APK dağıtılmış olduğu anlamına gelmez.
 
-## Son güvenlik turu
+## Son Android araç zinciri turu
+
+Java 25 / Gradle 8.12 import uyumsuzluğu için proje daemon JVM'i JDK 21'e
+sabitlendi; yerel IDE ve yeni terminal ayarları JBR 21'e yönlendirildi. API 36
+için AGP 8.10.1 kullanılır. Eksik `sky_engine/lib/async` SDK kaynakları aynı
+engine sürümünün resmî paketinden geri yüklendi. Flutter analizi artık
+**No issues found**; uygulama kaynaklarındaki 91 tanı temizlendi. Üretilmiş
+build dosyaları analiz dışında, uygulama lint kuralları açık tutulur.
+
+**119 Flutter testi geçti** (`--concurrency=1`, 49 sn). Son ARM64 debug APK,
+izole anahtarsız ASCII kopyada `scripts/build_android.ps1 -Offline` ile
+149,6 sn Gradle süresinde başarıyla derlendi. Çıktı 97.284.372 byte;
+SHA-256 `6be486485841e5872749771a4b77ba8c836367a68f718d04b9a64c0f80d7a99b`.
+APK telefona kurulmadı veya mağaza yayını için imzalanmadı. SDK/üçüncü taraf
+uyarıları, düşük bellek ayarları ve ağ teşhisi ayrıca belgelendi:
+[Android/IDE raporu](android-build-and-ide-tr.md),
+[makine-okunur doğrulama](android-toolchain-verification.json).
+Aşağıdaki önceki APK hash'leri ve test sayıları tarihsel kayıttır.
+
+## Son arayüz / konum / hız turu
+
+Sonuçlar: **107 backend testi**, **116 Flutter testi** ve **7 dosya tabanlı
+şehir/veri testi** geçti. Kayıt/grup/etkinlik konum kataloğu artık 81 il / 973
+ilçe; eski ortak katalog 359 ilçeydi. Profil düzenlemenin ayrı üç-il kısıtı
+kaldırıldı. Topluluk Yenile yanlış callback'i, arama yarışları, gizlilik/market
+işlem kilitleri, profil güncelliği, sohbet taslağı, kısa sınav yerleşimi ve ağ
+dayanıklılığı düzeltildi. Görev progress okumaları N+1 yerine toplu sorgulanır.
+
+Bu tur web release derlemesi de geçti (81,3 sn). Gerçek Chrome'da topluluk
+arama/yenileme 320/390/430 px, yetkili görsel ve fotoğraftan filtreli DOA
+haritası/yol tarifi akışı, ayrıca akademi sınavı ve tek seferlik puan kontrolü
+geçti. Gözlenen JS/overflow hatası yoktu. Yerel ONNX testi canlı Gemini/Render
+doğrulaması veya yeni APK kurulumu olarak yorumlanmamalıdır.
+
+Yeni ayrıntılı rapor: [ui-review-and-performance-tr.md](ui-review-and-performance-tr.md).
+81 il DOA tablosu: [doa-city-counts-tr.md](doa-city-counts-tr.md).
+Güncel test kanıtı: `ui-audit-verification.json`. Önceki APK/hash/bellek raporları
+tarihsel kalır; bu UI revizyonu henüz telefona kurulmuş değildir.
+
+## Önceki güvenlik turu
 
 Güncel kodda medya için dinamik sunucu ACL'si ve yetkili Flutter görselleri,
 logout access-token iptali, sürümlü sunucu quiz notlandırması ve günlük
@@ -100,7 +139,7 @@ Tarama sonucu doğrudan DOA haritası düğmesine döndürüldü; ambalaj kontro
 
 Yeni Flutter web derlemesi ve gerçek Chrome kontrolü de geçti: giriş/tanıtımdan 20 soruluk ankete geçildi; ilk seçeneklerle 1.000 kg/yıl (1,00 ton) sonucu ve tek seferlik ödül yanıtı görüntülendi. 390/768/1440 px sonuç ekranları incelendi; tarayıcıda JavaScript veya taşma hatası görülmedi. Ek tüketim alanları ayrıca 390 px widget testinde doldurularak, negatif giriş reddi ve 3.152 kg/yıl birleşik sonuç doğrulandı.
 
-Ham JSON ve yerel PostgreSQL karşılaştırması: 4.037 benzersiz kaynak ID'si, 2.162 DIM, 1.764 MIN ve 111 SDM; sayısal olmayan koordinat yok. Ayrıca **canlı Neon'a yalnız okuma işlemiyle** bağlanıldı: 4.037 DOA kaydının bütün kaynak ID'leri ve koordinatları dosyayla eşleşti (koordinat toleransı 1e-8 derece). Şanlıurfa DIM sayısı 28; tabloda diğer mevcut kayıtlarla toplam 4.175 satır var, hiçbir kayıt silinmedi/değiştirilmedi. Kanıt özeti `doa-count-verification.json`, tekrar kontrol aracı `scripts/verify_doa_counts.py --live-neon-read-only`. Aşağıdaki tablo ilk kapsamlı teslimin tarihsel test kaydıdır.
+Ham JSON ve yerel PostgreSQL karşılaştırması: 4.037 benzersiz kaynak ID'si, 2.162 DIM, 1.764 MIN ve 111 SDM; sayısal olmayan koordinat yok. Ayrıca **önceki turda canlı Neon'a yalnız okuma işlemiyle** bağlanıldı: 4.037 DOA kaydının bütün kaynak ID'leri ve koordinatları dosyayla eşleşti (koordinat toleransı 1e-8 derece). Eski geniş `%urfa%` sorgusu 28 DIM bulmuştu; bu gerçek il sayımı değildir: Diyarbakır/Urfa Yolu adresini de eşleştirir. Yeni adres-il sınıflandırması Şanlıurfa için 27 DIM bulur (`doa-city-counts-tr.md`). Tabloda diğer mevcut kayıtlarla toplam 4.175 satır vardı; hiçbir kayıt silinmedi/değiştirilmedi. Kanıt özeti `doa-count-verification.json`, tekrar kontrol aracı `scripts/verify_doa_counts.py --live-neon-read-only`. Aşağıdaki tablo ilk kapsamlı teslimin tarihsel test kaydıdır.
 
 ## Gerçekten çalıştırılan kontroller
 
@@ -166,3 +205,18 @@ Verilen eski status 137 logu SIGKILL ile uyumludur; production OOM veya restart 
 `render-neon-delivery.md` ortam değişkenleri tablosunu izleyin. Mevcut Neon/JWT sırlarını koruyun. Yeni endpoint'ler için backend ve Flutter birlikte dağıtılmalıdır. Gemini örnek anahtarla çalışmaz. Yerel motor için **`AI_PROVIDER=local`, `ML_ENABLED=true`** gerekir; varsayılan bulut modudur. `prod` profilini ancak mevcut şema/migration baseline'ı doğrulandıktan sonra kullanın. Canlı schema restore/drop/reset uygulanmadı.
 
 Ekran/özellik envanteri ve eski-yeni karşılaştırması: `features-and-changes-tr.md`. Model ayrıntısı: `../ml/MODEL_CARD.md`. Katsayı/kapsam: `impact-methodology.md`.
+
+## Son kapsamlı yerel denetim
+
+24 Ekim 2026: güncel bulgular, kapsam ve açık riskler
+[ecovision-final-audit-tr.md](ecovision-final-audit-tr.md) içinde;
+makine tarafından okunabilir sonuçlar
+[final-audit-verification.json](final-audit-verification.json) içindedir.
+Bu turun tamamlanan testleri: **114 backend / 124 Flutter / 11 veri testi**;
+Flutter analizinde 0 sorun. 4037 ham/yerel DB/API noktası ve 81 il sayımı
+eşleşti. Gerçek STOMP mesaj/typing, grup katılımı, anket ve etkinlik işlemleri
+yerel Java 17 prod backend üzerinde doğrulandı. Canlı Render/Neon/GitHub
+değiştirilmedi. Bu dosyanın önceki bölümlerindeki ölçümler tarihsel kanıttır.
+Son kaynaklarla web derlemesi 56,6 sn'de geçti; ARM64 debug APK 217,3 sn'de
+üretildi. Release doğrulaması çevrimdışı önbellekte bulunmayan Flutter engine
+bağımlılığı yüzünden tamamlanmadı. Güncel APK hash'i ve açık riskler son rapordadır.

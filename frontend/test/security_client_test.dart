@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:ecovision/models/academy_module.dart';
 import 'package:ecovision/models/map_pin.dart';
 import 'package:ecovision/services/academy_repository.dart';
@@ -44,8 +43,9 @@ void main() {
       var logoutHeader = false;
       final api = ApiService(
         client: MockClient((req) async {
-          if (req.url.path == '/api/auth/login')
+          if (req.url.path == '/api/auth/login') {
             return http.Response(jsonEncode(identity()), 200);
+          }
           if (req.url.path == '/api/auth/logout') {
             logoutHeader = req.headers['Authorization'] == 'Bearer test-access';
             return http.Response('', 204);
@@ -92,8 +92,9 @@ void main() {
     () async {
       final api = ApiService(
         client: MockClient((req) async {
-          if (req.url.path == '/api/auth/login')
+          if (req.url.path == '/api/auth/login') {
             return http.Response(jsonEncode(identity()), 200);
+          }
           final body = jsonDecode(req.body) as Map;
           expect(body['answers'], [1, 0, 2]);
           expect(body['quizVersion'], AcademyModule.quizVersion);
@@ -169,8 +170,9 @@ void main() {
       var refreshes = 0;
       final api = ApiService(
         client: MockClient((req) async {
-          if (req.url.path == '/api/auth/login')
+          if (req.url.path == '/api/auth/login') {
             return http.Response(jsonEncode(identity()), 200);
+          }
           if (req.url.path == '/api/auth/refresh') {
             refreshes++;
             await Future<void>.delayed(const Duration(milliseconds: 30));
@@ -179,8 +181,9 @@ void main() {
               200,
             );
           }
-          if (req.headers['Authorization'] == 'Bearer test-access')
+          if (req.headers['Authorization'] == 'Bearer test-access') {
             return http.Response('{}', 401);
+          }
           return http.Response.bytes([1], 200);
         }),
       );
@@ -200,10 +203,12 @@ void main() {
         final reply = Completer<http.Response>();
         final api = ApiService(
           client: MockClient((req) async {
-            if (req.url.path == '/api/auth/login')
+            if (req.url.path == '/api/auth/login') {
               return http.Response(jsonEncode(identity()), 200);
-            if (req.url.path == '/api/auth/logout')
+            }
+            if (req.url.path == '/api/auth/logout') {
               return http.Response('', 204);
+            }
             started.complete();
             return reply.future;
           }),
@@ -231,8 +236,9 @@ void main() {
     final reply = Completer<http.Response>();
     final api = ApiService(
       client: MockClient((req) async {
-        if (req.url.path == '/api/auth/login')
+        if (req.url.path == '/api/auth/login') {
           return http.Response(jsonEncode(identity()), 200);
+        }
         if (req.url.path == '/api/auth/refresh') {
           started.complete();
           return reply.future;

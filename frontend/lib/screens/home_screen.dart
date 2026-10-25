@@ -37,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _scanStatus = 'Yapay zeka analiz ediyor...';
 
   Future<void> _pickAndAnalyze(ImageSource source) async {
+    if (_isScanning) return;
     try {
       await EcoHaptics.light();
       final image = await _imagePicker.pickImage(
@@ -46,7 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
         imageQuality: 72,
       );
 
-      if (image == null) {
+      if (image == null || !mounted) {
         return;
       }
 
@@ -81,6 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       await EcoHaptics.heavy();
+      if (!mounted) return;
       setState(() => _isScanning = false);
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -165,7 +167,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ),
-        if (_isScanning) _ScanningOverlay(message: _scanStatus),
+        if (_isScanning)
+          Positioned.fill(child: ScanningOverlay(message: _scanStatus)),
       ],
     );
   }
@@ -439,16 +442,16 @@ class _StepRow extends StatelessWidget {
   }
 }
 
-class _ScanningOverlay extends StatefulWidget {
-  const _ScanningOverlay({required this.message});
+class ScanningOverlay extends StatefulWidget {
+  const ScanningOverlay({required this.message, super.key});
 
   final String message;
 
   @override
-  State<_ScanningOverlay> createState() => _ScanningOverlayState();
+  State<ScanningOverlay> createState() => _ScanningOverlayState();
 }
 
-class _ScanningOverlayState extends State<_ScanningOverlay>
+class _ScanningOverlayState extends State<ScanningOverlay>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
@@ -474,111 +477,133 @@ class _ScanningOverlayState extends State<_ScanningOverlay>
     return Material(
       color: colors.inverseSurface.withValues(alpha: 0.96),
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
-          child: Column(
-            children: [
-              Text(
-                'EcoVision AI Tarayıcı',
-                style: TextStyle(
-                  color: colors.onInverseSurface,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Fotoğraf güvenli biçimde analiz ediliyor',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: colors.onInverseSurface.withValues(alpha: 0.72),
-                ),
-              ),
-              const Spacer(),
-              AspectRatio(
-                aspectRatio: 0.82,
-                child: LayoutBuilder(
-                  builder: (context, constraints) => Stack(
-                    children: [
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: _ScannerFramePainter(color: accent),
-                        ),
+        child: LayoutBuilder(
+          builder: (context, viewport) => SingleChildScrollView(
+            child: SizedBox(
+              height: viewport.maxHeight < 600 ? 600 : viewport.maxHeight,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
+                child: Column(
+                  children: [
+                    Text(
+                      'EcoVision AI Tarayıcı',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: colors.onInverseSurface,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
                       ),
-                      AnimatedBuilder(
-                        animation: _controller,
-                        builder: (context, _) => Positioned(
-                          left: 24,
-                          right: 24,
-                          top:
-                              32 +
-                              _controller.value * (constraints.maxHeight - 64),
-                          child: Container(
-                            height: 3,
-                            decoration: BoxDecoration(
-                              color: accent,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: accent.withValues(alpha: 0.9),
-                                  blurRadius: 16,
-                                  spreadRadius: 3,
-                                ),
-                              ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Fotoğraf güvenli biçimde analiz ediliyor',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colors.onInverseSurface.withValues(alpha: 0.72),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 360),
+                          child: AspectRatio(
+                            aspectRatio: 0.82,
+                            child: LayoutBuilder(
+                              builder: (context, constraints) => Stack(
+                                children: [
+                                  Positioned.fill(
+                                    child: CustomPaint(
+                                      painter: _ScannerFramePainter(
+                                        color: accent,
+                                      ),
+                                    ),
+                                  ),
+                                  AnimatedBuilder(
+                                    animation: _controller,
+                                    builder: (context, _) => Positioned(
+                                      left: 24,
+                                      right: 24,
+                                      top:
+                                          32 +
+                                          _controller.value *
+                                              (constraints.maxHeight - 64),
+                                      child: Container(
+                                        height: 3,
+                                        decoration: BoxDecoration(
+                                          color: accent,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: accent.withValues(
+                                                alpha: 0.9,
+                                              ),
+                                              blurRadius: 16,
+                                              spreadRadius: 3,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Center(
+                                    child: Icon(
+                                      Icons.recycling_rounded,
+                                      color: colors.onInverseSurface.withValues(
+                                        alpha: 0.24,
+                                      ),
+                                      size: 84,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                      Center(
-                        child: Icon(
-                          Icons.recycling_rounded,
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.onInverseSurface.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
                           color: colors.onInverseSurface.withValues(
                             alpha: 0.24,
                           ),
-                          size: 84,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.onInverseSurface.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color: colors.onInverseSurface.withValues(alpha: 0.24),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: accent,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Text(
-                        widget.message,
-                        style: TextStyle(
-                          color: colors.onInverseSurface,
-                          fontWeight: FontWeight.w800,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: accent,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Flexible(
+                            child: Text(
+                              widget.message,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: colors.onInverseSurface,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),

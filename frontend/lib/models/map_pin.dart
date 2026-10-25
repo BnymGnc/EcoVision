@@ -60,7 +60,7 @@ class MapPin {
   factory MapPin.fromJson(Map<String, dynamic> json) {
     return MapPin(
       id: _parseInt(json['id'], field: 'id'),
-      title: (json['title'] ?? 'Official Recycling Bin').toString(),
+      title: (json['title'] ?? 'Resmî iade noktası').toString(),
       latitude: _parseDouble(json['latitude'], field: 'latitude'),
       longitude: _parseDouble(json['longitude'], field: 'longitude'),
       type: (json['type'] ?? 'OFFICIAL_RECYCLING_BIN').toString(),
@@ -95,9 +95,11 @@ class MapPin {
   }
 
   static double _parseDouble(Object? value, {required String field}) {
-    if (value is num) return value.toDouble();
-    final parsed = double.tryParse(value?.toString().trim() ?? '');
-    if (parsed == null || !parsed.isFinite) {
+    final parsed = value is num
+        ? value.toDouble()
+        : double.tryParse(value?.toString().trim() ?? '');
+    final bound = field == 'latitude' ? 90 : 180;
+    if (parsed == null || !parsed.isFinite || parsed.abs() > bound) {
       throw FormatException('Invalid $field value for map pin: $value');
     }
     return parsed;

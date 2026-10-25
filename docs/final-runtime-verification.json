@@ -1,0 +1,37 @@
+{
+  "environment": "isolated localhost PostgreSQL/Java17 only",
+  "sourcePoints": 4037,
+  "provincesMatched": 81,
+  "uniqueApiIds": 4037,
+  "unknownAddressCount": 3,
+  "oldGlobal500": {
+    "medianMs": 283.26,
+    "samplesMs": [
+      283.26,
+      279.7,
+      395.21,
+      273.87,
+      304.81
+    ],
+    "serializedBytes": 197757
+  },
+  "newKayseri100": {
+    "medianMs": 37.28,
+    "samplesMs": [
+      36.68,
+      39.87,
+      37.28,
+      54.34,
+      23.65
+    ],
+    "serializedBytes": 11391
+  },
+  "performanceCaveat": "Different query scopes; local samples are not a Render capacity or mobile FPS benchmark.",
+  "stomp": {
+    "text": true,
+    "typing": true
+  },
+  "groupJoin": true,
+  "pollCreateVoteDelete": true,
+  "eventCreateRsvpDelete": true
+}

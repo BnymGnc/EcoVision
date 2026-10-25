@@ -80,11 +80,12 @@ class _LoginScreenState extends State<LoginScreen> {
   void _beginLoading() {
     _slowRequest?.cancel();
     _slowRequest = Timer(const Duration(seconds: 3), () {
-      if (mounted && _isLoading)
+      if (mounted && _isLoading) {
         setState(
           () => _loadingMessage =
               'Sunucu yanıtı bekleniyor. Bağlantı biraz sürebilir...',
         );
+      }
     });
     setState(() {
       _isLoading = true;

@@ -26,6 +26,30 @@ The platform combines a cross-platform Flutter client with a Spring Boot 3 REST 
 
 See the [Turkish product audit and priorities](docs/climathon-readiness-tr.md), [screen-by-screen inventory](docs/features-and-changes-tr.md), [model card](ml/MODEL_CARD.md), and [verification log](docs/verification.md).
 
+Final delivery status, live-check limits, and the exact Render configuration:
+[25 October delivery checklist](docs/final-delivery-2026-10-25-tr.md).
+On Windows Unicode paths, use `powershell -File scripts/build_web.ps1` for the release web bundle.
+
+For the complete Turkish **screen → button → API → service → response** walkthrough,
+read [Architecture and Interaction Flows](docs/ecovision-architecture-and-flows-tr.md).
+The companion [API and DTO Inventory](docs/api-route-inventory-tr.md) lists every
+controller route, request signature and declared response contract directly from source.
+
+Latest [25 October UI and compatibility changes](docs/ui-fixes-2026-10-25-tr.md):
+bounded scanner animation, Render map-route compatibility, simplified map controls,
+inline numeric carbon answers and narrow-screen mission scrolling fixes.
+
+Latest [UI/data/performance audit](docs/ui-review-and-performance-tr.md): shared
+81-province/973-district catalog, corrected Community refresh, bounded startup
+requests, purchase/privacy guards and batched quest evaluation. The
+[province inventory](docs/doa-city-counts-tr.md) separates 2,162 DIM machines
+from other DOA point types and identifies unresolved source addresses.
+
+See the [final local audit](docs/ecovision-final-audit-tr.md) for the complete
+81-province/973-district validation, paged city-based map discovery, STOMP
+identity fix, one-reward-per-photo policy, theme persistence and verified build
+results. These are local checks, not a live Render/Neon deployment claim.
+
 ### Core capabilities
 
 - **AI waste recognition:** multipart image analysis through the backend, using configurable Gemini or local ONNX inference. Provider, model version, cached mode and uncertainty are returned; credentials never belong in the Flutter client.
@@ -161,6 +185,18 @@ EcoVision/
 - A Gemini API key for cloud analysis, **or** enable the packaged local model
 - Git
 - Flutter SDK only when running the mobile or web client locally
+
+For Android, use **JDK 17 or 21** (the locally verified Android Studio JBR is 21), not Java 25,
+with the checked-in Gradle 8.12 wrapper and AGP 8.10.1. See the
+[Android build/IDE troubleshooting guide](docs/android-build-and-ide-tr.md).
+On Windows, `powershell -NoProfile -ExecutionPolicy Bypass -File
+.\scripts\build_android.ps1` creates a key-free isolated ARM64 debug build
+and places the APK under `frontend/build/app/outputs/flutter-apk/`.
+Pass `-JavaHome 'C:\path\to\jdk-17'` to select JDK 17 explicitly. `-Mode release`
+also checks the release build, but the current project uses debug signing and
+is not ready for store publication. The backend always targets Java 17.
+Do not let an IDE compiler overwrite Maven's `target/classes` with a different
+Java target; use `./mvnw clean verify` after switching toolchains.
 
 ### 1. Clone the repository
 

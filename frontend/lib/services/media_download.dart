@@ -18,11 +18,12 @@ Future<void> downloadAuthorizedMedia(
       allowedExtensions: const ['pdf'],
     );
   } catch (_) {
-    if (context.mounted)
+    if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Belge indirilemedi veya erişim iznin yok.'),
         ),
       );
+    }
   }
 }

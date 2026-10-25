@@ -35,7 +35,9 @@ class _CommunityScreenState extends State<CommunityScreen>
   late final TabController _tabs;
   final _search = TextEditingController();
   final _userSearch = TextEditingController();
-  Timer? _debounce;
+  Timer? _groupDebounce;
+  Timer? _userDebounce;
+  int _userSearchVersion = 0;
   late Future<List<CommunityGroup>> _groups;
   late Future<List<SocialUser>> _friends;
   late Future<List<FriendRequest>> _requests;
@@ -49,7 +51,7 @@ class _CommunityScreenState extends State<CommunityScreen>
   void initState() {
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
-    _reload();
+    if (widget.apiService.currentUser?.adult ?? false) _reload();
   }
 
   @override
@@ -57,33 +59,66 @@ class _CommunityScreenState extends State<CommunityScreen>
     _tabs.dispose();
     _search.dispose();
     _userSearch.dispose();
-    _debounce?.cancel();
+    _groupDebounce?.cancel();
+    _userDebounce?.cancel();
+    _userSearchVersion++;
     super.dispose();
   }
 
-  void _reload() => setState(() {
-    _groups = widget.apiService.fetchCommunityGroups(
-      query: _search.text,
-      cities: _selectedCities,
-      district: _selectedCities.length == 1 ? _selectedDistrict : null,
-    );
-    _friends = widget.apiService.fetchFriends();
-    _requests = widget.apiService.fetchFriendRequests();
-    _invites = widget.apiService.fetchGroupInvites();
-  });
+  Future<List<CommunityGroup>> _fetchGroups() =>
+      widget.apiService.fetchCommunityGroups(
+        query: _search.text,
+        cities: _selectedCities,
+        district: _selectedCities.length == 1 ? _selectedDistrict : null,
+      );
+
+  Future<void> _reloadGroups() async {
+    if (!mounted) return;
+    final next = _fetchGroups();
+    setState(() {
+      _groups = next;
+    });
+    try {
+      await next;
+    } catch (_) {
+      // The matching FutureBuilder presents the error and retry action.
+    }
+  }
+
+  Future<void> _reload() async {
+    if (!mounted) return;
+    final groups = _fetchGroups();
+    final friends = widget.apiService.fetchFriends();
+    final requests = widget.apiService.fetchFriendRequests();
+    final invites = widget.apiService.fetchGroupInvites();
+    setState(() {
+      _groups = groups;
+      _friends = friends;
+      _requests = requests;
+      _invites = invites;
+    });
+    try {
+      // Observe errors even for tabs that have not been mounted yet.
+      await Future.wait<Object>([groups, friends, requests, invites]);
+    } catch (_) {
+      // Each tab retains its own retryable error state.
+    }
+  }
 
   void _onSearch(String _) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), _reload);
+    _groupDebounce?.cancel();
+    _groupDebounce = Timer(const Duration(milliseconds: 350), _reloadGroups);
   }
 
   void _onUserSearch(String value) {
-    _debounce?.cancel();
+    _userDebounce?.cancel();
+    _userSearchVersion++;
+    setState(() => _searchingUser = value.trim().length >= 3);
     if (value.trim().length < 3) {
       setState(() => _discoveredUsers = const []);
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 350), _searchUser);
+    _userDebounce = Timer(const Duration(milliseconds: 350), _searchUser);
   }
 
   Future<void> _selectCities() async {
@@ -154,7 +189,7 @@ class _CommunityScreenState extends State<CommunityScreen>
         ..addAll(selected);
       _selectedDistrict = '';
     });
-    _reload();
+    await _reloadGroups();
   }
 
   Future<void> _join(CommunityGroup group) async {
@@ -289,22 +324,29 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   Future<void> _searchUser() async {
+    if (!mounted) return;
+    _userDebounce?.cancel();
     final query = _userSearch.text.trim();
     if (query.length < 3) {
       _showError('Arama için en az 3 karakter yazmalısın.');
       return;
     }
-    await EcoHaptics.light();
+    final version = ++_userSearchVersion;
     setState(() {
       _searchingUser = true;
     });
+    unawaited(EcoHaptics.light());
     try {
       final users = await widget.apiService.searchUsers(query);
-      if (mounted) setState(() => _discoveredUsers = users);
+      if (mounted && version == _userSearchVersion) {
+        setState(() => _discoveredUsers = users);
+      }
     } catch (error) {
-      if (mounted) _showError(error);
+      if (mounted && version == _userSearchVersion) _showError(error);
     } finally {
-      if (mounted) setState(() => _searchingUser = false);
+      if (mounted && version == _userSearchVersion) {
+        setState(() => _searchingUser = false);
+      }
     }
   }
 
@@ -344,10 +386,11 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   void _showError(Object error) {
-    if (mounted)
+    if (mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
   }
 
   @override
@@ -359,6 +402,11 @@ class _CommunityScreenState extends State<CommunityScreen>
       appBar: AppBar(
         title: const Text('Topluluk'),
         actions: [
+          IconButton(
+            tooltip: 'Topluluğu yenile',
+            onPressed: _reload,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
           IconButton(
             tooltip: 'Davet koduyla katıl',
             onPressed: _openInviteCode,
@@ -396,8 +444,9 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   Widget _groupsTab() => RefreshIndicator(
-    onRefresh: () async => _reload(),
+    onRefresh: _reloadGroups,
     child: ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
         TextField(
@@ -440,7 +489,7 @@ class _CommunityScreenState extends State<CommunityScreen>
             ],
             onChanged: (district) {
               setState(() => _selectedDistrict = district ?? '');
-              _reload();
+              _reloadGroups();
             },
           ),
         ],
@@ -448,24 +497,27 @@ class _CommunityScreenState extends State<CommunityScreen>
         FutureBuilder<List<CommunityGroup>>(
           future: _groups,
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting)
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return const _Loading();
-            if (snapshot.hasError)
+            }
+            if (snapshot.hasError) {
               return _Empty(
                 icon: Icons.cloud_off_outlined,
                 title: 'Gruplar yüklenemedi',
                 message: snapshot.error.toString(),
-                action: _reload,
+                action: _reloadGroups,
               );
+            }
             final groups = snapshot.data ?? const [];
-            if (groups.isEmpty)
+            if (groups.isEmpty) {
               return _Empty(
                 icon: Icons.groups_outlined,
                 title: 'Şehrinde grup bulunamadı',
                 message:
                     'Aramana uygun bir grup yok. İlk grubu sen kurabilirsin.',
-                action: _openCreateGroup,
+                action: _reloadGroups,
               );
+            }
             return Column(
               children: groups
                   .map(
@@ -486,8 +538,9 @@ class _CommunityScreenState extends State<CommunityScreen>
   );
 
   Widget _friendsTab() => RefreshIndicator(
-    onRefresh: () async => _reload(),
+    onRefresh: _reload,
     child: ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
         TextField(
@@ -536,16 +589,26 @@ class _CommunityScreenState extends State<CommunityScreen>
           future: _requests,
           builder: (context, snapshot) {
             final requests = snapshot.data ?? const [];
-            if (snapshot.connectionState == ConnectionState.waiting)
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return const EcoShimmerList(
                 itemCount: 2,
                 padding: EdgeInsets.zero,
               );
-            if (requests.isEmpty)
+            }
+            if (snapshot.hasError) {
+              return _Empty(
+                icon: Icons.cloud_off_outlined,
+                title: 'Arkadaşlık istekleri yüklenemedi',
+                message: snapshot.error.toString(),
+                action: _reload,
+              );
+            }
+            if (requests.isEmpty) {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 18),
                 child: Text('Bekleyen arkadaşlık isteğin yok.'),
               );
+            }
             return Column(
               children: requests
                   .map(
@@ -599,16 +662,26 @@ class _CommunityScreenState extends State<CommunityScreen>
         FutureBuilder<List<SocialUser>>(
           future: _friends,
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting)
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return const _Loading();
+            }
+            if (snapshot.hasError) {
+              return _Empty(
+                icon: Icons.cloud_off_outlined,
+                title: 'Arkadaşların yüklenemedi',
+                message: snapshot.error.toString(),
+                action: _reload,
+              );
+            }
             final friends = snapshot.data ?? const [];
-            if (friends.isEmpty)
+            if (friends.isEmpty) {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 18),
                 child: Text(
                   'Henüz arkadaşın yok. Liderlik tablosundan yeni kahramanlar keşfet.',
                 ),
               );
+            }
             return Column(
               children: friends
                   .map(
@@ -631,7 +704,7 @@ class _CommunityScreenState extends State<CommunityScreen>
   );
 
   Widget _invitesTab() => RefreshIndicator(
-    onRefresh: () async => _reload(),
+    onRefresh: _reload,
     child: FutureBuilder<List<GroupInviteModel>>(
       future: _invites,
       builder: (context, snapshot) {
@@ -837,7 +910,7 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
       context: context,
       initialTime: TimeOfDay.fromDateTime(_date),
     );
-    if (time != null)
+    if (time != null) {
       setState(
         () => _date = DateTime(
           date.year,
@@ -847,6 +920,7 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
           time.minute,
         ),
       );
+    }
   }
 
   Future<void> _save() async {
@@ -869,10 +943,11 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
       widget.onCreated();
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }

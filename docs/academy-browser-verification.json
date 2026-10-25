@@ -15,7 +15,7 @@
     "quiz_reward_balance_updated",
     "repeat_completion_no_points"
   ],
-  "local_photo_endpoint_ms": 841.0829000004014,
+  "local_photo_endpoint_ms": 258.14180000008946,
   "provider": "ONNX_CPU",
   "ui_flow": "academy search, lesson, quiz, completion and one-time reward",
   "browser_errors": []

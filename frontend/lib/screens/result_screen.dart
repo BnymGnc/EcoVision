@@ -178,9 +178,9 @@ class _ResultScreenState extends State<ResultScreen> {
             if (result.rewardStatus == 'DUPLICATE_IMAGE')
               const ListTile(
                 leading: Icon(Icons.info_outline),
-                title: Text('Bu fotoğraf için bugün puan kazandın'),
+                title: Text('Bu fotoğraf için daha önce puan kazandın'),
                 subtitle: Text(
-                  'Aynı fotoğraf bir günde tekrar puan kazandırmaz. Analizi ve haritayı kullanabilirsin.',
+                  'Aynı fotoğraf bu hesapta tekrar puan kazandırmaz. Analizi ve haritayı kullanabilirsin.',
                 ),
               ),
             if (result.inferenceMode == 'CACHE')

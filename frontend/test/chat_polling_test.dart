@@ -70,10 +70,43 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     expect(tester.takeException(), isNull);
   });
+  testWidgets('mesaj gönderilirken yazılan yeni taslak silinmez', (
+    tester,
+  ) async {
+    final api = _ChatApi()..sentReply = Completer<ChatMessage>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GroupChatScreen(apiService: api, group: group),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    final composer = find.byType(TextField);
+    await tester.enterText(composer, 'İlk mesaj');
+    await tester.tap(find.byTooltip('Gönder'));
+    await tester.pump();
+    await tester.enterText(composer, 'Yeni taslak');
+    api.sentReply!.complete(
+      ChatMessage(
+        id: 1,
+        eventId: 1,
+        groupId: 1,
+        senderId: 1,
+        senderName: 'Test',
+        message: 'İlk mesaj',
+        timestamp: DateTime(2026, 10, 24),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(tester.widget<TextField>(composer).controller!.text, 'Yeni taslak');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }
 
 class _ChatApi extends ApiService {
   int calls = 0;
+  Completer<ChatMessage>? sentReply;
   final pending = Completer<List<ChatMessage>>();
   @override
   Future<CommunityGroup> fetchCommunityGroup(int id) async => group;
@@ -96,4 +129,10 @@ class _ChatApi extends ApiService {
 
   @override
   Future<int> fetchUnreadNotificationCount() async => 0;
+  @override
+  Future<ChatMessage> sendGroupMessage({
+    required int groupId,
+    required String message,
+    int? replyToMessageId,
+  }) => sentReply!.future;
 }

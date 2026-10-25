@@ -1,4 +1,17 @@
 pluginManagement {
+    // Optional cached builds; normal IDE/CI builds keep network resolution.
+    if (System.getenv("ECOVISION_GRADLE_OFFLINE") == "true") {
+        gradle.startParameter.isOffline = true
+    }
+    // The isolated APK script builds the app, not publishable plugin AARs.
+    // Required plugin compile/native tasks remain in :app's dependency graph.
+    if (System.getenv("ECOVISION_ANDROID_APP_ONLY") == "true") {
+        gradle.startParameter.setTaskNames(
+            gradle.startParameter.taskNames.map {
+            if (it == "assembleDebug" || it == "assembleRelease") ":app:$it" else it
+            }
+        )
+    }
     val flutterSdkPath =
         run {
             val properties = java.util.Properties()
@@ -25,7 +38,7 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "8.9.1" apply false
+    id("com.android.application") version "8.10.1" apply false
     id("org.jetbrains.kotlin.android") version "2.1.0" apply false
 }
 

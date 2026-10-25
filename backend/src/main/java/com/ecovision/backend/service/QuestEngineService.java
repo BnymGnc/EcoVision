@@ -20,6 +20,7 @@ import java.time.ZonedDateTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -74,16 +75,26 @@ public class QuestEngineService {
             );
         }
 
-        List<UserQuestProgress> updated = new ArrayList<>();
-        for (Quest quest : questRepository.findByActiveTrueAndTriggerType(
+        List<Quest> quests = questRepository.findByActiveTrueAndTriggerType(
                 event.triggerType()
-        )) {
-            UserQuestProgress progress = progressRepository
-                    .findFirstByUserIdAndQuestIdAndArchivedAtIsNullOrderByAssignedAtDesc(
-                            user.getId(),
-                            quest.getId()
-                    )
-                    .orElse(null);
+        );
+        if (quests.isEmpty()) {
+            return List.of();
+        }
+        List<Long> questIds = quests.stream().map(Quest::getId).toList();
+        Map<Long, UserQuestProgress> progressByQuestId = new HashMap<>();
+        for (UserQuestProgress progress : progressRepository
+                .findByUserIdAndQuestIdInAndArchivedAtIsNullOrderByAssignedAtDesc(
+                        user.getId(),
+                        questIds
+                )) {
+            // Keep the latest assignment even when it is completed or expired.
+            progressByQuestId.putIfAbsent(progress.getQuest().getId(), progress);
+        }
+
+        List<UserQuestProgress> updated = new ArrayList<>();
+        for (Quest quest : quests) {
+            UserQuestProgress progress = progressByQuestId.get(quest.getId());
 
             if (progress == null && quest.getQuestCategory() == QuestCategory.DAILY) {
                 continue;

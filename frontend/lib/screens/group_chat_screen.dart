@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../widgets/authorized_image.dart';
 import '../services/media_download.dart';
 import 'package:flutter/services.dart';
-import 'package:image/image.dart' as image_lib;
+import '../services/chat_image_compressor.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
 
@@ -98,8 +98,9 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = state == AppLifecycleState.resumed;
-    if (_foreground)
+    if (_foreground) {
       unawaited(_poll(forceMetadata: true, refreshMessages: true));
+    }
   }
 
   void _connectRealtime() {
@@ -299,8 +300,9 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     bool forceMetadata = false,
     bool refreshMessages = false,
   }) async {
-    if (_loading || _sending || !mounted || !_foreground || _pollInFlight)
+    if (_loading || _sending || !mounted || !_foreground || _pollInFlight) {
       return;
+    }
     _pollCount++;
     final refreshMetadata = forceMetadata || _pollCount % 6 == 0;
     // A slower reconciliation also recovers a missed frame without duplicating
@@ -382,18 +384,21 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   Future<void> _send() async {
     final text = _message.text.trim();
     if (text.isEmpty || _sending) return;
-    await EcoHaptics.light();
+    final draft = _message.text;
+    final reply = _replyingTo;
     setState(() => _sending = true);
+    await EcoHaptics.light();
+    if (!mounted) return;
     try {
       final sent = await widget.apiService.sendGroupMessage(
         groupId: _group.id,
         message: text,
-        replyToMessageId: _replyingTo?.id,
+        replyToMessageId: reply?.id,
       );
       if (!mounted) return;
-      _message.clear();
+      if (_message.text == draft) _message.clear();
       setState(() {
-        _replyingTo = null;
+        if (_replyingTo?.id == reply?.id) _replyingTo = null;
         _messages = _mergeMessages(_messages, [sent]);
       });
       _scrollToBottom();
@@ -406,6 +411,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
 
   Future<void> _attach() async {
     await EcoHaptics.light();
+    if (!mounted) return;
     final action = await showEcoGlassSheet<_ChatAttachmentAction>(
       context: context,
       builder: (context) => Padding(
@@ -450,30 +456,16 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   }
 
   Future<void> _pickAndSendImage(ImageSource source) async {
-    final picked = await ImagePicker().pickImage(source: source);
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 1600,
+      maxHeight: 1600,
+    );
     if (picked == null || !mounted) return;
     setState(() => _sending = true);
     try {
-      var decoded = image_lib.decodeImage(await picked.readAsBytes());
-      if (decoded == null) throw const ApiException('Fotoğraf okunamadı.');
-      if (decoded.width > 1600 || decoded.height > 1600) {
-        decoded = image_lib.copyResize(
-          decoded,
-          width: decoded.width >= decoded.height ? 1600 : null,
-          height: decoded.height > decoded.width ? 1600 : null,
-        );
-      }
-      var quality = 84;
-      var bytes = image_lib.encodeJpg(decoded, quality: quality);
-      while (bytes.length > 2 * 1024 * 1024 && quality > 42) {
-        quality -= 8;
-        bytes = image_lib.encodeJpg(decoded, quality: quality);
-      }
-      if (bytes.length > 2 * 1024 * 1024) {
-        throw const ApiException(
-          'Fotoğraf sıkıştırıldıktan sonra da 2 MB sınırını aşıyor.',
-        );
-      }
+      final bytes = await compressChatImage(await picked.readAsBytes());
+      if (!mounted) return;
       final sent = await widget.apiService.sendGroupChatAttachment(
         groupId: _group.id,
         bytes: bytes,
@@ -573,6 +565,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
 
   Future<void> _showMessageActions(ChatMessage message) async {
     await EcoHaptics.selection();
+    if (!mounted) return;
     final action = await showEcoGlassSheet<String>(
       context: context,
       builder: (context) => Padding(
@@ -1870,12 +1863,13 @@ class _DocumentMessageCard extends StatelessWidget {
 
   Future<void> _download(BuildContext context) async {
     await EcoHaptics.light();
-    if (context.mounted)
+    if (context.mounted) {
       await downloadAuthorizedMedia(
         context,
         message.fileUrl ?? '',
         message.fileName ?? 'belge.pdf',
       );
+    }
   }
 
   @override

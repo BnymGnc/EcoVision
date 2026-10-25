@@ -1,0 +1,19 @@
+{
+  "backend": "isolated local PostgreSQL test environment",
+  "viewports": [
+    320,
+    390,
+    430
+  ],
+  "api_checks": [
+    "register",
+    "quests_200",
+    "map_DIM_OR_material",
+    "eligibility",
+    "local_photo_inference"
+  ],
+  "local_photo_endpoint_ms": 582.4161999998978,
+  "provider": "ONNX_CPU",
+  "ui_flow": "map city inventory, Kayseri selection, filtered paged search",
+  "browser_errors": []
+}

@@ -38,7 +38,6 @@ class _MapScreenState extends State<MapScreen> {
   final LocationService _locationService = LocationService();
   final MapController _mapController = MapController();
   LatLng? _currentLocation;
-  LatLng? _searchLocation;
   List<MapPin> _pins = [];
   Set<String> _selectedMaterials = {};
   double? _radiusKm = 10;
@@ -46,10 +45,16 @@ class _MapScreenState extends State<MapScreen> {
   bool _mapReady = false;
   bool _isAddingPin = false;
   Timer? _cameraDebounce;
+  double? _clusterZoom;
   int _requestVersion = 0;
   Completer<void>? _requestAbort;
   bool _openOnly = false;
   Set<String> _pointTypes = {'DIM'};
+  int _total = 0;
+  bool _totalIsExact = true;
+  bool _hasMore = false;
+  LatLng? _pageCenter;
+  LatLngBounds? _pageBounds;
 
   @override
   void dispose() {
@@ -61,6 +66,10 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _cameraChanged(MapCamera camera, bool gesture) {
+    if (_clusterZoom != camera.zoom.floorToDouble()) {
+      _clusterZoom = camera.zoom.floorToDouble();
+      if (mounted) setState(() {});
+    }
     if (!gesture) return;
     _cameraDebounce?.cancel();
     _cameraDebounce = Timer(
@@ -94,40 +103,62 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<void> _loadMap({bool viewport = false}) async {
+  Future<void> _loadMap({bool viewport = false, bool more = false}) async {
+    if (more && (_isLoading || !_hasMore || _pageCenter == null)) return;
     if (_requestAbort?.isCompleted == false) _requestAbort!.complete();
     final abort = Completer<void>();
     _requestAbort = abort;
     final request = ++_requestVersion;
     if (mounted) setState(() => _isLoading = true);
     try {
-      final location =
-          _searchLocation ??
+      final gps =
           _currentLocation ??
           await _locationService.getCurrentOrFallbackLocation();
-      final bounds = viewport && _mapReady
+      final location = more
+          ? _pageCenter!
+          : viewport && _mapReady
+          ? _mapController.camera.center
+          : gps;
+      final bounds = more
+          ? _pageBounds
+          : viewport && _mapReady
           ? _mapController.camera.visibleBounds
           : null;
-      final pins = await widget.apiService.fetchNearestMapPins(
-        latitude: location.latitude,
-        longitude: location.longitude,
+      final page = await widget.apiService.searchDoaPoints(
+        latitude: location.latitude.clamp(-90, 90),
+        longitude: ((location.longitude + 180) % 360) - 180,
         radiusKm: _radiusKm,
         materials: _selectedMaterials,
         abortTrigger: abort.future,
         pointTypes: _pointTypes,
         openOnly: _openOnly,
-        south: bounds?.south,
-        north: bounds?.north,
-        west: bounds?.west,
-        east: bounds?.east,
+        south: bounds?.south.clamp(-90, 90),
+        north: bounds?.north.clamp(-90, 90),
+        west: bounds?.west.clamp(-180, 180),
+        east: bounds?.east.clamp(-180, 180),
+        offset: more ? _pins.length : 0,
       );
       if (!mounted || request != _requestVersion) return;
       setState(() {
-        _currentLocation ??= location;
-        _pins = List<MapPin>.unmodifiable(pins);
+        _currentLocation ??= gps;
+        _pageCenter = location;
+        _pageBounds = bounds;
+        _pins = List<MapPin>.unmodifiable(
+          more
+              ? {
+                  ...{for (final pin in _pins) pin.id: pin},
+                  ...{for (final pin in page.items) pin.id: pin},
+                }.values
+              : page.items,
+        );
+        _total = page.total;
+        _totalIsExact = page.totalIsExact;
+        _hasMore = page.hasMore;
         _isLoading = false;
       });
-      if (!viewport) _moveTo(location);
+      if (!viewport && !more) {
+        _moveTo(location);
+      }
     } catch (error) {
       if (!mounted || request != _requestVersion) return;
       setState(() {
@@ -150,6 +181,7 @@ class _MapScreenState extends State<MapScreen> {
     var draftRadius = _radiusKm;
     var draftOpen = _openOnly;
     var draftCenters = _pointTypes.contains('MIN');
+    var draftSdm = _pointTypes.contains('SDM');
 
     final result = await showEcoGlassSheet<_MapFilters>(
       context: context,
@@ -178,6 +210,13 @@ class _MapScreenState extends State<MapScreen> {
                     value: draftCenters,
                     onChanged: (value) =>
                         setSheetState(() => draftCenters = value),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Toplu iade noktalarını göster (SDM)'),
+                    subtitle: const Text('Bireysel tüketici makinesi değildir'),
+                    value: draftSdm,
+                    onChanged: (value) => setSheetState(() => draftSdm = value),
                   ),
                   Text(
                     'DOA Makine Filtreleri',
@@ -235,7 +274,7 @@ class _MapScreenState extends State<MapScreen> {
                     value: draftRadius == null,
                     title: const Text('Sınırsız mesafe'),
                     subtitle: const Text(
-                      'Türkiye genelindeki tüm makineleri göster',
+                      'Mesafe sınırı yok; harita alanına ve sonuç limitine göre ara',
                     ),
                     secondary: const Icon(Icons.public_rounded),
                     onChanged: (value) =>
@@ -258,6 +297,9 @@ class _MapScreenState extends State<MapScreen> {
                         onPressed: () => setSheetState(() {
                           draftMaterials = {};
                           draftRadius = 10;
+                          draftOpen = false;
+                          draftCenters = false;
+                          draftSdm = false;
                         }),
                         child: const Text('Sıfırla'),
                       ),
@@ -271,6 +313,7 @@ class _MapScreenState extends State<MapScreen> {
                               radiusKm: draftRadius,
                               openOnly: draftOpen,
                               includeCenters: draftCenters,
+                              includeSdm: draftSdm,
                             ),
                           ),
                           icon: const Icon(Icons.tune_rounded),
@@ -291,7 +334,11 @@ class _MapScreenState extends State<MapScreen> {
       _selectedMaterials = result.materials;
       _radiusKm = result.radiusKm;
       _openOnly = result.openOnly;
-      _pointTypes = result.includeCenters ? {'DIM', 'MIN', 'KIM'} : {'DIM'};
+      _pointTypes = {
+        'DIM',
+        if (result.includeCenters) ...{'MIN', 'KIM'},
+        if (result.includeSdm) 'SDM',
+      };
     });
     await _loadMap();
   }
@@ -591,16 +638,6 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                     ),
                   ),
-                FilledButton.tonalIcon(
-                  onPressed: _isLoading || !_mapReady
-                      ? null
-                      : () {
-                          _searchLocation = _mapController.camera.center;
-                          _loadMap(viewport: true);
-                        },
-                  icon: const Icon(Icons.center_focus_strong),
-                  label: const Text('Bu alanda ara'),
-                ),
               ],
             ),
           ),
@@ -610,6 +647,11 @@ class _MapScreenState extends State<MapScreen> {
             bottom: 14,
             child: _MachineSummary(
               pins: _pins,
+              total: _total,
+              totalIsExact: _totalIsExact,
+              hasMore: _hasMore,
+              loading: _isLoading,
+              onMore: () => _loadMap(more: true),
               radiusKm: _radiusKm,
               selectedMaterials: _selectedMaterials,
               onTap: _showMachine,
@@ -637,7 +679,7 @@ class _MapScreenState extends State<MapScreen> {
   ];
 
   List<Marker> _clusterMarkers() {
-    final zoom = _mapReady ? _mapController.camera.zoom : 13.5;
+    final zoom = _mapReady ? _mapController.camera.zoom.floorToDouble() : 13.0;
     final cell = 55 / (256 * math.pow(2, zoom));
     final groups = <String, List<MapPin>>{};
     for (final pin in _pins) {
@@ -690,6 +732,11 @@ class _MapScreenState extends State<MapScreen> {
 class _MachineSummary extends StatelessWidget {
   const _MachineSummary({
     required this.pins,
+    required this.total,
+    required this.totalIsExact,
+    required this.hasMore,
+    required this.loading,
+    required this.onMore,
     required this.radiusKm,
     required this.selectedMaterials,
     required this.onTap,
@@ -697,6 +744,11 @@ class _MachineSummary extends StatelessWidget {
   });
 
   final List<MapPin> pins;
+  final int total;
+  final bool totalIsExact;
+  final bool hasMore;
+  final bool loading;
+  final VoidCallback onMore;
   final double? radiusKm;
   final Set<String> selectedMaterials;
   final ValueChanged<MapPin> onTap;
@@ -719,7 +771,9 @@ class _MachineSummary extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '${pins.length} DOA noktası bulundu',
+                    totalIsExact
+                        ? '${pins.length} / $total DOA noktası'
+                        : '${pins.length} DOA noktası yüklendi',
                     style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                 ),
@@ -734,7 +788,7 @@ class _MachineSummary extends StatelessWidget {
             ),
             if (radiusKm == null)
               Text(
-                'Mesafe sınırı yok; harita alanındaki en fazla 500 nokta gösterilir.',
+                'Mesafe sınırı yok. Sonuçlar 100 kayıtlık sayfalarla gelir.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             if (pins.isEmpty)
@@ -807,6 +861,14 @@ class _MachineSummary extends StatelessWidget {
                   },
                 ),
               ),
+            if (hasMore && pins.length < 1000)
+              TextButton.icon(
+                onPressed: loading ? null : onMore,
+                icon: const Icon(Icons.expand_more),
+                label: const Text('100 nokta daha yükle'),
+              ),
+            if (hasMore && pins.length >= 1000)
+              const Text('Daha fazla ayrıntı için haritayı yakınlaştır.'),
           ],
         ),
       ),
@@ -949,9 +1011,11 @@ class _MapFilters {
     required this.radiusKm,
     this.openOnly = false,
     this.includeCenters = false,
+    this.includeSdm = false,
   });
   final bool openOnly;
   final bool includeCenters;
+  final bool includeSdm;
 
   final Set<String> materials;
   final double? radiusKm;

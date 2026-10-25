@@ -115,8 +115,9 @@ public class DataInitializer {
         return args -> new TransactionTemplate(transactionManager)
                 .executeWithoutResult(status -> {
             for (var legacy : eventRepository.findAllByOrderByEventDateAsc()) {
-                CommunityGroup group = groups.findByLegacyEventId(legacy.getId())
-                        .orElseGet(CommunityGroup::new);
+                // A completed migration must not overwrite edits or resurrect kicked members.
+                if (groups.findByLegacyEventId(legacy.getId()).isPresent()) continue;
+                CommunityGroup group = new CommunityGroup();
                 group.setLegacyEventId(legacy.getId());
                 group.setCreator(legacy.getCreator());
                 group.setName(legacy.getTitle());
@@ -164,6 +165,7 @@ public class DataInitializer {
             }
 
             for (CommunityGroup group : groups.findAll()) {
+                boolean changed = false;
                 if (group.getInviteCode() == null
                         || group.getInviteCode().isBlank()) {
                     group.setInviteCode(
@@ -171,13 +173,16 @@ public class DataInitializer {
                                     .replace("-", "")
                                     .substring(0, 16)
                     );
-                    groups.save(group);
+                    changed = true;
                 }
                 boolean passwordProtected =
                         group.getJoinCodeHash() != null
                                 && !group.getJoinCodeHash().isBlank();
-                group.setPrivateGroup(passwordProtected);
-                groups.save(group);
+                if (group.isPrivateGroup() != passwordProtected) {
+                    group.setPrivateGroup(passwordProtected);
+                    changed = true;
+                }
+                if (changed) groups.save(group);
                 if (!members.existsByGroupIdAndUserId(
                         group.getId(),
                         group.getCreator().getId()

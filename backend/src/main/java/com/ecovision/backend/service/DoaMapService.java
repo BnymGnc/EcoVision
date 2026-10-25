@@ -19,10 +19,18 @@ public class DoaMapService {
     public List<Point> nearby(double lat, double lng, Double radius, Integer limit,
                                Set<String> materials, Set<String> types, boolean openOnly,
                                Double south, Double north, Double west, Double east) {
+        return search(lat, lng, radius, limit, 0, materials, types, openOnly, south, north, west, east, null).items();
+    }
+
+    @Transactional(readOnly = true)
+    public Page search(double lat, double lng, Double radius, Integer limit, int offset,
+                       Set<String> materials, Set<String> types, boolean openOnly,
+                       Double south, Double north, Double west, Double east, Set<Long> locationIds) {
         validateCoordinate(lat, lng);
         if (radius != null && (!Double.isFinite(radius) || radius < 1 || radius > 2000))
             throw new IllegalArgumentException("Arama yarıçapı 1-2000 km olmalıdır");
         int cap = limit == null ? 500 : limit;
+        if (offset < 0 || offset > 100000) throw new IllegalArgumentException("Offset 0-100000 olmali");
         if (cap < 1 || cap > 1000) throw new IllegalArgumentException("Sonuç sınırı 1-1000 olmalıdır");
         if (south != null || north != null || west != null || east != null) {
             if (south == null || north == null || west == null || east == null)
@@ -44,15 +52,25 @@ public class DoaMapService {
         if (!Set.of("DIM", "MIN", "KIM", "SDM", "UNKNOWN").containsAll(pointTypes))
             throw new IllegalArgumentException("Nokta türü geçersiz");
         Instant now = Instant.now();
-        return pins.findPointSummaries(south, north, west, east).stream()
+        if (locationIds != null && locationIds.isEmpty()) return new Page(List.of(), 0, cap, offset, false);
+        var candidates = locationIds == null ? pins.findPointSummaries(south, north, west, east)
+                : pins.findPointSummariesByIds(south, north, west, east, locationIds);
+        List<Point> matching = candidates.stream()
+                .filter(p -> locationIds == null || locationIds.contains(p.getId()))
+                .filter(p -> p.getLatitude() != null && p.getLongitude() != null
+                        && Double.isFinite(p.getLatitude()) && Double.isFinite(p.getLongitude()))
                 .filter(p -> pointTypes.isEmpty() || pointTypes.contains(p.getPointType()))
                 .map(p -> toPoint(p, lat, lng, now))
                 .filter(p -> radius == null || p.distanceKm() <= radius)
                 .filter(p -> normalized.isEmpty() || normalized.stream().anyMatch(p.acceptedMaterials()::contains))
                 .filter(p -> !openOnly || p.scheduleStatus().equals("OPEN"))
                 .sorted(Comparator.comparingDouble(Point::distanceKm).thenComparing(Point::id))
-                .limit(cap).toList();
+                .toList();
+        return new Page(matching.stream().skip(offset).limit(cap).toList(), matching.size(), cap, offset,
+                (long) offset + cap < matching.size());
     }
+
+    public record Page(List<Point> items, int total, int limit, int offset, boolean hasMore) {}
 
     @Transactional(readOnly = true)
     public Detail detail(Long id) {

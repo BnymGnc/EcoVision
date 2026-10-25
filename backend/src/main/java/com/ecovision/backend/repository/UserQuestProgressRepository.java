@@ -22,6 +22,13 @@ public interface UserQuestProgressRepository
     );
 
     @EntityGraph(attributePaths = "quest")
+    List<UserQuestProgress>
+    findByUserIdAndQuestIdInAndArchivedAtIsNullOrderByAssignedAtDesc(
+            Long userId,
+            List<Long> questIds
+    );
+
+    @EntityGraph(attributePaths = "quest")
     List<UserQuestProgress> findByUserIdAndArchivedAtIsNullOrderByAssignedAtDesc(
             Long userId
     );

@@ -2,7 +2,13 @@
 
 Bu belge 24 Ekim 2026 tarihindeki kod incelemesine ve bu çalışma sırasında uygulanan değişikliklere dayanır. Kodda bulunmak, canlı Render servisinde veya telefondaki eski APK'da yayınlanmış olmak anlamına gelmez. Test ve dağıtım durumu `verification.md` dosyasında ayrıca tutulur.
 
+25 Ekim güncellemesi ve canlı doğrulama sınırları:
+[final teslim kaydı](final-delivery-2026-10-25-tr.md).
+
 ## Ürün ne işe yarıyor?
+
+Son arayüz/il-ilçe/hız denetimi: [ui-review-and-performance-tr.md](ui-review-and-performance-tr.md).
+81 ilin DOA makine ve merkez sayıları: [doa-city-counts-tr.md](doa-city-counts-tr.md).
 
 Son güvenlik turu: [önce/sonra tablosu](old-vs-new-final-tr.md),
 [yetki ve test raporu](final-security-and-tests-tr.md),
@@ -15,6 +21,12 @@ EcoVision, bir atığı fotoğraftan tanımaya, doğru ayrıştırma yolunu öğ
 
 Güncel temel yol: **Fotoğraf → malzeme tahmini → DOA makinelerini göster → harici harita uygulamasında yol tarifi.**
 
+Son kapsamlı yerel denetim ve açık kalan riskler:
+[ecovision-final-audit-tr.md](ecovision-final-audit-tr.md). Backend il/ilçe
+envanterini ve sayfalamayı destekler; son kullanıcı tercihiyle haritadaki il/ilçe
+seçimi ve “Bu alanda ara” düğmesi kaldırıldı. Kamera hareketi otomatik sorgulanır. Aynı fotoğraf dosyası
+aynı kullanıcıya başka gün de tekrar ödül vermez; bu kontrol resmî iade kanıtı değildir.
+
 ### Son arayüz düzenlemesi
 
 Rehber artık Türkçe karakter toleranslı arama ve tamamlanma filtreleri içerir.
@@ -25,7 +37,7 @@ AI özeti provider/model sürümünü ve tahminin sınırlarını açıklar.
 
 Kullanıcının sonraki tercihiyle tarama sonucu yeniden sadeleştirildi: ambalaj soru formu ve “Gerçekleştirdiğim Eylemi Kaydet” düğmesi kaldırıldı. Sonuçtan doğrudan **DOA Makinelerini Haritada Göster** düğmesiyle haritaya geçilir. PET/cam/alüminyum açıkça tanındıysa ilgili malzeme filtresi uygulanır; genel plastik/metal gibi belirsiz sınıfta harita malzeme filtresi olmadan açılır. Düğme ön konum/API sorgusuna bağlı gizlenmez. Makineye yönlendirme, resmî depozito kabulü anlamına gelmez.
 
-Eco Merkezi'ndeki karbon girişi tekrar eski **20 soruluk ankete** açılır. 2. sorunun altında isteğe bağlı yakıt litresi/türü/dönemi; 11. sorunun altında isteğe bağlı elektrik kWh/dönem/hane kişi sayısı vardır. Boş alanlar eski yanıt ağırlıklarını aynen korur. Veri girilirse ilgili yaklaşık ağırlıklar tüketim hesabıyla değiştirilir, aynı kullanım ikinci kez toplanmaz. Sonuç hâlâ yaklaşık anket sonucudur. Backend uygunluk/eylem endpoint'leri ve eski kayıtlar silinmedi; aşağıdaki ilk teslim karşılaştırması tarihsel bağlamını korur.
+Eco Merkezi'ndeki karbon girişi **20 soruluk ankete** açılır. Her sorunun altında isteğe bağlı sayısal girdi vardır; ayrıca bir “detaylı hesaplama” açılması gerekmez. Örneğin haftalık araç mesafesi doğrudan 250 km girilebilir. Boş alanlar eski yanıt ağırlıklarını aynen korur. Veri girilirse ilgili yaklaşık ağırlığın yerine geçer, aynı kullanım ikinci kez toplanmaz. Ulaşım/ısınma yöntemi gibi nitel seçimler yine gereklidir. Sonuç yaklaşık anket hesabıdır; eğitilmiş karbon makine öğrenmesi modeli değildir. Backend uygunluk/eylem endpoint'leri ve eski kayıtlar silinmedi.
 
 ## Eski sürümden ne değişti?
 
@@ -39,7 +51,7 @@ Eco Merkezi'ndeki karbon girişi tekrar eski **20 soruluk ankete** açılır. 2.
 | Malzeme ve durum | Destek ve o andaki hazne durumu tek anlama indirgenmişti | Teknik destek, kaynak hazne bildirimi ve bilinmeyen telemetri zamanı ayrı tutuluyor |
 | Çalışma saatleri | Kaynak programı işlenmiyordu | İstanbul saatinde açık/kapalı/bilinmiyor hesabı; gece yarısı ve önceki günden taşan aralıklar destekleniyor |
 | Harita performansı | Tüm entity ve koleksiyonlar alınabiliyordu | Küçük projection/DTO, koordinat ön filtresi, sonuç sınırı, viewport sorgusu, 450 ms debounce, eski yanıt koruması ve marker gruplama |
-| Depozito uygunluğu | PET/alüminyum etiketi doğrudan uygunluk sayılıyordu; cam dışlanıyordu | Malzeme ile ambalaj koşulları ayrıldı; PET/cam/alüminyum için DOA işareti, kapsam, hacim ve bütünlük kontrolü var |
+| Depozito uygunluğu | PET/alüminyum etiketi doğrudan uygunluk sayılıyordu; cam dışlanıyordu | Malzeme tahmini kabul garantisi değildir; sonuçtan doğrudan harita açılır. Ayrı uygunluk API'si korunur, görünür ambalaj soru formu yoktur |
 | Genel metal | Bazı eşlemelerde otomatik alüminyum sayılıyordu | Yeni harita ve uygunluk akışı genel metali alüminyum kabul etmiyor |
 | AI kotası | Bir hata farklı modellere ve yeniden denemelere yayılabiliyordu | Yapılandırılan tek Gemini modeli kullanılıyor; otomatik farklı model zinciri kaldırıldı |
 | AI sonucu | Model skoru kesin güven izlenimi verebiliyordu | Skorun kalibre doğruluk olmadığı belirtiliyor; belirsiz/çoklu nesne için tekrar fotoğraf yolu gösteriliyor; önbellek sonucu etiketleniyor |
@@ -47,7 +59,7 @@ Eco Merkezi'ndeki karbon girişi tekrar eski **20 soruluk ankete** açılır. 2.
 | Görev kataloğu | 100 görev | Mevcut 100 görev + 100 ayrı alışkanlık eylemi; kararlı kodlar ve eski ilerleme korunuyor |
 | Görev ödülü | Eşzamanlı claim yanıtları yanıltıcı ödül bilgisi verebiliyordu | Kullanıcı kilidi claim yanıtının hesabını da kapsıyor; mevcut DB kilitli ödül akışı korunuyor |
 | Giriş serisi | Tarama serisi görünürken giriş geçmişi sınırlıydı | Giriş ve tarama serisi ayrı; güncel/en uzun giriş serisi ve son yedi gün saklanıyor |
-| Karbon | 20 soruluk sabit ağırlık anketi; profilde puan×katsayı tasarrufları | Eco Merkezi 20 soruluk ankete açılıyor; yakıt/elektrik verisi isteğe bağlı ve çakışan tahminin yerine geçiyor; puanlardan tasarruf türetilmiyor |
+| Karbon | 20 soruluk sabit ağırlık anketi; profilde puan×katsayı tasarrufları | 20 soruda hızlı yanıt veya doğrudan sayısal girdi; çakışan tahminler toplanmaz; puanlardan tasarruf türetilmez |
 | Atık etkisi | Tarama ile geri dönüşüm birbirine karışabiliyordu | Tartılmış kütle ve yönetim yoluyla, ayrı kullanıcı beyanı kayıtları; tekrarlanan aynı kayıt anahtarı ikinci kayıt oluşturmuyor |
 | Admin erişimi | Kodda bilinen başlangıç parolası vardı | Yeni kurulumda rastgele hash; mevcut admin için gizli parola istemli yerel sıfırlama aracı ve oturum iptali |
 | Tanıtım | Son sayfaya kadar ilerleme gerekiyordu | Hesaba bağlı tanıtıma Atla düğmesi eklendi |
@@ -105,9 +117,9 @@ Tamamlanan görevin ödülü ayrıca talep edilir. Kullanıcı/ilerleme kilitler
 
 ### 8. Karbon ve eylem kayıtları
 
-Eco Merkezi'ndeki giriş 20 soruluk eski anketi açar. Ölçülebilir tüketim verilerini eklemek isteğe bağlıdır ve ilgili sorunun altında açılır. Elektrik hane kişi sayısına bölünür; araç yakıtı kişisel kabul edilir. Yıllık girilen miktar aylığa çevrilerek hesap motoruna iletilir.
+Eco Merkezi 20 soruluk anketi açar. Her sorunun altında mesafe, sıklık, yüzde veya tüketim için isteğe bağlı bir sayı alanı vardır. Elektrik aylık kWh ve hane kişi sayısıyla girilir. Aralık seçeneğine dokunmak ilgili sayısal girdiyi temizler; aynı sorunun iki cevabı birlikte sayılmaz.
 
-İsteğe bağlı elektrik için Türkiye ETKB 2023 dağıtım şebekesi katsayısı; yakıt için EPA yanma CO₂ katsayısı kullanılır. Diğer sorular eski anketin yaklaşık ağırlıklarını korur. Elektrik verisi beyaz eşya/klima tahminlerinin; yakıt verisi ilgili özel araç tahminlerinin yerine geçer. Eski kısa tüketim ekranı ve API'si korunmuştur fakat ana giriş artık onu açmaz.
+Elektrik için Türkiye ETKB 2023 dağıtım şebekesi katsayısı kullanılır. Araç km hesabı benzin için EPA yanma CO₂ katsayısı ve açıkça belirtilen 7 L/100 km varsayımına dayanır; araç türüne özel saha ölçümü değildir. Diğer sayısal alanlar eski anketin yaklaşık ağırlıklarından türetilen eğrilerdir. Elektrik ve araç verileri çakışan ilgili tahminleri değiştirir. Bu deterministik hesap eğitilmiş ML modeli, tam karbon envanteri veya karbon kredisi değildir. Eski kısa tüketim ekranı/API'si korunur, ana giriş onu açmaz.
 
 Atık eylemleri ayrı tutulur. Kütle ve uygulanan yönetim yolu kullanıcı tarafından beyan edilir; EPA WARM v13 ABD senaryosu ile fark hesaplanır. PET, cam ve alüminyum kutu dışındaki malzemelerde sonuç hesaplanamayabilir. Bu bir Türkiye saha ölçümü veya karbon kredisi değildir. Eylemin gramajı düzeltilince fark yeniden hesaplanır; silinince toplam sorgudan güncellendiği için tutarlı kalır.
 

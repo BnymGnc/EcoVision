@@ -90,6 +90,12 @@ flutter:
     - assets/animations/
     - assets/data/
     - assets/images/avatars/
+    - assets/fonts/OFL.txt
+
+  fonts:
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito-Variable.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:

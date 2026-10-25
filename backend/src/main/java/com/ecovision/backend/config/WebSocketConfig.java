@@ -17,6 +17,7 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
@@ -67,7 +68,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registration.interceptors(new ChannelInterceptor() {
             @Override
             public Message<?> preSend(Message<?> message, MessageChannel channel) {
-                StompHeaderAccessor accessor = StompHeaderAccessor.wrap(message);
+                // Mutate the original accessor so StompSubProtocolHandler persists the
+                // authenticated Principal for subsequent SUBSCRIBE and SEND frames.
+                StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+                if (accessor == null) return message;
                 if (StompCommand.CONNECT.equals(accessor.getCommand())) {
                     authenticate(accessor);
                 } else if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
@@ -130,7 +134,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "WebSocket kullanıcısı bulunamadı"
                 ));
-        if (!jwtService.isValid(token, user) || !user.isAccountNonLocked()) {
+        if (!jwtService.isValid(token, user) || !user.isAccountNonLocked() || !user.isAdult()) {
             throw new IllegalArgumentException("WebSocket oturumu geçersiz");
         }
         accessor.setUser(new UsernamePasswordAuthenticationToken(

@@ -25,6 +25,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
   List<QuestProgress> _quests = const [];
   String _selectedDomain = 'ALL';
   final Set<int> _busyQuestIds = {};
+  bool _refreshing = false;
 
   static const _domains = <String, String>{
     'ALL': 'Tümü',
@@ -53,6 +54,8 @@ class _MissionsScreenState extends State<MissionsScreen> {
   }
 
   Future<void> _refresh() async {
+    if (_refreshing) return;
+    _refreshing = true;
     try {
       final quests = await widget.apiService.fetchQuests();
       if (!mounted) return;
@@ -62,6 +65,8 @@ class _MissionsScreenState extends State<MissionsScreen> {
       });
     } catch (error) {
       if (mounted) _showError(error);
+    } finally {
+      _refreshing = false;
     }
   }
 
@@ -72,6 +77,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
   }
 
   Future<void> _checkIn(QuestProgress quest) async {
+    if (_busyQuestIds.contains(quest.questId)) return;
     HapticFeedback.lightImpact();
     setState(() => _busyQuestIds.add(quest.questId));
     try {
@@ -96,6 +102,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
   }
 
   Future<void> _claim(QuestProgress quest) async {
+    if (_busyQuestIds.contains(quest.questId)) return;
     final progressId = quest.progressId;
     if (progressId == null) return;
     HapticFeedback.heavyImpact();
@@ -199,6 +206,8 @@ class _MissionsScreenState extends State<MissionsScreen> {
           return RefreshIndicator(
             onRefresh: _refresh,
             child: CustomScrollView(
+              key: PageStorageKey('missions-$_selectedDomain'),
+              physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
@@ -248,6 +257,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
                       itemBuilder: (context, index) {
                         final quest = quests[index];
                         return _QuestCard(
+                          key: ValueKey(quest.questId),
                           quest: quest,
                           busy: _busyQuestIds.contains(quest.questId),
                           onCheckIn: () => _checkIn(quest),
@@ -330,6 +340,7 @@ class _MissionHeader extends StatelessWidget {
 
 class _QuestCard extends StatelessWidget {
   const _QuestCard({
+    super.key,
     required this.quest,
     required this.busy,
     required this.onCheckIn,
@@ -432,7 +443,10 @@ class _QuestCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
                   '${quest.currentAmount} / ${quest.targetAmount}',
@@ -441,7 +455,6 @@ class _QuestCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const Spacer(),
                 if (quest.claimed)
                   const _StatusLabel(
                     icon: Icons.check_circle,
@@ -498,9 +511,11 @@ class _StatusLabel extends StatelessWidget {
       children: [
         Icon(icon, size: 18, color: color),
         const SizedBox(width: 5),
-        Text(
-          text,
-          style: TextStyle(color: color, fontWeight: FontWeight.w700),
+        Flexible(
+          child: Text(
+            text,
+            style: TextStyle(color: color, fontWeight: FontWeight.w700),
+          ),
         ),
       ],
     );

@@ -78,10 +78,11 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
       );
       if (friend != null) {
         await widget.apiService.inviteFriendToGroup(widget.event.id, friend.id);
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Özel grup daveti gönderildi.')),
           );
+        }
       }
     } catch (e) {
       if (mounted) _error(e);
@@ -109,10 +110,11 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
     if (reason != null) {
       try {
         await widget.apiService.reportGroup(widget.event.id, reason);
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Grup bildirimin alındı.')),
           );
+        }
       } catch (e) {
         if (mounted) _error(e);
       }
@@ -238,9 +240,10 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
       body: FutureBuilder<List<EventMember>>(
         future: _members,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting)
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
-          if (snapshot.hasError)
+          }
+          if (snapshot.hasError) {
             return Center(
               child: FilledButton.icon(
                 onPressed: _reload,
@@ -248,6 +251,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                 label: const Text('Tekrar Dene'),
               ),
             );
+          }
           final members = snapshot.data ?? const [];
           final admins = members.where((m) => m.isAdmin).toList();
           final regular = members.where((m) => !m.isAdmin).toList();

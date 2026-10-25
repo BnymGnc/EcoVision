@@ -7,8 +7,8 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ScanHistoryRepository extends JpaRepository<ScanHistory, Long> {
-    boolean existsByUserIdAndImageHashAndRewardDateAndPointsAwardedGreaterThan(
-        Long userId, String imageHash, java.time.LocalDate rewardDate, int points);
+    boolean existsByUserIdAndImageHashAndPointsAwardedGreaterThan(
+        Long userId, String imageHash, int points);
     List<ScanHistory> findByUserIdOrderByScannedAtDesc(Long userId);
 
     long countByUserIdAndScannedAtAfter(Long userId, Instant scannedAt);

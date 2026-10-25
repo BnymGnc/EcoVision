@@ -18,11 +18,13 @@ class ProfileScreen extends StatefulWidget {
     required this.apiService,
     this.notificationCount = 0,
     this.onNotifications,
+    this.refreshVersion = 0,
     super.key,
   });
   final ApiService apiService;
   final int notificationCount;
   final VoidCallback? onNotifications;
+  final int refreshVersion;
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
@@ -40,6 +42,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _load() => _future = _fetch();
+  @override
+  void didUpdateWidget(covariant ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.refreshVersion != oldWidget.refreshVersion) {
+      _refresh();
+    }
+  }
+
   Future<Map<String, dynamic>> _fetchStreak() async {
     try {
       return await widget.apiService.fetchLoginStreak();
@@ -75,7 +85,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _streakFuture = _fetchStreak();
       _impactFuture = _fetchImpact();
     });
-    await _future;
+    try {
+      await _future;
+    } catch (_) {
+      // FutureBuilder owns the retryable profile error state.
+    }
   }
 
   Future<void> _openSettings() async {
@@ -141,14 +155,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     body: FutureBuilder<_ProfileData>(
       future: _future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const EcoShimmerList(
             itemCount: 5,
             showHeader: true,
             padding: EdgeInsets.all(20),
           );
-        if (snapshot.hasError)
+        }
+        if (snapshot.hasError) {
           return _Error(message: snapshot.error.toString(), onRetry: _refresh);
+        }
         final data = snapshot.requireData;
         return RefreshIndicator(
           onRefresh: _refresh,
@@ -171,8 +187,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 future: _impactFuture,
                 builder: (context, snapshot) {
                   final impact = snapshot.data;
-                  if (impact == null || impact.isEmpty)
+                  if (impact == null || impact.isEmpty) {
                     return const SizedBox.shrink();
+                  }
                   final difference = impact['estimatedDifferenceKg'] as num?;
                   return Card(
                     child: ListTile(
@@ -400,7 +417,7 @@ class _Badges extends StatelessWidget {
   final List<EcoBadge> items;
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty)
+    if (items.isEmpty) {
       return const Card(
         child: ListTile(
           leading: Icon(Icons.lock_outline),
@@ -408,6 +425,7 @@ class _Badges extends StatelessWidget {
           subtitle: Text('Seri oluştur, plastik ve cam atıkları tara.'),
         ),
       );
+    }
     return SizedBox(
       height: 128,
       child: ListView.separated(

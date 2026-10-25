@@ -11,9 +11,11 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
+import org.springframework.lang.NonNull;
+import org.springframework.lang.Nullable;
 import static org.junit.jupiter.api.Assertions.*;
 
-@EnabledIfEnvironmentVariable(named = "ECOVISION_TEST_JDBC_URL", matches = "jdbc:postgresql://127\\.0\\.0\\.1:25439/ecovision_test")
+@EnabledIfEnvironmentVariable(named = "ECOVISION_TEST_JDBC_URL", matches = "jdbc:postgresql://127\\.0\\.0\\.1:(25439|5432)/ecovision_test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "spring.datasource.url=${ECOVISION_TEST_JDBC_URL}",
         "spring.datasource.username=ecovision_test", "spring.datasource.password=local-validation-only",
@@ -22,6 +24,11 @@ import static org.junit.jupiter.api.Assertions.*;
         "spring.jpa.hibernate.ddl-auto=update", "spring.datasource.hikari.maximum-pool-size=3"
 })
 class PostgresCatalogIntegrationTest {
+    @NonNull
+    private static <T> T required(@Nullable T value) {
+        if (value == null) throw new AssertionError("Required test fixture or response value was null");
+        return value;
+    }
     @Autowired MapPinRepository pins;
     @Autowired AppUserRepository users;
     @Autowired ObjectMapper mapper;
@@ -32,8 +39,35 @@ class PostgresCatalogIntegrationTest {
     @Autowired QuestRepository questRepository;
     @Autowired CarbonService carbon;
     @Autowired LoginActivityService logins;
+    @Autowired DoaLocationService locations;
     @Autowired org.springframework.boot.test.web.client.TestRestTemplate http;
     @Autowired org.springframework.context.ApplicationContext context;
+
+    @Test void cityInventoryAndPagedApiPreserveAllSourceIdsAndDistrictFilters() throws Exception {
+        var inventory = locations.inventory();
+        assertEquals(81, inventory.cities().size());
+        assertEquals(973, inventory.cities().stream().mapToInt(c -> c.districts().size()).sum());
+        assertEquals(inventory.total(), inventory.unresolved() + inventory.cities().stream()
+                .mapToInt(c -> c.counts().values().stream().mapToInt(v -> required(v).intValue()).sum()).sum());
+        Set<Long> seen = new java.util.HashSet<>();
+        int total = 0;
+        for (int offset = 0; ; offset += 100) {
+            var page = maps.search(39, 35, null, 100, offset, Set.of(), Set.of(), false, null, null, null, null, null);
+            total = page.total();
+            page.items().forEach(p -> assertTrue(seen.add(p.id())));
+            if (!page.hasMore()) break;
+        }
+        assertEquals(total, seen.size()); assertTrue(total >= 4037);
+        for (var city : inventory.cities()) {
+            var ids = locations.ids(city.name(), null);
+            var page = maps.search(39, 35, null, 100, 0, Set.of(), Set.of(), false, null, null, null, null, ids);
+            assertEquals(ids.size(), page.total(), city.name());
+        }
+        var urfa = inventory.cities().stream().filter(c -> c.name().equals("Şanlıurfa")).findFirst().orElseThrow();
+        assertEquals(27L, urfa.counts().get("DIM"));
+        assertEquals(31, locations.ids("Şanlıurfa", null).size());
+        assertFalse(locations.ids("Kayseri", "Talas").isEmpty());
+    }
 
     @Test
     @org.springframework.transaction.annotation.Transactional
@@ -73,7 +107,7 @@ class PostgresCatalogIntegrationTest {
                 "Integration", "Test", "integration_" + suffix + "@ecovision.invalid",
                 "LocalTest!" + suffix + "8aA", java.time.LocalDate.of(2000, 1, 1),
                 "Kayseri", "Talas", "integration_" + suffix, true, true));
-        var user = users.findById(response.user().id()).orElseThrow();
+        var user = users.findById(required(response.user().id())).orElseThrow();
         var quest = questRepository.findByActiveTrueOrderByIdAsc().stream()
                 .filter(q -> q.getCode().equals("habit_prevent_01")).findFirst().orElseThrow();
         var progress = quests.checkIn(user, quest.getId());
@@ -82,7 +116,7 @@ class PostgresCatalogIntegrationTest {
             var first = executor.submit(() -> quests.claim(user, progress.progressId()));
             var second = executor.submit(() -> quests.claim(user, progress.progressId()));
             assertEquals(quest.getRewardPoints(), first.get().pointsAwarded() + second.get().pointsAwarded());
-            assertEquals(quest.getRewardPoints(), users.findById(user.getId()).orElseThrow().getTotalPoints());
+            assertEquals(quest.getRewardPoints(), users.findById(required(user.getId())).orElseThrow().getTotalPoints());
         } finally { executor.shutdownNow(); }
         var action = new CarbonService.ActionRequest("one-real-action", "pet", 0.1, "LANDFILL", "RECYCLING");
         assertEquals(carbon.saveAction(user, action).id(), carbon.saveAction(user, action).id());
@@ -104,6 +138,11 @@ class PostgresCatalogIntegrationTest {
         assertEquals(401, http.getForEntity("/api/map-pins/nearby?lat=38&lng=35", String.class).getStatusCode().value());
         assertEquals(401, http.getForEntity("/api/users/login-history", String.class).getStatusCode().value());
         assertEquals(200, http.getForEntity("/api/health", String.class).getStatusCode().value());
+        assertEquals(200, http.getForEntity("/api/health/live", String.class).getStatusCode().value());
+        assertEquals(200, http.exchange("/api/health/live", org.springframework.http.HttpMethod.HEAD,
+                org.springframework.http.HttpEntity.EMPTY, String.class).getStatusCode().value());
+        assertEquals(200, http.getForEntity("/actuator/health/readiness", String.class).getStatusCode().value());
+        assertEquals(200, http.getForEntity("/actuator/health/liveness", String.class).getStatusCode().value());
     }
 
     private com.ecovision.backend.dto.AuthResponse securityAccount() {
@@ -112,7 +151,8 @@ class PostgresCatalogIntegrationTest {
             "Security", "Test", suffix+"@ecovision.invalid", "Local!8aA"+suffix,
             java.time.LocalDate.of(2000,1,1), "Kayseri","Talas","sec_"+suffix,true,true));
     }
-    private org.springframework.http.HttpHeaders bearer(String token) {
+    @NonNull
+    private org.springframework.http.HttpHeaders bearer(@Nullable String token) {
         var headers = new org.springframework.http.HttpHeaders();
         if (token != null) headers.setBearerAuth(token);
         return headers;
@@ -126,7 +166,7 @@ class PostgresCatalogIntegrationTest {
         var owner = securityAccount(); var friend = securityAccount(); var stranger = securityAccount();
         var png = new java.io.ByteArrayOutputStream();
         javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(2,2,1),"png",png);
-        var part = new org.springframework.core.io.ByteArrayResource(png.toByteArray()) {
+        var part = new org.springframework.core.io.ByteArrayResource(required(png.toByteArray())) {
             @Override public String getFilename() { return "avatar.png"; }
         };
         var body = new org.springframework.util.LinkedMultiValueMap<String,Object>();
@@ -136,24 +176,24 @@ class PostgresCatalogIntegrationTest {
         var uploaded = http.exchange("/api/auth/me/profile-picture", org.springframework.http.HttpMethod.POST,
             new org.springframework.http.HttpEntity<>(body, headers), java.util.Map.class);
         assertEquals(200, uploaded.getStatusCode().value());
-        String path = uploaded.getBody().get("profilePictureUrl").toString();
-        var record = users.findById(owner.user().id()).orElseThrow();
+        String path = required(required(uploaded.getBody()).get("profilePictureUrl")).toString();
+        var record = users.findById(required(owner.user().id())).orElseThrow();
         record.setProfileVisibility(com.ecovision.backend.model.ProfileVisibility.FRIENDS_ONLY);
         users.save(record);
         assertEquals(401, media(path,null).getStatusCode().value());
         assertEquals(403, media(path,stranger.accessToken()).getStatusCode().value());
         assertEquals(200, media(path,owner.accessToken()).getStatusCode().value());
-        assertTrue(media(path,owner.accessToken()).getHeaders().getCacheControl().contains("no-store"));
+        assertTrue(required(media(path,owner.accessToken()).getHeaders().getCacheControl()).contains("no-store"));
         var friendship = new com.ecovision.backend.model.Friendship();
-        friendship.setRequester(users.findById(owner.user().id()).orElseThrow());
-        friendship.setAddressee(users.findById(friend.user().id()).orElseThrow());
+        friendship.setRequester(users.findById(required(owner.user().id())).orElseThrow());
+        friendship.setAddressee(users.findById(required(friend.user().id())).orElseThrow());
         friendship.setStatus(com.ecovision.backend.model.FriendshipStatus.ACCEPTED);
         var friends = context.getBean(FriendshipRepository.class);
         friendship = friends.save(friendship);
         assertEquals(200, media(path,friend.accessToken()).getStatusCode().value());
-        friends.deleteById(friendship.getId());
+        friends.deleteById(required(friendship.getId()));
         assertEquals(403, media(path,friend.accessToken()).getStatusCode().value());
-        record = users.findById(owner.user().id()).orElseThrow();
+        record = users.findById(required(owner.user().id())).orElseThrow();
         record.setProfileVisibility(com.ecovision.backend.model.ProfileVisibility.PUBLIC);
         users.save(record);
         assertEquals(200, media(path,null).getStatusCode().value());
@@ -161,7 +201,7 @@ class PostgresCatalogIntegrationTest {
         jdbc.update("update media_assets set owner_user_id=null where id=?",
             java.util.UUID.fromString(path.substring(path.lastIndexOf('/')+1)));
         assertEquals(200, media(path,null).getStatusCode().value());
-        record = users.findById(owner.user().id()).orElseThrow();
+        record = users.findById(required(owner.user().id())).orElseThrow();
         record.setDateOfBirth(java.time.LocalDate.now().minusYears(16)); users.save(record);
         assertEquals(403, media(path,owner.accessToken()).getStatusCode().value());
     }
@@ -169,12 +209,12 @@ class PostgresCatalogIntegrationTest {
     @Test void privateGroupMediaRevokesOnKickAndLogoutAndUnknownMediaFailsClosed() {
         var founder = securityAccount(); var member = securityAccount(); var stranger = securityAccount();
         var group = new com.ecovision.backend.model.CommunityGroup();
-        group.setCreator(users.findById(founder.user().id()).orElseThrow());
+        group.setCreator(users.findById(required(founder.user().id())).orElseThrow());
         group.setName("Private test"); group.setDescription("Local test only");
         group.setCity("Kayseri"); group.setDistrict("Talas"); group.setPrivateGroup(true);
         group = context.getBean(CommunityGroupRepository.class).save(group);
         var membership = new com.ecovision.backend.model.GroupMember();
-        membership.setGroup(group); membership.setUser(users.findById(member.user().id()).orElseThrow());
+        membership.setGroup(group); membership.setUser(users.findById(required(member.user().id())).orElseThrow());
         var memberships = context.getBean(GroupMemberRepository.class);
         membership = memberships.save(membership);
         var asset = new com.ecovision.backend.model.MediaAsset();
@@ -185,7 +225,7 @@ class PostgresCatalogIntegrationTest {
         asset = context.getBean(MediaAssetRepository.class).save(asset);
         String path = "/api/media/"+asset.getId();
         var message = new com.ecovision.backend.model.ChatMessage();
-        message.setGroup(group); message.setSender(users.findById(founder.user().id()).orElseThrow());
+        message.setGroup(group); message.setSender(users.findById(required(founder.user().id())).orElseThrow());
         message.setMessage(""); message.setFileUrl(path);
         context.getBean(ChatMessageRepository.class).save(message);
         assertEquals(401, media(path,null).getStatusCode().value());
@@ -204,7 +244,7 @@ class PostgresCatalogIntegrationTest {
         assertEquals(200,media(coverPath,member.accessToken()).getStatusCode().value());
         assertEquals(403,media(coverPath,stranger.accessToken()).getStatusCode().value());
         var legacy = new com.ecovision.backend.model.Event();
-        legacy.setCreator(users.findById(founder.user().id()).orElseThrow());
+        legacy.setCreator(users.findById(required(founder.user().id())).orElseThrow());
         legacy.setTitle("Legacy group"); legacy.setDescription("Local security fixture");
         legacy.setLocation("Kayseri"); legacy.setEventDate(java.time.Instant.now());
         legacy=context.getBean(EventRepository.class).save(legacy);
@@ -212,7 +252,7 @@ class PostgresCatalogIntegrationTest {
         context.getBean(CommunityGroupRepository.class).save(group);
         var oldMembership = new com.ecovision.backend.model.EventMember();
         oldMembership.setEvent(legacy);
-        oldMembership.setUser(users.findById(member.user().id()).orElseThrow());
+        oldMembership.setUser(users.findById(required(member.user().id())).orElseThrow());
         oldMembership.setRole(com.ecovision.backend.model.GroupRole.MEMBER);
         context.getBean(EventMemberRepository.class).save(oldMembership);
         var legacyAsset = new com.ecovision.backend.model.MediaAsset();
@@ -222,11 +262,11 @@ class PostgresCatalogIntegrationTest {
         legacyAsset=context.getBean(MediaAssetRepository.class).save(legacyAsset);
         String legacyPath="/api/media/"+legacyAsset.getId();
         var oldMessage=new com.ecovision.backend.model.ChatMessage();
-        oldMessage.setEvent(legacy); oldMessage.setSender(users.findById(founder.user().id()).orElseThrow());
+        oldMessage.setEvent(legacy); oldMessage.setSender(users.findById(required(founder.user().id())).orElseThrow());
         oldMessage.setMessage(""); oldMessage.setFileUrl(legacyPath);
         context.getBean(ChatMessageRepository.class).save(oldMessage);
         assertEquals(200,media(legacyPath,member.accessToken()).getStatusCode().value());
-        memberships.deleteById(membership.getId());
+        memberships.deleteById(required(membership.getId()));
         assertEquals(403, media(path,member.accessToken()).getStatusCode().value());
         assertEquals(403, media(legacyPath,member.accessToken()).getStatusCode().value());
         assertEquals(200, media(path,founder.accessToken()).getStatusCode().value());
@@ -260,24 +300,24 @@ class PostgresCatalogIntegrationTest {
                 var response = http.exchange(path,org.springframework.http.HttpMethod.POST,
                     new org.springframework.http.HttpEntity<>(payload,bearer(user.accessToken())),java.util.Map.class);
                 assertEquals(200,response.getStatusCode().value());
-                return ((Number)response.getBody().get("pointsAwarded")).intValue();
+                return ((Number)required(required(response.getBody()).get("pointsAwarded"))).intValue();
             };
             var a=executor.submit(claim); var b=executor.submit(claim);
             assertEquals(30,a.get()+b.get());
         } finally { executor.shutdownNow(); }
         var repeated=http.exchange(path,org.springframework.http.HttpMethod.POST,
             new org.springframework.http.HttpEntity<>(java.util.Map.of("quizVersion","2026-10-24-v1","answers",java.util.List.of(1,0,2)),bearer(user.accessToken())),java.util.Map.class);
-        assertEquals(0,((Number)repeated.getBody().get("pointsAwarded")).intValue());
-        assertEquals(0,users.findById(other.user().id()).orElseThrow().getTotalPoints());
+        assertEquals(0,((Number)required(required(repeated.getBody()).get("pointsAwarded"))).intValue());
+        assertEquals(0,users.findById(required(other.user().id())).orElseThrow().getTotalPoints());
         var publicQuiz=http.exchange("/api/education/quiz/modul-1",org.springframework.http.HttpMethod.GET,
             new org.springframework.http.HttpEntity<>(bearer(user.accessToken())),String.class);
         assertEquals(200,publicQuiz.getStatusCode().value());
-        assertFalse(publicQuiz.getBody().contains("correctOptionIndex"));
+        assertFalse(required(publicQuiz.getBody()).contains("correctOptionIndex"));
     }
 
     @Test void imageRewardsAreSerializedPerUserAndLegacyLabelsCannotMintPoints() throws Exception {
         var identity=securityAccount(); var other=securityAccount();
-        var user=users.findById(identity.user().id()).orElseThrow();
+        var user=users.findById(required(identity.user().id())).orElseThrow();
         var scans=context.getBean(ScanService.class);
         String hash="1".repeat(64);
         var executor=java.util.concurrent.Executors.newFixedThreadPool(2);
@@ -286,15 +326,17 @@ class PostgresCatalogIntegrationTest {
             var a=executor.submit(call); var b=executor.submit(call);
             assertEquals(10,a.get()+b.get());
         } finally {executor.shutdownNow();}
-        assertEquals(10,users.findById(user.getId()).orElseThrow().getTotalPoints());
+        assertEquals(10,users.findById(required(user.getId())).orElseThrow().getTotalPoints());
         assertEquals("DUPLICATE_IMAGE",scans.saveVerifiedAnalysis(user,"plastic",true,hash).rewardStatus());
+        jdbc.update("update scan_history set reward_date=reward_date - 1 where user_id=? and image_hash=? and points_awarded>0", user.getId(), hash);
+        assertEquals(0, scans.saveVerifiedAnalysis(user,"plastic",true,hash).pointsAwarded(), "The next day must not mint another reward for the same bytes");
         assertEquals(1,context.getBean(ScanHistoryRepository.class)
-            .countByUserIdAndMaterialTypeIgnoreCase(user.getId(),"Plastik Atık"));
-        assertEquals(10,scans.saveVerifiedAnalysis(users.findById(other.user().id()).orElseThrow(),"plastic",true,hash).pointsAwarded());
+            .countByUserIdAndMaterialTypeIgnoreCase(required(user.getId()),"Plastik Atık"));
+        assertEquals(10,scans.saveVerifiedAnalysis(users.findById(required(other.user().id())).orElseThrow(),"plastic",true,hash).pointsAwarded());
         var legacy=http.exchange("/api/scans",org.springframework.http.HttpMethod.POST,
             new org.springframework.http.HttpEntity<>(java.util.Map.of("materialType","plastic","recyclable",true),bearer(identity.accessToken())),java.util.Map.class);
         assertEquals(200,legacy.getStatusCode().value());
-        assertEquals(10,users.findById(user.getId()).orElseThrow().getTotalPoints());
+        assertEquals(10,users.findById(required(user.getId())).orElseThrow().getTotalPoints());
         try(var in=new ClassPathResource("db/migration/V6__media_scope_scan_reward_and_token_revocation.sql").getInputStream()) {
             String sql=new String(in.readAllBytes(),StandardCharsets.UTF_8); jdbc.execute(sql);jdbc.execute(sql);
         }

@@ -27,6 +27,7 @@ class _MainTabNavigatorState extends State<MainTabNavigator>
   int _unreadNotificationCount = 0;
   String? _requestedMapMaterial;
   int _mapRequestVersion = 0;
+  int _profileRefreshVersion = 0;
   Timer? _unreadTimer;
   bool _foreground = true;
   bool _refreshingUnread = false;
@@ -114,6 +115,14 @@ class _MainTabNavigatorState extends State<MainTabNavigator>
   }) {
     EcoHaptics.selection();
     setState(() {
+      final profileIndex = (widget.apiService.currentUser?.adult ?? false)
+          ? 3
+          : 2;
+      if (index == profileIndex &&
+          index != _selectedIndex &&
+          _visited.contains(index)) {
+        _profileRefreshVersion++;
+      }
       _selectedIndex = index;
       _visited.add(index);
       if (index == 1 && (mapMaterial != null || resetMapMaterial)) {
@@ -123,7 +132,7 @@ class _MainTabNavigatorState extends State<MainTabNavigator>
     });
     if (index == 2 && (widget.apiService.currentUser?.adult ?? false)) {
       setState(() => _unreadCommunityCount = 0);
-      unawaited(widget.apiService.markCommunityRead());
+      widget.apiService.markCommunityRead().ignore();
     }
   }
 
@@ -163,6 +172,7 @@ class _MainTabNavigatorState extends State<MainTabNavigator>
         ),
       ProfileScreen(
         apiService: widget.apiService,
+        refreshVersion: _profileRefreshVersion,
         notificationCount: _unreadNotificationCount,
         onNotifications: _openNotifications,
       ),

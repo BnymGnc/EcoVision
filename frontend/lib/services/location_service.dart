@@ -40,12 +40,16 @@ class LocationService {
 
   Future<ResolvedLocation> getCurrentEventLocation() async {
     final point = await getCurrentOrFallbackLocation();
+    if (lastLookupUsedFallback) {
+      throw const LocationLookupException(
+        'Konumun alınamadı. İl, ilçe ve adresi kendin seçebilirsin.',
+      );
+    }
     try {
       final geocoding = Geocoding();
-      final placemarks = await geocoding.placemarkFromCoordinates(
-        point.latitude,
-        point.longitude,
-      );
+      final placemarks = await geocoding
+          .placemarkFromCoordinates(point.latitude, point.longitude)
+          .timeout(const Duration(seconds: 5));
       final place = placemarks.isEmpty ? null : placemarks.first;
       if (place != null) {
         final parts = [
@@ -73,6 +77,13 @@ class LocationService {
           '${point.longitude.toStringAsFixed(6)}',
     );
   }
+}
+
+class LocationLookupException implements Exception {
+  const LocationLookupException(this.message);
+  final String message;
+  @override
+  String toString() => message;
 }
 
 class ResolvedLocation {

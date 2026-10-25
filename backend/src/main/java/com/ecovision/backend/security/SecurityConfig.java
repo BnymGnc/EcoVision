@@ -50,7 +50,11 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/health", "/api/health/live",
+                                "/actuator/health/liveness", "/actuator/health/readiness").permitAll()
+                        .requestMatchers(HttpMethod.HEAD, "/api/health", "/api/health/live",
+                                "/actuator/health", "/actuator/health/liveness",
+                                "/actuator/health/readiness").permitAll()
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/actuator/health",
@@ -118,7 +122,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(allowedOriginPatterns);
         configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(List.of("GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

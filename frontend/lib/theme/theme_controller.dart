@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum AppThemeKind { forest, ocean, sunset, darkEco }
@@ -35,6 +34,8 @@ class ThemeController extends ChangeNotifier {
   AppThemeKind _selected = AppThemeKind.forest;
   int? _activeUserId;
   Future<void> Function(String preference)? _remoteSaver;
+  int _accountRevision = 0;
+  Future<void> _saving = Future<void>.value();
 
   AppThemeKind get selected => _selected;
   ThemeData get themeData => AppThemes.forKind(_selected);
@@ -51,9 +52,11 @@ class ThemeController extends ChangeNotifier {
     String? remotePreference,
     Future<void> Function(String preference)? remoteSaver,
   }) async {
+    final revision = ++_accountRevision;
     _activeUserId = userId;
     _remoteSaver = remoteSaver;
     final preferences = await SharedPreferences.getInstance();
+    if (revision != _accountRevision) return;
     final storageKey = '$_storagePrefix.$userId';
     final syncedKey = '$_syncedPrefix.$userId';
     final localPreference = preferences.getString(storageKey);
@@ -72,7 +75,9 @@ class ThemeController extends ChangeNotifier {
         ? remoteTheme
         : localTheme ?? remoteTheme ?? AppThemeKind.forest;
     await preferences.setString(storageKey, _selected.name);
+    if (revision != _accountRevision) return;
     await preferences.setString(_bootstrapKey, _selected.name);
+    if (revision != _accountRevision) return;
     notifyListeners();
 
     if (remoteChangedElsewhere) {
@@ -93,6 +98,7 @@ class ThemeController extends ChangeNotifier {
   }
 
   void unbindUser() {
+    _accountRevision++;
     _activeUserId = null;
     _remoteSaver = null;
   }
@@ -105,15 +111,25 @@ class ThemeController extends ChangeNotifier {
     notifyListeners();
     final userId = _activeUserId;
     if (userId == null) return;
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setString('$_storagePrefix.$userId', theme.name);
-    await preferences.setString(_bootstrapKey, theme.name);
-    try {
-      await _remoteSaver?.call(theme.name);
-      await preferences.setString('$_syncedPrefix.$userId', theme.name);
-    } catch (_) {
-      // Never roll the visible theme back because a network sync failed.
-    }
+    final revision = _accountRevision;
+    final saver = _remoteSaver;
+    // Preserve selection order on slow networks; never send account A's choice to B.
+    final operation = _saving.then((_) async {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString('$_storagePrefix.$userId', theme.name);
+      if (revision == _accountRevision) {
+        await preferences.setString(_bootstrapKey, theme.name);
+      }
+      try {
+        if (revision != _accountRevision) return;
+        await saver?.call(theme.name);
+        await preferences.setString('$_syncedPrefix.$userId', theme.name);
+      } catch (_) {
+        // Unsynced local choices are retried at the next authenticated start.
+      }
+    });
+    _saving = operation.catchError((Object _) {});
+    await operation;
   }
 
   AppThemeKind? _parse(String? value) {
@@ -214,43 +230,53 @@ class AppThemes {
           : const Color(0xFFE8EEE7),
     );
 
-    final textTheme =
-        GoogleFonts.nunitoTextTheme(ThemeData(brightness: brightness).textTheme)
-            .apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface)
-            .copyWith(
-              displaySmall: GoogleFonts.nunito(
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0,
-                color: scheme.onSurface,
-              ),
-              headlineLarge: GoogleFonts.nunito(
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0,
-                color: scheme.onSurface,
-              ),
-              headlineMedium: GoogleFonts.nunito(
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0,
-                color: scheme.onSurface,
-              ),
-              headlineSmall: GoogleFonts.nunito(
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0,
-                color: scheme.onSurface,
-              ),
-              titleLarge: GoogleFonts.nunito(
-                fontWeight: FontWeight.w900,
-                color: scheme.onSurface,
-              ),
-              bodyLarge: GoogleFonts.nunito(
-                height: 1.5,
-                color: scheme.onSurface,
-              ),
-              bodyMedium: GoogleFonts.nunito(
-                height: 1.5,
-                color: scheme.onSurfaceVariant,
-              ),
-            );
+    final textTheme = ThemeData(brightness: brightness).textTheme
+        .apply(
+          fontFamily: 'Nunito',
+          bodyColor: scheme.onSurface,
+          displayColor: scheme.onSurface,
+        )
+        .copyWith(
+          displaySmall: TextStyle(
+            fontFamily: 'Nunito',
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0,
+            color: scheme.onSurface,
+          ),
+          headlineLarge: TextStyle(
+            fontFamily: 'Nunito',
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0,
+            color: scheme.onSurface,
+          ),
+          headlineMedium: TextStyle(
+            fontFamily: 'Nunito',
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0,
+            color: scheme.onSurface,
+          ),
+          headlineSmall: TextStyle(
+            fontFamily: 'Nunito',
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0,
+            color: scheme.onSurface,
+          ),
+          titleLarge: TextStyle(
+            fontFamily: 'Nunito',
+            fontWeight: FontWeight.w900,
+            color: scheme.onSurface,
+          ),
+          bodyLarge: TextStyle(
+            fontFamily: 'Nunito',
+            height: 1.5,
+            color: scheme.onSurface,
+          ),
+          bodyMedium: TextStyle(
+            fontFamily: 'Nunito',
+            height: 1.5,
+            color: scheme.onSurfaceVariant,
+          ),
+        );
 
     return ThemeData(
       useMaterial3: true,

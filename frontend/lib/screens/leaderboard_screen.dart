@@ -79,8 +79,14 @@ class _LeaderboardTabState extends State<_LeaderboardTab>
 
   Future<void> _refresh() async {
     final next = widget.loader();
-    setState(() => _future = next);
-    await next;
+    setState(() {
+      _future = next;
+    });
+    try {
+      await next;
+    } catch (_) {
+      /* The error view retains retry. */
+    }
   }
 
   Future<void> _openProfile(int userId) async {
@@ -114,7 +120,14 @@ class _LeaderboardTabState extends State<_LeaderboardTab>
         }
         final entries = snapshot.data ?? const [];
         if (entries.isEmpty) {
-          return _EmptyLeaderboard(message: widget.emptyMessage);
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 70, 20, 32),
+              children: [_EmptyLeaderboard(message: widget.emptyMessage)],
+            ),
+          );
         }
         final current = entries.cast<LeaderboardEntry?>().firstWhere(
           (entry) => entry?.currentUser ?? false,
@@ -314,14 +327,6 @@ class _RankTile extends StatelessWidget {
       ),
     );
   }
-
-  String _initials(String name) => name
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((part) => part.isNotEmpty)
-      .take(2)
-      .map((part) => part[0])
-      .join();
 }
 
 class _EmptyLeaderboard extends StatelessWidget {

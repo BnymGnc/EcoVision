@@ -1,0 +1,104 @@
+{
+  "environment": "local Java17 production image, 512MiB cgroup, isolated PostgreSQL",
+  "startup": {
+    "memory.current": 487845888,
+    "memory.peak": 489664512,
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0"
+  },
+  "firstPhoto": {
+    "status": 200,
+    "provider": "ONNX_CPU",
+    "elapsedMs": 4819
+  },
+  "afterFirstPhoto": {
+    "memory.current": 509583360,
+    "memory.peak": 511201280,
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0"
+  },
+  "sequential": [
+    {
+      "status": 200,
+      "provider": "ONNX_CPU",
+      "elapsedMs": 1799
+    },
+    {
+      "status": 200,
+      "provider": "ONNX_CPU",
+      "elapsedMs": 618
+    },
+    {
+      "status": 200,
+      "provider": "ONNX_CPU",
+      "elapsedMs": 1042
+    },
+    {
+      "status": 200,
+      "provider": "ONNX_CPU",
+      "elapsedMs": 421
+    },
+    {
+      "status": 200,
+      "provider": "ONNX_CPU",
+      "elapsedMs": 578
+    },
+    {
+      "status": 200,
+      "provider": "ONNX_CPU",
+      "elapsedMs": 404
+    },
+    {
+      "status": 200,
+      "provider": "ONNX_CPU",
+      "elapsedMs": 1446
+    },
+    {
+      "status": 200,
+      "provider": "ONNX_CPU",
+      "elapsedMs": 1951
+    },
+    {
+      "status": 200,
+      "provider": "ONNX_CPU",
+      "elapsedMs": 1863
+    },
+    {
+      "status": 200,
+      "provider": "ONNX_CPU",
+      "elapsedMs": 2567
+    },
+    {
+      "status": 200,
+      "provider": "ONNX_CPU",
+      "elapsedMs": 2352
+    },
+    {
+      "status": 200,
+      "provider": "ONNX_CPU",
+      "elapsedMs": 1362
+    }
+  ],
+  "afterSequential": {
+    "memory.current": 535842816,
+    "memory.peak": 536891392,
+    "memory.events": "low 0\nhigh 0\nmax 49\noom 0\noom_kill 0\noom_group_kill 0"
+  },
+  "concurrent3": [
+    {
+      "status": 503
+    },
+    {
+      "status": 503
+    },
+    {
+      "status": 200,
+      "provider": "ONNX_CPU",
+      "elapsedMs": 3755
+    }
+  ],
+  "final": {
+    "memory.current": 535252992,
+    "memory.peak": 536989696,
+    "memory.events": "low 0\nhigh 0\nmax 75\noom 0\noom_kill 0\noom_group_kill 0"
+  },
+  "caveat": "Short local run; 503 is bounded inference backpressure, not a successful analysis. Not Render evidence."
+}

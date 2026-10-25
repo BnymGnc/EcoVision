@@ -30,27 +30,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _missions = true,
       _community = true,
       _uploading = false,
-      _privateProfile = false;
+      _privateProfile = false,
+      _savingVisibility = false;
   @override
   void initState() {
     super.initState();
+    _privateProfile =
+        widget.apiService.currentUser?.profileVisibility == 'FRIENDS_ONLY';
     _load();
   }
 
   Future<void> _load() async {
     final p = await SharedPreferences.getInstance();
-    if (mounted)
+    if (mounted) {
       setState(() {
         _missions = p.getBool(_missionKey) ?? true;
         _community = p.getBool(_communityKey) ?? true;
-        _privateProfile =
-            widget.apiService.currentUser?.profileVisibility == 'FRIENDS_ONLY';
       });
+    }
   }
 
   Future<void> _set(String key, bool value) async {
     final p = await SharedPreferences.getInstance();
     await p.setBool(key, value);
+  }
+
+  Future<void> _setProfileVisibility(bool value) async {
+    if (!mounted || _savingVisibility) return;
+    final previous = _privateProfile;
+    setState(() {
+      _savingVisibility = true;
+      _privateProfile = value;
+    });
+    try {
+      await EcoHaptics.selection();
+      if (!mounted) return;
+      final saved = await widget.apiService.updateProfileVisibility(
+        value ? 'FRIENDS_ONLY' : 'PUBLIC',
+      );
+      if (!mounted) return;
+      setState(() {
+        _privateProfile = saved.profileVisibility == 'FRIENDS_ONLY';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _privateProfile = previous);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) setState(() => _savingVisibility = false);
+    }
   }
 
   Future<void> _logout() async {
@@ -82,15 +112,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         bytes: await file.readAsBytes(),
         fileName: file.name,
       );
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profil fotoğrafı güncellendi.')),
         );
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -157,21 +189,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'Puan ve geçmişi yalnızca arkadaşların görsün',
               ),
               value: _privateProfile,
-              onChanged: (value) async {
-                await EcoHaptics.selection();
-                setState(() => _privateProfile = value);
-                try {
-                  await widget.apiService.updateProfileVisibility(
-                    value ? 'FRIENDS_ONLY' : 'PUBLIC',
-                  );
-                } catch (error) {
-                  if (!mounted) return;
-                  setState(() => _privateProfile = !value);
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(error.toString())));
-                }
-              },
+              onChanged: _savingVisibility ? null : _setProfileVisibility,
             ),
           ],
         ),

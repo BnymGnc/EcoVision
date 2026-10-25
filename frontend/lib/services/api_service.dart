@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
@@ -20,6 +19,7 @@ import '../models/event_member.dart';
 import '../models/group_waste_report.dart';
 import '../models/group_join_request.dart';
 import '../models/map_pin.dart';
+import '../models/doa_catalog.dart';
 import '../models/scan_result.dart';
 import '../models/user_profile.dart';
 import '../models/social_models.dart';
@@ -41,6 +41,7 @@ class ApiService {
 
   final http.Client _client;
   final FlutterSecureStorage _secureStorage;
+  final Duration _requestTimeout;
   final ValueNotifier<int> _pointsNotifier = ValueNotifier<int>(0);
 
   String? _accessToken;
@@ -51,10 +52,15 @@ class ApiService {
   Future<bool>? _refreshInFlight;
   UserProfile? _currentUser;
   final Map<int, SocialUser> _confirmedFriends = <int, SocialUser>{};
+  DateTime? _doaSearchUnavailableUntil;
 
-  ApiService({http.Client? client, FlutterSecureStorage? secureStorage})
-    : _client = client ?? http.Client(),
-      _secureStorage = secureStorage ?? const FlutterSecureStorage();
+  ApiService({
+    http.Client? client,
+    FlutterSecureStorage? secureStorage,
+    Duration requestTimeout = const Duration(seconds: 30),
+  }) : _client = client ?? http.Client(),
+       _requestTimeout = requestTimeout,
+       _secureStorage = secureStorage ?? const FlutterSecureStorage();
 
   ValueListenable<int> get pointsListenable => _pointsNotifier;
   UserProfile? get currentUser => _currentUser;
@@ -80,8 +86,12 @@ class ApiService {
     if (_accessToken != null || _refreshToken != null) {
       try {
         await fetchCurrentUser();
-      } catch (_) {
-        await logout();
+      } on ApiException catch (error) {
+        if (error.statusCode == 401 || error.statusCode == 403) {
+          await logout();
+        } else {
+          rethrow;
+        }
       }
     }
   }
@@ -295,7 +305,7 @@ class ApiService {
         ),
       );
       return request;
-    }, timeout: const Duration(seconds: 40));
+    }, timeout: const Duration(seconds: 80));
     final json = _decodeResponse(response);
     final result = ScanResult.fromGeminiJson(json);
     final updatedPoints = json['updated_user_points'];
@@ -757,16 +767,14 @@ class ApiService {
           contentType: MediaType('application', 'json'),
         ),
       );
-      if (coverBytes != null) {
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'coverImage',
-            coverBytes,
-            filename: coverFileName ?? 'event-cover.jpg',
-            contentType: _imageMediaType(coverBytes),
-          ),
-        );
-      }
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'coverImage',
+          coverBytes,
+          filename: coverFileName ?? 'event-cover.jpg',
+          contentType: _imageMediaType(coverBytes),
+        ),
+      );
       return request;
     });
     return GroupEvent.fromJson(_decodeResponse(response));
@@ -986,6 +994,111 @@ class ApiService {
 
   Future<Map<String, dynamic>> fetchMapPinDetail(int id) =>
       _getJson('/api/map-pins/$id');
+
+  Future<List<DoaArea>> fetchDoaLocations() async {
+    final response = await _getJson('/api/map-pins/locations');
+    return (response['cities'] as List)
+        .map((item) => DoaArea.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<DoaSearchPage> searchDoaPoints({
+    required double latitude,
+    required double longitude,
+    double? radiusKm,
+    String? city,
+    String? district,
+    int offset = 0,
+    Set<String> materials = const {},
+    Set<String> pointTypes = const {'DIM'},
+    bool openOnly = false,
+    double? south,
+    double? north,
+    double? west,
+    double? east,
+    Future<void>? abortTrigger,
+  }) async {
+    if (!latitude.isFinite ||
+        latitude.abs() > 90 ||
+        !longitude.isFinite ||
+        longitude.abs() > 180 ||
+        (radiusKm != null &&
+            (!radiusKm.isFinite || radiusKm < 1 || radiusKm > 2000)) ||
+        offset < 0) {
+      throw const ApiException('Harita konumu veya yarıçapı geçersiz.');
+    }
+    Future<DoaSearchPage> legacyPage() async {
+      final legacyLimit = (offset + 100).clamp(100, 1000);
+      final items = await fetchNearestMapPins(
+        latitude: latitude,
+        longitude: longitude,
+        radiusKm: radiusKm,
+        limit: legacyLimit,
+        materials: materials,
+        pointTypes: pointTypes,
+        openOnly: openOnly,
+        south: south,
+        north: north,
+        west: west,
+        east: east,
+        abortTrigger: abortTrigger,
+      );
+      return DoaSearchPage(
+        items.skip(offset).take(100).toList(),
+        items.length,
+        items.length == legacyLimit && legacyLimit < 1000,
+        totalIsExact: items.length < legacyLimit,
+      );
+    }
+
+    if (city == null &&
+        district == null &&
+        (_doaSearchUnavailableUntil?.isAfter(DateTime.now()) ?? false)) {
+      return legacyPage();
+    }
+    final uri = _uri('/api/map-pins/search').replace(
+      queryParameters: {
+        'lat': '$latitude',
+        'lng': '$longitude',
+        'limit': '100',
+        'offset': '$offset',
+        if (radiusKm != null) 'radiusKm': '$radiusKm',
+        if (city != null) 'city': city,
+        if (district != null) 'district': district,
+        if (materials.isNotEmpty) 'materials': materials.join(','),
+        'pointTypes': pointTypes.join(','),
+        'openOnly': '$openOnly',
+        if (south != null) 'south': '$south',
+        if (north != null) 'north': '$north',
+        if (west != null) 'west': '$west',
+        if (east != null) 'east': '$east',
+      },
+    );
+    try {
+      final response = await _authorizedRequest((headers) async {
+        final request = http.AbortableRequest(
+          'GET',
+          uri,
+          abortTrigger: abortTrigger,
+        )..headers.addAll(headers);
+        return http.Response.fromStream(await _client.send(request));
+      }).timeout(const Duration(seconds: 30));
+      return DoaSearchPage.fromJson(_decodeResponse(response));
+    } on ApiException catch (error) {
+      // Keep scanning -> map usable during rolling server upgrades.
+      // Older deployments match "search" to /{id}, returning a conversion 400
+      // rather than 404. Never reinterpret authentication or business errors.
+      final missingRoute =
+          error.statusCode == 404 ||
+          (error.statusCode == 400 &&
+              error.message == 'İstek parametresi geçersiz');
+      if (!missingRoute || city != null || district != null) rethrow;
+      _doaSearchUnavailableUntil = DateTime.now().add(
+        const Duration(minutes: 5),
+      );
+      return legacyPage();
+    }
+  }
 
   Future<Map<String, dynamic>> checkPackagingEligibility(
     Map<String, dynamic> answers,
@@ -1227,8 +1340,9 @@ class ApiService {
     required Uint8List bytes,
     required String fileName,
   }) async {
-    if (bytes.length > 2 * 1024 * 1024)
+    if (bytes.length > 2 * 1024 * 1024) {
       throw const ApiException('Fotoğraf 2 MB\'den küçük olmalıdır.');
+    }
     return sendChatAttachment(
       eventId: eventId,
       bytes: bytes,
@@ -1459,10 +1573,12 @@ class ApiService {
               body: jsonEncode(body),
             ),
           )
-        : await _client.post(
-            _uri(path),
-            headers: const {'Content-Type': 'application/json'},
-            body: jsonEncode(body),
+        : await _bounded(
+            _client.post(
+              _uri(path),
+              headers: const {'Content-Type': 'application/json'},
+              body: jsonEncode(body),
+            ),
           );
     return _decodeResponse(response);
   }
@@ -1519,8 +1635,10 @@ class ApiService {
     Map<String, dynamic> json, {
     int? expectedGeneration,
   }) async {
-    if (expectedGeneration != null && expectedGeneration != _sessionGeneration)
+    if (expectedGeneration != null &&
+        expectedGeneration != _sessionGeneration) {
       return;
+    }
     final generation = expectedGeneration ?? ++_sessionGeneration;
     final accessToken = json['accessToken']?.toString();
     final refreshToken = json['refreshToken']?.toString();
@@ -1599,11 +1717,11 @@ class ApiService {
       throw ApiException('Bu işlem için giriş yapmalısınız.');
     }
     _requireSession(generation);
-    var response = await request(_authHeaders());
+    var response = await _bounded(request(_authHeaders()));
     _requireSession(generation);
     if (response.statusCode == 401 && await _refreshSession()) {
       _requireSession(generation);
-      response = await request(_authHeaders());
+      response = await _bounded(request(_authHeaders()));
     }
     _requireSession(generation);
     return response;
@@ -1612,6 +1730,21 @@ class ApiService {
   void _requireSession(int generation) {
     if (generation != _sessionGeneration || _accessToken == null) {
       throw const ApiException('Oturum değişti. Lütfen tekrar giriş yapın.');
+    }
+  }
+
+  Future<T> _bounded<T>(Future<T> request) async {
+    try {
+      return await request.timeout(
+        _requestTimeout,
+        onTimeout: () => throw const ApiException(
+          'Sunucu yanıt vermedi. Bağlantını kontrol edip tekrar dene.',
+        ),
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        'Sunucuya bağlanılamadı. Bağlantını kontrol edip tekrar dene.',
+      );
     }
   }
 
@@ -1633,21 +1766,29 @@ class ApiService {
       return false;
     }
     try {
-      final response = await _client.post(
-        _uri('/api/auth/refresh'),
-        headers: const {'Content-Type': 'application/json'},
-        body: jsonEncode({'refreshToken': refreshToken}),
+      final response = await _bounded(
+        _client.post(
+          _uri('/api/auth/refresh'),
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode({'refreshToken': refreshToken}),
+        ),
       );
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        return false;
+        if (response.statusCode == 401 || response.statusCode == 403) {
+          return false;
+        }
+        _decodeAnyResponse(response);
+        throw const ApiException('Oturum yenilenemedi. Lütfen tekrar dene.');
       }
       await _persistAuthResponse(
         _decodeResponse(response),
         expectedGeneration: generation,
       );
       return generation == _sessionGeneration && _accessToken != null;
+    } on ApiException {
+      rethrow;
     } catch (_) {
-      return false;
+      throw const ApiException('Bağlantı kurulamadı. Lütfen tekrar dene.');
     }
   }
 }

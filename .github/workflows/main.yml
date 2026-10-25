@@ -28,7 +28,7 @@ jobs:
         working-directory: backend
         run: |
           chmod +x mvnw
-          ./mvnw test
+          ./mvnw clean test
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3

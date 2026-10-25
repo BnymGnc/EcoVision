@@ -1,0 +1,96 @@
+{
+  "date": "2026-10-24",
+  "base_commit": "de4d1db",
+  "scope": "Local UI/data/performance revision; not a production or physical-device test",
+  "backend": {
+    "command": ".\\mvnw.cmd -q clean verify '-DargLine=-Xmx256m -XX:+UseSerialGC'",
+    "tests": 107,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "postgres": "isolated local PostgreSQL 15 on 127.0.0.1:25439",
+    "max_application_class_major": 61,
+    "quest_progress_reads_before": "N per event, for N matching active quests",
+    "quest_progress_reads_after": "1 batch read; 0 if no matching quests",
+    "write_semantics": "Claim, reward, daily expiry and catalog behavior unchanged; no new migration"
+  },
+  "flutter": {
+    "command": "flutter test --no-pub",
+    "tests_passed": 116,
+    "duration_seconds": 30,
+    "web_build": "passed",
+    "web_compile_seconds": 81.3,
+    "coverage_added": [
+      "community refresh does not create a group",
+      "group search does not reload social endpoints",
+      "stale user-search response protection",
+      "unmounted-tab errors and 18+ network gate",
+      "registration empty/cascading location fields and profile location preservation",
+      "transient startup/refresh failures preserve secure tokens",
+      "request timeout and startup retry",
+      "single-flight media and logout image fallback",
+      "chat JPEG dimensions and corrupt-input rejection",
+      "GPS fallback cannot become an event's actual location",
+      "profile revisit and chat draft preservation",
+      "privacy/purchase concurrency and failures",
+      "market 320px and quiz 320x400/700x360 at 1.6 text scale"
+    ]
+  },
+  "data_audit": {
+    "command": "python -m unittest discover -s scripts -p test_locations_and_doa.py -v",
+    "tests_passed": 7,
+    "provinces": 81,
+    "districts_before": 359,
+    "districts_after": 973,
+    "snapshot_points": 4037,
+    "DIM_machines": 2162,
+    "MIN_centres": 1764,
+    "SDM_points": 111,
+    "classified_by_city": 4034,
+    "unresolved_addresses": 3,
+    "district_warnings": 3,
+    "source_sha256": "2c8cb6afd54826941135f3d3b17e5cd6df544d0201fb05abc5fb84f85ad4bde5",
+    "raw_source_changed": false,
+    "report": "doa-city-counts-tr.md"
+  },
+  "network_measurement": {
+    "group_search_requests_before": 4,
+    "group_search_requests_after": 1,
+    "basis": "Mock request/repository counts, not a production latency benchmark",
+    "new_media_persistent_cache": false,
+    "mobile_compression": "compute/isolate; Web does not gain a Web Worker"
+  },
+  "browser": {
+    "engine": "real headless Chrome, compiled Flutter web release",
+    "backend": "isolated local Java 17 + PostgreSQL 15; ONNX_CPU, not Gemini or Render",
+    "community": {
+      "passed": true,
+      "viewports": [320, 390, 430],
+      "checks": ["search", "empty-state refresh queries groups instead of opening creation", "AppBar refresh"],
+      "report": "community-browser-verification.json"
+    },
+    "core": {
+      "passed": true,
+      "viewport": 390,
+      "checks": ["own private photo via Bearer header", "real gallery upload", "photo analysis", "glass guide", "glass-filtered DIM map", "directions intent contains selected coordinates"],
+      "report": "security-core-browser-verification.json"
+    },
+    "academy": {
+      "passed": true,
+      "lesson_viewports": [320, 390, 768],
+      "checks": ["search", "lesson", "three-question quiz", "backend balance increased", "repeat completion grants zero points", "completed module marker"],
+      "report": "academy-browser-verification.json"
+    },
+    "javascript_and_observed_overflow_errors": 0,
+    "scope_note": "Source review of 33 screens is not a claim that all screens were visually exercised in Chrome or on a physical phone. STOMP reconnect was not live-tested in this revision."
+  },
+  "not_performed": [
+    "production database writes or Render deployment",
+    "new APK build/installation for this UI revision",
+    "physical-phone FPS, battery or production p95 load benchmark",
+    "live Gemini quota/model availability check",
+    "complete backend notification preference integration",
+    "live multi-client STOMP reconnect or production load test",
+    "full Flutter analyzer run in this revision"
+  ]
+}

@@ -33,30 +33,30 @@ class _EcoMarketScreenState extends State<EcoMarketScreen> {
   }
 
   Future<void> _purchase(_MarketItem item) async {
-    await EcoHaptics.light();
+    if (!mounted || _purchasingItemId != null) return;
     setState(() => _purchasingItemId = item.id);
+    UserProfile? purchasedUser;
+    String? failure;
     try {
-      final user = await widget.apiService.purchaseMarketItem(item.id);
-      if (!mounted) {
-        return;
-      }
+      await EcoHaptics.light();
+      if (!mounted) return;
+      purchasedUser = await widget.apiService.purchaseMarketItem(item.id);
+    } on ApiException catch (error) {
+      failure = error.message;
+    } catch (error) {
+      failure = error.toString();
+    } finally {
+      if (mounted) setState(() => _purchasingItemId = null);
+    }
+    if (!mounted) return;
+    final user = purchasedUser;
+    if (user != null) {
       setState(() {
-        _purchasingItemId = null;
         _userFuture = Future.value(user);
       });
       await _showPurchaseSuccess(item, user.totalPoints);
-    } on ApiException catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _purchasingItemId = null);
-      await _showPurchaseError(error.message);
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _purchasingItemId = null);
-      await _showPurchaseError(error.toString());
+    } else {
+      await _showPurchaseError(failure!);
     }
   }
 
@@ -115,6 +115,8 @@ class _EcoMarketScreenState extends State<EcoMarketScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
+    final itemExtent = 318.0 + 160.0 * (textScale > 1 ? textScale - 1 : 0);
     return Scaffold(
       appBar: AppBar(title: const Text('Eco-Market')),
       body: FutureBuilder<UserProfile>(
@@ -158,9 +160,9 @@ class _EcoMarketScreenState extends State<EcoMarketScreen> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: _items.length,
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 280,
-                    mainAxisExtent: 318,
+                    mainAxisExtent: itemExtent,
                     crossAxisSpacing: 14,
                     mainAxisSpacing: 14,
                   ),
@@ -171,7 +173,9 @@ class _EcoMarketScreenState extends State<EcoMarketScreen> {
                       owned: user.ownedMarketItems.contains(item.id),
                       canAfford: user.totalPoints >= item.price,
                       loading: _purchasingItemId == item.id,
-                      onPurchase: () => _purchase(item),
+                      onPurchase: _purchasingItemId == null
+                          ? () => _purchase(item)
+                          : null,
                     );
                   },
                 ),
@@ -260,7 +264,7 @@ class _MarketItemCard extends StatelessWidget {
   final bool owned;
   final bool canAfford;
   final bool loading;
-  final VoidCallback onPurchase;
+  final VoidCallback? onPurchase;
 
   @override
   Widget build(BuildContext context) {
@@ -358,6 +362,8 @@ class _MarketItemCard extends StatelessWidget {
                               canAfford
                                   ? '${item.price} puan'
                                   : '${item.price} puan gerekli',
+                              textAlign: TextAlign.center,
+                              softWrap: true,
                             ),
                     ),
             ),

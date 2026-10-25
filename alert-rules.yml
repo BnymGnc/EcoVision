@@ -1,0 +1,27 @@
+groups:
+  - name: ecovision-backend-alerts
+    rules:
+      - alert: EcoVisionBackendInstanceDown
+        expr: up{job="ecovision-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: ecovision-backend
+        annotations:
+          summary: "EcoVision backend erişilemez durumda"
+          description: "{{ $labels.instance }} hedefi en az 1 dakikadır yanıt vermiyor."
+
+      - alert: EcoVisionBackendHighJvmHeapUsage
+        expr: |
+          (
+            sum by (instance, job) (jvm_memory_used_bytes{job="ecovision-backend", area="heap"})
+            /
+            sum by (instance, job) (jvm_memory_max_bytes{job="ecovision-backend", area="heap"} > 0)
+          ) * 100 > 80
+        for: 1m
+        labels:
+          severity: warning
+          service: ecovision-backend
+        annotations:
+          summary: "EcoVision backend JVM heap kullanımı yüksek"
+          description: "{{ $labels.instance }} JVM heap kullanım oranı %{{ printf \"%.1f\" $value }}."

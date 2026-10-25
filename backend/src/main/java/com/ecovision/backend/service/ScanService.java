@@ -88,7 +88,7 @@ public class ScanService {
         WasteMaterial material = WasteMaterial.detect(prediction);
         LocalDate rewardDate = now.atZone(ZoneId.of("Europe/Istanbul")).toLocalDate();
         boolean duplicate = imageHash != null && scanHistoryRepository
-            .existsByUserIdAndImageHashAndRewardDateAndPointsAwardedGreaterThan(userId, imageHash, rewardDate, 0);
+            .existsByUserIdAndImageHashAndPointsAwardedGreaterThan(userId, imageHash, 0);
         int points = acceptedPrediction && !duplicate ? material.points() : 0;
         AvatarTier previousTier = AvatarTier.highestUnlocked(user.getLifetimePoints());
 

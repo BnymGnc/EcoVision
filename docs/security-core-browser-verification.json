@@ -15,7 +15,7 @@
     "glass_map_filter",
     "directions_real_coordinates"
   ],
-  "local_photo_endpoint_ms": 533.2140999998956,
+  "local_photo_endpoint_ms": 217.93860000002496,
   "provider": "ONNX_CPU",
   "ui_flow": "private profile image, real photo upload, AI, guide, filtered map and directions intent",
   "browser_errors": []

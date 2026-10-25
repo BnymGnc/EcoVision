@@ -68,10 +68,11 @@ class _DetailedCarbonScreenState extends State<DetailedCarbonScreen> {
         context,
       ).showSnackBar(const SnackBar(content: Text('Hesabın kaydedildi.')));
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('$error')));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -131,13 +132,15 @@ class _DetailedCarbonScreenState extends State<DetailedCarbonScreen> {
         (action['id'] as num).toInt(),
         grams / 1000,
       );
-      if (mounted)
+      if (mounted) {
         setState(() => _actions = widget.apiService.fetchWasteActions());
+      }
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('$error')));
+      }
     }
   }
 
@@ -319,12 +322,13 @@ class _DetailedCarbonScreenState extends State<DetailedCarbonScreen> {
           FutureBuilder<List<Map<String, dynamic>>>(
             future: _actions,
             builder: (context, snapshot) {
-              if (snapshot.hasError)
+              if (snapshot.hasError) {
                 return const Text(
                   'Eylemler yüklenemedi. Daha sonra tekrar dene.',
                 );
+              }
               if (!snapshot.hasData) return const LinearProgressIndicator();
-              if (snapshot.data!.isEmpty)
+              if (snapshot.data!.isEmpty) {
                 return const ListTile(
                   leading: Icon(Icons.eco_outlined),
                   title: Text('Henüz eylem kaydı yok'),
@@ -332,6 +336,7 @@ class _DetailedCarbonScreenState extends State<DetailedCarbonScreen> {
                     'Tarama sonucundan gerçekleştirdiğin ayrıştırmayı kaydedebilirsin.',
                   ),
                 );
+              }
               return Column(
                 children: [
                   for (final action in snapshot.data!)
@@ -362,16 +367,18 @@ class _DetailedCarbonScreenState extends State<DetailedCarbonScreen> {
                                 await widget.apiService.deleteWasteAction(
                                   (action['id'] as num).toInt(),
                                 );
-                                if (mounted)
+                                if (mounted) {
                                   setState(
                                     () => _actions = widget.apiService
                                         .fetchWasteActions(),
                                   );
+                                }
                               } catch (error) {
-                                if (context.mounted)
+                                if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(content: Text('$error')),
                                   );
+                                }
                               }
                             },
                           ),

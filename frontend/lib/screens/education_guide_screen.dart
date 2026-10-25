@@ -17,8 +17,7 @@ class WasteGuideScreen extends StatefulWidget {
 }
 
 class EducationGuideScreen extends WasteGuideScreen {
-  const EducationGuideScreen({ApiService? apiService, super.key})
-    : super(apiService: apiService);
+  const EducationGuideScreen({super.apiService, super.key});
 }
 
 class _WasteGuideScreenState extends State<WasteGuideScreen> {

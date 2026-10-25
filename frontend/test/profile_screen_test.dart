@@ -17,6 +17,25 @@ import 'package:ecovision/widgets/profile_identity_header.dart';
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
   testWidgets(
+    'profil sekmesi yeniden etkinleşince sunucudaki güncel veriyi gösterir',
+    (tester) async {
+      final api = _FakeApiService();
+      await tester.pumpWidget(
+        MaterialApp(home: ProfileScreen(apiService: api)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Ada Green'), findsOneWidget);
+      api.name = 'Güncel';
+      await tester.pumpWidget(
+        MaterialApp(home: ProfileScreen(apiService: api, refreshVersion: 1)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Güncel Green'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets(
     'profile showcase opens grouped settings and logout resets navigation',
     (tester) async {
       tester.view.physicalSize = const Size(900, 1600);
@@ -284,8 +303,9 @@ class _FakeApiService extends ApiService {
   @override
   Future<LoginActivityMonth> fetchLoginHistory({String? month}) async {
     historyMonths.add(month);
-    if (failHistory)
+    if (failHistory) {
       throw ApiException('Test sunucu hatası', statusCode: historyErrorStatus);
+    }
     return LoginActivityMonth.fromJson({
       'month': month ?? '2026-10',
       'today': '2026-10-24',

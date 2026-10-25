@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:ecovision/theme/theme_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -87,6 +88,57 @@ void main() {
       expect(_contrast(scheme.onSurface, scheme.surface), greaterThan(4.5));
     }
   });
+
+  test(
+    'rapid theme choices persist in order even when the first network write is slow',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final first = Completer<void>();
+      final writes = <String>[];
+      final controller = ThemeController();
+      await controller.bindToUser(
+        userId: 1,
+        remoteSaver: (theme) async {
+          writes.add(theme);
+          if (writes.length == 1) await first.future;
+        },
+      );
+      final a = controller.select(AppThemeKind.ocean);
+      await Future<void>.delayed(Duration.zero);
+      final b = controller.select(AppThemeKind.darkEco);
+      first.complete();
+      await Future.wait([a, b]);
+      expect(writes, ['ocean', 'darkEco']);
+      expect(
+        (await SharedPreferences.getInstance()).getString('ecovision.theme.1'),
+        'darkEco',
+      );
+    },
+  );
+
+  test(
+    'queued theme for logged-out account cannot mutate the next account',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final writesA = <String>[], writesB = <String>[];
+      final controller = ThemeController();
+      await controller.bindToUser(
+        userId: 1,
+        remoteSaver: (theme) async => writesA.add(theme),
+      );
+      final pending = controller.select(AppThemeKind.sunset);
+      controller.unbindUser();
+      await controller.bindToUser(
+        userId: 2,
+        remotePreference: 'forest',
+        remoteSaver: (theme) async => writesB.add(theme),
+      );
+      await pending;
+      expect(writesA, isEmpty);
+      expect(writesB, isEmpty);
+      expect(controller.selected, AppThemeKind.forest);
+    },
+  );
 }
 
 double _contrast(Color foreground, Color background) {

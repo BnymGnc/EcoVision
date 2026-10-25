@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../widgets/authorized_image.dart';
 import '../services/media_download.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image/image.dart' as image_lib;
+import '../services/chat_image_compressor.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
 
 import '../models/chat_message.dart';
@@ -53,6 +53,8 @@ class _EventChatScreenState extends State<EventChatScreen> {
   bool _isLoading = true;
   bool _isSending = false;
   bool _isLoadingOlder = false;
+  bool _historyInFlight = false;
+  bool _historyReloadQueued = false;
   bool _hasMore = true;
   Object? _error;
   String? _currentAttendance;
@@ -68,7 +70,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
     _loadMissions();
     _connectRealtime();
     _messageController.addListener(_onComposingChanged);
-    unawaited(widget.apiService.markCommunityRead());
+    widget.apiService.markCommunityRead().ignore();
     _scrollController.addListener(_handleScroll);
   }
 
@@ -246,6 +248,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
             destination: '/topic/events/${widget.event.id}/typing',
             callback: _onTypingEvent,
           );
+          unawaited(_loadMessages(silent: true));
         },
         onDisconnect: (_) => _setRealtimeConnected(false),
         onWebSocketDone: () => _setRealtimeConnected(false),
@@ -398,6 +401,12 @@ class _EventChatScreenState extends State<EventChatScreen> {
   }
 
   Future<void> _loadMessages({bool silent = false}) async {
+    if (!mounted) return;
+    if (_historyInFlight) {
+      _historyReloadQueued = true;
+      return;
+    }
+    _historyInFlight = true;
     if (!silent) {
       setState(() {
         _isLoading = true;
@@ -422,8 +431,13 @@ class _EventChatScreenState extends State<EventChatScreen> {
       setState(() {
         if (silent) {
           for (final message in messages) {
-            if (!_messages.any((current) => current.id == message.id)) {
+            final index = _messages.indexWhere(
+              (current) => current.id == message.id,
+            );
+            if (index < 0) {
               _messages.add(message);
+            } else {
+              _messages[index] = message;
             }
           }
           _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
@@ -445,6 +459,12 @@ class _EventChatScreenState extends State<EventChatScreen> {
           _error = error;
           _isLoading = false;
         });
+      }
+    } finally {
+      _historyInFlight = false;
+      if (_historyReloadQueued && mounted) {
+        _historyReloadQueued = false;
+        unawaited(_loadMessages(silent: true));
       }
     }
   }
@@ -507,29 +527,16 @@ class _EventChatScreenState extends State<EventChatScreen> {
 
   Future<void> _pickAndSendImage() async {
     await EcoHaptics.light();
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (picked == null) return;
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      maxHeight: 1600,
+    );
+    if (picked == null || !mounted) return;
     setState(() => _isSending = true);
     try {
-      var decoded = image_lib.decodeImage(await picked.readAsBytes());
-      if (decoded == null) throw const ApiException('Fotoğraf okunamadı.');
-      if (decoded.width > 1600 || decoded.height > 1600) {
-        decoded = image_lib.copyResize(
-          decoded,
-          width: decoded.width >= decoded.height ? 1600 : null,
-          height: decoded.height > decoded.width ? 1600 : null,
-        );
-      }
-      var quality = 84;
-      var bytes = image_lib.encodeJpg(decoded, quality: quality);
-      while (bytes.length > 2 * 1024 * 1024 && quality > 42) {
-        quality -= 8;
-        bytes = image_lib.encodeJpg(decoded, quality: quality);
-      }
-      if (bytes.length > 2 * 1024 * 1024)
-        throw const ApiException(
-          'Fotoğraf sıkıştırıldıktan sonra da 2 MB sınırını aşıyor.',
-        );
+      final bytes = await compressChatImage(await picked.readAsBytes());
+      if (!mounted) return;
       final message = await widget.apiService.sendChatImage(
         eventId: widget.event.id,
         bytes: bytes,
@@ -540,10 +547,11 @@ class _EventChatScreenState extends State<EventChatScreen> {
       _scrollToBottom();
       await EcoHaptics.light();
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
@@ -957,8 +965,10 @@ class _EventChatScreenState extends State<EventChatScreen> {
       return;
     }
 
-    await EcoHaptics.light();
+    final draft = _messageController.text;
     setState(() => _isSending = true);
+    await EcoHaptics.light();
+    if (!mounted) return;
     try {
       final message = await widget.apiService.sendMessage(
         eventId: widget.event.id,
@@ -967,7 +977,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
       if (!mounted) {
         return;
       }
-      _messageController.clear();
+      if (_messageController.text == draft) _messageController.clear();
       setState(() {
         _mergeMessage(message);
         _isSending = false;
@@ -1013,6 +1023,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
     if (!canDelete) return;
 
     await EcoHaptics.selection();
+    if (!mounted) return;
     final action = await showEcoGlassSheet<String>(
       context: context,
       builder: (context) => Padding(
@@ -1174,7 +1185,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
                   ),
                 ),
               if (isCreator)
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'delete',
                   child: ListTile(
                     leading: Icon(
@@ -1700,12 +1711,13 @@ class _DocumentAttachment extends StatelessWidget {
 
   Future<void> _open(BuildContext context) async {
     await EcoHaptics.light();
-    if (context.mounted)
+    if (context.mounted) {
       await downloadAuthorizedMedia(
         context,
         message.fileUrl ?? '',
         message.fileName ?? 'belge.pdf',
       );
+    }
   }
 
   @override

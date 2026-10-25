@@ -31,6 +31,7 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
   Future<void> _select(int level) async {
     if (level > widget.user.currentAvatarLevel || _savingLevel != null) return;
     await EcoHaptics.selection();
+    if (!mounted) return;
     final path = _pathFor(level);
     final confirmed = await showDialog<bool>(
       context: context,

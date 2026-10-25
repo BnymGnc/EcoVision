@@ -94,9 +94,9 @@ class ScanServiceTest {
     }
     @Test void sameImageAndUncertainPredictionCannotAdvanceQuests() {
         when(scanHistoryRepository.save(any(ScanHistory.class))).thenAnswer(i -> i.getArgument(0));
-        when(scanHistoryRepository.existsByUserIdAndImageHashAndRewardDateAndPointsAwardedGreaterThan(
+        when(scanHistoryRepository.existsByUserIdAndImageHashAndPointsAwardedGreaterThan(
             org.mockito.ArgumentMatchers.eq(7L),org.mockito.ArgumentMatchers.eq("b".repeat(64)),
-            org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.eq(0))).thenReturn(true);
+            org.mockito.ArgumentMatchers.eq(0))).thenReturn(true);
         var duplicate = scanService.saveVerifiedAnalysis(user,"plastic",true,"b".repeat(64));
         assertEquals(0,duplicate.pointsAwarded());
         assertEquals("DUPLICATE_IMAGE",duplicate.rewardStatus());

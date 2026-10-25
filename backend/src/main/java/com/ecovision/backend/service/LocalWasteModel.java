@@ -77,7 +77,7 @@ public class LocalWasteModel {
                 });
                 boolean candidate = Set.of("CAM", "PLASTIK", "METAL").contains(type);
                 return List.of(new DetectedWasteResponse(type, material.displayName(), scores[best], candidate,
-                        candidate ? "Ambalaj uygunluğunu kontrol et" : "DOA kapsamı dışında veya belirsiz"));
+                        candidate ? "Malzeme tahmini; DOA kabulü doğrulanmadı" : "DOA kapsamı dışında veya belirsiz"));
             }
         } catch (IllegalArgumentException | ResponseStatusException failure) { throw failure; }
         catch (Exception failure) { throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Yerel görsel analiz tamamlanamadı"); }

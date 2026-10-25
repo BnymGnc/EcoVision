@@ -46,6 +46,29 @@ public interface MapPinRepository extends JpaRepository<MapPin, Long> {
             """)
     List<PointSummary> findPointSummaries(double south, double north, double west, double east);
 
+    @org.springframework.data.jpa.repository.Query("""
+            select p.id as id, p.title as title, p.latitude as latitude, p.longitude as longitude,
+                   p.address as address, p.pointType as pointType,
+                   p.sourceMaterialCodesJson as sourceMaterialCodesJson, p.rawBinsJson as rawBinsJson,
+                   p.weeklyScheduleJson as weeklyScheduleJson, p.snapshotAt as snapshotAt
+            from MapPin p where p.active = true and p.id in :ids
+              and p.latitude between :south and :north and p.longitude between :west and :east
+            order by p.id
+            """)
+    List<PointSummary> findPointSummariesByIds(double south, double north, double west, double east, java.util.Set<Long> ids);
+
+    @org.springframework.data.jpa.repository.Query("""
+            select p.id as id, p.address as address, p.latitude as latitude, p.longitude as longitude,
+                   p.pointType as pointType, p.snapshotAt as snapshotAt
+            from MapPin p where p.active = true
+            """)
+    List<LocationSummary> findLocationSummaries();
+
+    interface LocationSummary {
+        Long getId(); String getAddress(); Double getLatitude(); Double getLongitude();
+        String getPointType(); java.time.Instant getSnapshotAt();
+    }
+
     interface PointSummary {
         Long getId(); String getTitle(); Double getLatitude(); Double getLongitude();
         String getAddress(); String getPointType(); String getSourceMaterialCodesJson();

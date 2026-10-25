@@ -6,9 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('yirmi soruyu hesaplayıp üç saniye sonra sonucu gösterir', (
-    tester,
-  ) async {
+  testWidgets('yirmi hızlı yanıt eski sonucu korur', (tester) async {
     tester.view.physicalSize = const Size(430, 932);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -57,7 +55,7 @@ void main() {
   });
 
   testWidgets(
-    'isteğe bağlı yıllık verileri soru altında doğrular ve hesaba katar',
+    'sayısal yanıt doğrudan soru altında görünür ve aralık seçiminin yerine geçer',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -76,37 +74,8 @@ void main() {
         await tester.tap(find.text(question.options.first.label));
         await tester.pump();
         if (question.id == 2 || question.id == 11) {
-          final tile = find.text('Daha net hesapla (isteğe bağlı)');
-          await tester.scrollUntilVisible(
-            tile,
-            180,
-            scrollable: find
-                .byWidgetPredicate(
-                  (widget) =>
-                      widget is Scrollable &&
-                      widget.axisDirection == AxisDirection.down,
-                )
-                .last,
-          );
-          await tester.tap(tile);
-          await tester.pumpAndSettle();
-          final annual = find.text('Yıllık');
-          await tester.scrollUntilVisible(
-            annual,
-            180,
-            scrollable: find
-                .byWidgetPredicate(
-                  (widget) =>
-                      widget is Scrollable &&
-                      widget.axisDirection == AxisDirection.down,
-                )
-                .last,
-          );
-          await tester.tap(annual);
-          await tester.pumpAndSettle();
-          final field = find.byKey(
-            ValueKey(question.id == 2 ? 'carbon-fuel' : 'carbon-electricity'),
-          );
+          expect(find.byType(ExpansionTile), findsNothing);
+          final field = find.byKey(ValueKey('carbon-number-${question.id}'));
           await tester.scrollUntilVisible(
             field,
             180,
@@ -122,12 +91,9 @@ void main() {
             await tester.enterText(field, '-10');
             await tester.tap(find.text('Devam Et'));
             await tester.pumpAndSettle();
-            expect(
-              find.text('Geçerli, negatif olmayan bir tüketim gir.'),
-              findsOneWidget,
-            );
+            expect(find.text('0–10000 arasında bir sayı gir.'), findsOneWidget);
           }
-          await tester.enterText(field, question.id == 2 ? '480' : '2400');
+          await tester.enterText(field, question.id == 2 ? '250' : '200');
         }
         await tester.tap(
           find.text(question.id == 20 ? 'Karbonumu Hesapla' : 'Devam Et'),
@@ -137,8 +103,16 @@ void main() {
       }
       await tester.pump(const Duration(milliseconds: 1000));
       await tester.pump();
-      expect(api.submittedKg, 3152);
-      expect(find.text('3.15 Ton'), findsOneWidget);
+      final expected = CarbonFootprintCalculator.calculate(
+        questions: carbonQuestions,
+        selectedOptionIndexes: {for (final q in carbonQuestions) q.id: 0},
+        numericAnswers: const {2: 250, 11: 200},
+      );
+      expect(api.submittedKg, expected.annualKg);
+      expect(
+        find.text('${expected.annualTons.toStringAsFixed(2)} Ton'),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     },
   );

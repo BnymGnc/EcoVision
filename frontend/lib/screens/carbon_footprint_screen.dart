@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../models/carbon_footprint.dart';
+import '../models/carbon_numeric_input.dart';
 import '../models/gamification_state.dart';
 import '../services/api_service.dart';
 import '../widgets/premium_ui.dart';
@@ -12,7 +13,7 @@ import '../widgets/premium_ui.dart';
 class CarbonFootprintScreen extends StatefulWidget {
   const CarbonFootprintScreen({
     required this.apiService,
-    this.calculationDuration = const Duration(seconds: 3),
+    this.calculationDuration = const Duration(milliseconds: 700),
     super.key,
   });
 
@@ -28,14 +29,14 @@ enum _CarbonStage { survey, calculating, result }
 class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
   final PageController _pageController = PageController();
   final Map<int, int> _selectedOptions = {};
-  final _electricity = TextEditingController();
-  final _fuel = TextEditingController();
-  final _electricityForm = GlobalKey<FormState>();
-  final _fuelForm = GlobalKey<FormState>();
-  bool _electricityAnnual = false;
-  bool _fuelAnnual = false;
+  final _numbers = {
+    for (final q in carbonQuestions) q.id: TextEditingController(),
+  };
+  final _numberForms = {
+    for (final q in carbonQuestions) q.id: GlobalKey<FormState>(),
+  };
   int _householdMembers = 1;
-  String _fuelType = 'PETROL';
+  bool _changingPage = false;
 
   int _currentPage = 0;
   _CarbonStage _stage = _CarbonStage.survey;
@@ -46,19 +47,20 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
   @override
   void dispose() {
     _pageController.dispose();
-    _electricity.dispose();
-    _fuel.dispose();
+    for (final controller in _numbers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
   Future<void> _next() async {
+    if (_changingPage || _stage != _CarbonStage.survey) return;
     final question = carbonQuestions[_currentPage];
-    if (question.id == 2 && !(_fuelForm.currentState?.validate() ?? true))
-      return;
-    if (question.id == 11 &&
-        !(_electricityForm.currentState?.validate() ?? true))
-      return;
-    if (!_selectedOptions.containsKey(question.id)) {
+    if (!(_numberForms[question.id]?.currentState?.validate() ?? true)) return;
+    final spec = CarbonNumericInputs.fields[question.id]!;
+    final hasNumber = _numbers[question.id]!.text.trim().isNotEmpty;
+    if (!_selectedOptions.containsKey(question.id) &&
+        (!hasNumber || spec.requiresOption)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Devam etmek için bir yanıt seç.')),
       );
@@ -66,12 +68,15 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
     }
     unawaited(EcoHaptics.light());
     if (_currentPage < carbonQuestions.length - 1) {
+      FocusScope.of(context).unfocus();
+      _changingPage = true;
       setState(() => _currentPage++);
       await _pageController.animateToPage(
         _currentPage,
         duration: const Duration(milliseconds: 360),
         curve: Curves.easeInOut,
       );
+      _changingPage = false;
       return;
     }
     await _calculate();
@@ -81,12 +86,14 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
     final result = CarbonFootprintCalculator.calculate(
       questions: carbonQuestions,
       selectedOptionIndexes: _selectedOptions,
-      consumption: CarbonConsumptionData(
-        monthlyElectricityKwh: _monthlyValue(_electricity, _electricityAnnual),
-        householdMembers: _householdMembers,
-        monthlyFuelLitres: _monthlyValue(_fuel, _fuelAnnual),
-        fuelType: _fuelType,
-      ),
+      consumption: CarbonConsumptionData(householdMembers: _householdMembers),
+      numericAnswers: {
+        for (final entry in _numbers.entries)
+          if (entry.value.text.trim().isNotEmpty)
+            entry.key: double.parse(
+              entry.value.text.trim().replaceAll(',', '.'),
+            ),
+      },
     );
     setState(() {
       _footprint = result;
@@ -94,152 +101,82 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
       _syncError = null;
     });
 
-    final minimumRevealDelay = Future<void>.delayed(widget.calculationDuration);
-    GamificationState? reward;
-    Object? syncError;
-    try {
-      reward = await widget.apiService.completeCarbonFootprint(result.annualKg);
-    } catch (error) {
-      syncError = error;
-    }
-    await minimumRevealDelay;
+    unawaited(_syncReward(result));
+    await Future<void>.delayed(widget.calculationDuration);
     if (!mounted) return;
-
     unawaited(EcoHaptics.heavy());
-    setState(() {
-      _reward = reward;
-      _syncError = syncError;
-      _stage = _CarbonStage.result;
-    });
+    setState(() => _stage = _CarbonStage.result);
+  }
+
+  Future<void> _syncReward(CarbonFootprintResult result) async {
+    try {
+      final reward = await widget.apiService.completeCarbonFootprint(
+        result.annualKg,
+      );
+      if (mounted) setState(() => _reward = reward);
+    } catch (error) {
+      if (mounted) setState(() => _syncError = error);
+    }
   }
 
   Future<void> _previous() async {
+    if (_changingPage || _stage != _CarbonStage.survey) return;
     if (_currentPage == 0) {
       Navigator.of(context).pop();
       return;
     }
     unawaited(EcoHaptics.light());
+    _changingPage = true;
+    FocusScope.of(context).unfocus();
     setState(() => _currentPage--);
     await _pageController.animateToPage(
       _currentPage,
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeInOut,
     );
+    _changingPage = false;
   }
 
   void _select(CarbonQuestion question, int optionIndex) {
     EcoHaptics.selection();
+    if (!CarbonNumericInputs.fields[question.id]!.requiresOption) {
+      _numbers[question.id]!.clear();
+    }
     setState(() => _selectedOptions[question.id] = optionIndex);
   }
 
-  double? _monthlyValue(TextEditingController controller, bool annual) {
-    if (controller.text.trim().isEmpty) return null;
-    return double.parse(controller.text.trim().replaceAll(',', '.')) /
-        (annual ? 12 : 1);
-  }
-
-  String? _validateConsumption(String? value) {
-    if (value == null || value.trim().isEmpty) return null;
-    final amount = double.tryParse(value.trim().replaceAll(',', '.'));
-    return amount == null || !amount.isFinite || amount < 0 || amount > 1000000
-        ? 'Geçerli, negatif olmayan bir tüketim gir.'
-        : null;
-  }
-
-  Widget? _extraDataFor(CarbonQuestion question) {
-    final electricity = question.id == 11;
-    if (!electricity && question.id != 2) return null;
-    final annual = electricity ? _electricityAnnual : _fuelAnnual;
-    return GlassPanel(
-      child: ExpansionTile(
-        key: PageStorageKey('carbon-extra-${question.id}'),
-        tilePadding: EdgeInsets.zero,
-        maintainState: true,
-        title: const Text('Daha net hesapla (isteğe bağlı)'),
-        subtitle: Text(
-          electricity
-              ? 'Faturandan elektrik tüketimini ekle'
-              : 'Yakıt tüketimini biliyorsan ekle',
-        ),
+  Widget _extraDataFor(CarbonQuestion question) {
+    final spec = CarbonNumericInputs.fields[question.id]!;
+    return Form(
+      key: _numberForms[question.id],
+      child: Column(
         children: [
-          Form(
-            key: electricity ? _electricityForm : _fuelForm,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 8),
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: false, label: Text('Aylık')),
-                    ButtonSegment(value: true, label: Text('Yıllık')),
-                  ],
-                  selected: {annual},
-                  onSelectionChanged: (values) => setState(() {
-                    if (electricity) {
-                      _electricityAnnual = values.first;
-                    } else {
-                      _fuelAnnual = values.first;
-                    }
-                  }),
-                ),
-                const SizedBox(height: 12),
-                if (!electricity) ...[
-                  DropdownButtonFormField<String>(
-                    initialValue: _fuelType,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Yakıt türü'),
-                    items: const [
-                      DropdownMenuItem(value: 'PETROL', child: Text('Benzin')),
-                      DropdownMenuItem(value: 'DIESEL', child: Text('Dizel')),
-                    ],
-                    onChanged: (value) =>
-                        setState(() => _fuelType = value ?? 'PETROL'),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                TextFormField(
-                  key: ValueKey(
-                    electricity ? 'carbon-electricity' : 'carbon-fuel',
-                  ),
-                  controller: electricity ? _electricity : _fuel,
-                  validator: _validateConsumption,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: electricity
-                        ? 'Hane elektrik tüketimi (kWh)'
-                        : 'Kişisel yakıt tüketimi (litre)',
-                    hintText: 'Boş bırakırsan seçtiğin yanıt kullanılır',
-                  ),
-                ),
-                if (electricity) ...[
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<int>(
-                    initialValue: _householdMembers,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Hanede yaşayan kişi sayısı',
-                    ),
-                    items: [
-                      for (var i = 1; i <= 12; i++)
-                        DropdownMenuItem(value: i, child: Text('$i kişi')),
-                    ],
-                    onChanged: (value) =>
-                        setState(() => _householdMembers = value ?? 1),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                Text(
-                  electricity
-                      ? 'Bu veri beyaz eşya ve klima tahmininin yerine geçer. Elektrikli ısıtma seçtiysen ısıtma tahmini de ayrıca eklenmez. Kaynak: ETKB 2023, 0,469 kg CO₂e/kWh.'
-                      : 'Tüm kişisel benzin/dizel tüketimini gir. İlgili özel araç tahminleri yerine kullanılır; iki kez eklenmez. Kaynak: EPA yakıt yanma katsayıları.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-              ],
+          TextFormField(
+            key: ValueKey('carbon-number-${question.id}'),
+            controller: _numbers[question.id],
+            validator: spec.validate,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: '${spec.label} (isteğe bağlı)',
+              suffixText: spec.unit,
             ),
           ),
+          if (question.id == 11) ...[
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              initialValue: _householdMembers,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Hanede yaşayan kişi sayısı',
+              ),
+              items: [
+                for (var i = 1; i <= 12; i++)
+                  DropdownMenuItem(value: i, child: Text('$i kişi')),
+              ],
+              onChanged: (value) =>
+                  setState(() => _householdMembers = value ?? 1),
+            ),
+          ],
         ],
       ),
     );
@@ -437,6 +374,7 @@ class _QuestionPage extends StatelessWidget {
               'Yıllık karbon etkine en yakın seçeneği işaretle.',
               style: TextStyle(color: colors.onSurfaceVariant, height: 1.4),
             ),
+            if (extraData != null) ...[const SizedBox(height: 16), extraData!],
             const SizedBox(height: 22),
             for (var index = 0; index < question.options.length; index++) ...[
               Semantics(
@@ -455,7 +393,6 @@ class _QuestionPage extends StatelessWidget {
               if (index < question.options.length - 1)
                 const SizedBox(height: 11),
             ],
-            if (extraData != null) ...[const SizedBox(height: 20), extraData!],
           ],
         ),
       ),
@@ -966,7 +903,7 @@ class _ResultView extends StatelessWidget {
               const SizedBox(height: 20),
               Text(
                 result.consumptionAdjusted
-                    ? 'Anket tahmini, eklediğin tüketim verileriyle güncellendi. Tam ve doğrulanmış bir emisyon envanteri değildir.'
+                    ? 'Sayısal yanıtlarınla güncellenmiş yaklaşık anket hesabıdır. Elektrik/yakıt katsayıları ve anket ölçeklemesi kullanılır; eğitimli bir ML modeli veya doğrulanmış emisyon envanteri değildir.'
                     : 'Yanıtlarına dayanan yaklaşık bir anket sonucudur; ölçülmüş emisyon değildir.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall,
