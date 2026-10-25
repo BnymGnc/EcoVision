@@ -1,5 +1,12 @@
 # EcoVision final teslim kontrolu - 25 Ekim 2026
 
+**Sonraki duzeltme:** `0cf8160` ile Render manifestindeki zorunlu AI_PROVIDER /
+ML_ENABLED / GEMINI_ON_UNCERTAIN_ENABLED degerleri kullanici istegiyle kaldirildi.
+Onceki rapordaki acik manifest varsayilani bu son surum icin gecerli degildir;
+mevcut dashboard tercihi koddan okunamaz. Calisma agacindaki ONNX constructor
+degisikligi de geri alindi. Sonraki cron adimlari ve gercek kontrol ciktilari:
+[cron-keepalive-tr.md](cron-keepalive-tr.md).
+
 Bu rapor yerel testleri canli Render dogrulamasindan ayirir. Eski raporlardaki
 test sayilari veya ekran goruntuleri bu dagitimin canli kaniti degildir.
 
@@ -29,11 +36,10 @@ test sayilari veya ekran goruntuleri bu dagitimin canli kaniti degildir.
 - Actuator liveness yalniz `livenessState`; readiness `readinessState,db`
   kontrol eder. Veritabani arizasi readiness'te gizlenmez. Render manifestinin
   saglik yolu readiness'e ayrildi. Cron AI, import veya Neon sorgusu baslatmaz.
-- Render manifesti mevcut varsayilan bulut modunu acikca yazar:
-  `AI_PROVIDER=gemini`, `ML_ENABLED=false`, `GEMINI_ON_UNCERTAIN_ENABLED=false`.
+- Ilk teslimde eklenen zorunlu bulut ayarlari `0cf8160` ile geri alindi.
+  Render manifesti artik AI saglayicisini zorlamaz; dashboard tercihi korunur.
   ONNX kodu/modeli silinmedi, istek basina model yukleme yok, paralel inference
-  siniri 1 ve decode siniri 4 milyon piksel korunur. Bu secim gercek Gemini
-  anahtari/model erisimi yoksa AI'in calistigi anlamina gelmez.
+  siniri 1 ve decode siniri 4 milyon piksel korunur.
 - Ayni fotograf aciklamasi hesap basina tek odulle eslesti. AI sonucundaki
   kaldirilmis ambalaj formu metni yerine kabulun dogrulanmadigi belirtilir.
 - Entegrasyon testlerinde null olabilen ID/govde/baslik degerleri kullanilmadan
@@ -62,12 +68,12 @@ Paneldeki degerler bilinmiyor; asagidakiler kod/manifest gereksinimleridir.
 | DB_POOL_MAX_SIZE / MIN_IDLE | Hayir | 5 / 0 | Kodun sinirli havuz varsayilanlari |
 | DB_CONNECTION_TIMEOUT_MS | Hayir | 10000 | Sinirsiz havuz beklemesi yok |
 | JAVA_TOOL_OPTIONS | Hayir | Asagidaki mevcut sinirli JVM ayari | Heap siniri toplam RSS garantisi degildir |
-| AI_PROVIDER / ML_ENABLED | Hayir | gemini / false (512 MB varsayilani) | ONNX native kapasitesi ayrica olculmeli |
-| GEMINI_ON_UNCERTAIN_ENABLED | Hayir | false | Otomatik bulut/farkli model zinciri acma |
+| AI_PROVIDER / ML_ENABLED | Hayir; manifest zorlamasi kaldirildi | Mevcut calisan secimi koru; 512 MB icin gemini/false olculmus alternatif | ONNX kapasitesi onaylanmadi, tercih gizlice degistirilmez |
+| GEMINI_ON_UNCERTAIN_ENABLED | Hayir | Mevcut dashboard degeri; izinsiz acma | Otomatik bulut/farkli model zinciri acma |
 | GEMINI_API_KEY | Hayir; yerel anahtar ornek | Gecerli mevcut sir gerekli | Ornek anahtar analiz yapamaz |
-| GEMINI_MODEL | Hayir | Hesabin gercek erisebildigi vision model kodu | Kod varsayilani gemini-3.6-flash; erisim/kota dogrulanmadi |
+| GEMINI_MODEL | Panel hayir; gercek API sonucu biliniyor | gemini-3.6-flash canli tek fotograf denemesinde calisti | Kisa erisim testi kota/uptime garantisi degildir |
 | GEMINI_CONNECT_TIMEOUT_MS / READ_TIMEOUT_MS | Hayir | 10000 / 60000 | Sinirli dis istek beklemesi |
-| ML_MODEL_PATH | Hayir | ml/waste-mobilenet-v1.onnx (yalniz yerel motor) | Paketli model; varsayilan yuklenmez |
+| ML_MODEL_PATH | Hayir | ml/waste-mobilenet-v1.onnx (yerel motor kullanilacaksa) | Paketli modelin native bellegi heap disindadir |
 | RVM_IMPORT_DRY_RUN | Hayir | Once true ile rapor; dogrulaninca false | Hash/UUID temelli upsert, silme yok |
 | PUBLIC_BASE_URL | Hayir | https://ecovision-backend-wdr0.onrender.com | Kalici medya adresleri |
 | UPLOAD_DIR | Hayir | /tmp/uploads | Gecici alan; kalici medya DB'de |
@@ -126,8 +132,10 @@ Ilk sonuc 4819 ms; ardisik analizler 404-2567 ms. Eszamanli 3 istegin biri
 iddia edilmez. Peak **536.989.696 byte (~512,1 MiB)**; `memory.events max=75`,
 `oom=0`, `oom_kill=0`. Surec sag kaldi ama guvenli bosluk yoktur. Sonuc:
 **512 MB'de ONNX production kapasitesi onaylanmadi**. Bu, Render kesintisinin
-kaniti degildir. Varsayilan bulut modu korunur; gercek Gemini erisimi olmadan
-AI hazir denemez. Daha fazla RAM veya olculmus bulut rotasi gerekir.
+kaniti degildir. Bulut modu ayrica denendi: baslangic/giris/10 harita istegi
+tepe bellegi 396.128.256 byte (~377,8 MiB), `oom=0`. Bu yerel kosuda gercek
+Gemini anahtari verilmedi; fotograf isteginin bulut bellek tepesi olculmedi.
+Kayit: [bulut kapasite JSON](final-cloud-verification.json).
 Makine ogrenmesi kapatilirsa bunun kullaniciya gizlenmesi onerilmez; saglayici
 sonucta acikca gosterilir. Olcum: [JSON](final-capacity-verification.json).
 
@@ -136,14 +144,48 @@ Incelenen staged dosyalarda saglayici-token/private-key kaliplari bulunmadi;
 Kullaniciya ait ek kaynak disa aktarimlari ve incelenmemis K8s dosyalari yerelde
 korunur, bu degisiklige dahil edilmez. Canli Neon semasi/verisi sifirlanmadi.
 
+Kod commit'i **1ea9781b9960261ecf5b51f22e98910a2794fc91** normal push ile
+`BnymGnc/EcoVision` uzak `refs/heads/main` dalina gonderildi; bagimsiz GitHub
+ref API'si ayni SHA'yi dogruladi. GitHub Actions [40183520645](https://github.com/BnymGnc/EcoVision/actions/runs/40183520645)
+basarili: JDK17, backend testleri, Docker build ve Docker Hub push adimlarinin
+tamami success. Bu Render deploy kaniti degildir. Push sonrasinda canli eski
+`/api/health` 200 iken yeni `/api/health/live` 401 dondu; yeni guvenlik/endpoint
+surumu henuz gozlenmedi. Render'in izledigi dal, deploy sonucu ve calisan SHA
+panelden dogrulanmalidir; otomatik deploy'un acik oldugu varsayilmadi.
+
+Gercek yerel DB arizasi denemesinde PostgreSQL durduruldu: `/api/health/live`
+200, `/actuator/health/readiness` 503 dondu. DB yeniden baslatildi. Boylece
+liveness'in arizayi ortbas eden bir readiness yerine kullanilmadigi dogrulandi.
+
 ## Cron ve juri teslimi
 
-Mevcut canli yaniti dogrulanan adres:
-`https://ecovision-backend-wdr0.onrender.com/api/health`.
-GET, 5 dakika aralik; yeni surumden sonra `/api/health/live` esdegerdir.
+Mevcut canli yaniti dogrulanan cron adresi:
+`https://ecovision-backend-wdr0.onrender.com/api/health/live`.
+GET, 5 dakika aralik, kimlik dogrulama ve Authorization basligi yok.
 cron-job.org hesabi yeniden etkinlestirilmedi; panel erisimi yoktur.
 Cron bir uyandirma istegidir; DB/AI hazirliginin veya 503 kok nedeninin cozumu degildir.
 
-Web paketinin olusmasi internete yayinlandigi anlamina gelmez. Juriye verilecek
-public frontend veya indirilebilir APK adresi ayrica yayinlanip test edilmelidir.
-Swagger backend dokumantasyonudur, uygulamanin frontend adresi degildir.
+Son kisa kontrolde ilk uc GET 30 saniyede zaman asimina ugradi, sonra HEAD
+200 dondu. Isinmis serviste uc GET ve bir HEAD 200/gercek govdeyle dogrulandi.
+Iki sonuc da saklandi; ilk basarisizliklar silinmedi. Cron e-postasi eski
+`/api/health` icin 25 Ekim 08:10:21 UTC'de 503 ve 26 hata bildiriyor.
+Render Events/Logs olmadan bunun OOM veya belirli bir commit kaynakli oldugu
+soylenemez. [Gorev ayari ve log araligi](cron-keepalive-tr.md).
+
+Canli kabul API denemesinde liveness/readiness, normal kayit/giris, ayni hesap
+kimligi, sayfali harita ve gercek fotograf analizi 200 dondu. Saglayici GEMINI,
+model `gemini-3.6-flash`, sonuc CAM, CLOUD modu. Envanterde 4037 siniflandirilmis
+noktaya ek olarak silinmemis 138 UNKNOWN eski kayit var: toplam 4175. API
+denemesi tam tarayici/GPS/yol tarifi testi degildir. [Kayit](final-live-verification.json).
+
+Son JWT izolasyonu icin 7 odakli test 0 hata/basarisizlikla gecti (JBR21,
+Java17 hedefi). Java17/PostgreSQL 115 testlik onceki kosudan ayri kayittir.
+Android release derlemesinin gercek `Metaspace` hatasi, yalniz Gradle derleme
+surecinin metaspace sinirini 384'ten 768 MiB'ye cikararak giderildi. Runtime
+JVM, Gradle/JDK surumleri ve uygulama mantigi degismedi. Yeni ARM64 release
+APK 27.563.298 byte, SHA256:
+`42906765f1bde3c6614abc2a30379ef393e854860998a85330a7b28bd109b9b5`.
+Projenin mevcut debug anahtariyla imzalidir; magazaya hazir imzali surum degildir.
+GitHub Releases yayini kullanici tarafindan ayrica onaylandi; indirme dogrulamasi
+sonrasinda baglanti asagidaki teslim notuna eklenecektir. Swagger uygulama
+frontend'i degildir; yerel Brave adresi internetten acilabilen bir urun linki degildir.

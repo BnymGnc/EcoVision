@@ -1,0 +1,37 @@
+{
+  "scope": "Production: one normal test account, one real photo; no existing-user changes",
+  "livenessStatus": 200,
+  "readinessStatus": 200,
+  "registrationStatus": 200,
+  "inventory": {
+    "status": 200,
+    "total": 4175,
+    "provinces": 81,
+    "counts": {
+      "DIM": 2162,
+      "MIN": 1764,
+      "KIM": 0,
+      "SDM": 111,
+      "UNKNOWN": 138
+    }
+  },
+  "mapPage": {
+    "status": 200,
+    "items": 100,
+    "total": 2162,
+    "hasMore": true
+  },
+  "realPhoto": {
+    "status": 200,
+    "provider": "GEMINI",
+    "modelVersion": "gemini-3.6-flash",
+    "inferenceMode": "CLOUD",
+    "detectedTypes": [
+      "CAM"
+    ],
+    "error": null
+  },
+  "loginStatus": 200,
+  "sameAccountAfterLogin": true,
+  "limits": "API acceptance only, not a browser/phone walkthrough, no GPS/navigation or Render dashboard access. AI failure is not replaced by a sample result."
+}

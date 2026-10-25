@@ -5,6 +5,7 @@ ecovision_test database and AI_PROVIDER=local. No credentials are printed.
 """
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+import argparse
 import json
 import secrets
 import subprocess
@@ -47,7 +48,7 @@ def memory():
     return values
 
 
-def main():
+def wait_ready():
     for _ in range(180):
         try:
             with urllib.request.urlopen(API + "/actuator/health/readiness", timeout=2) as response:
@@ -58,6 +59,26 @@ def main():
         time.sleep(1)
     else:
         raise RuntimeError("Local container did not become ready")
+
+
+def cloud_startup():
+    wait_ready()
+    result = {"environment": "same local production image, 512MiB/1CPU, ML_ENABLED=false",
+              "startup": memory(), "liveAiVerified": False,
+              "caveat": "No real Gemini key supplied; external AI access/quota and image-analysis peak were NOT tested."}
+    identity = account()
+    token = identity["accessToken"]
+    for _ in range(10):
+        points = request("/api/map-pins/search?lat=38.72&lng=35.48&limit=100", token=token)
+        assert points["items"]
+    result["afterLoginAndMaps"] = memory()
+    output = ROOT / "docs/final-cloud-verification.json"
+    output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(result, indent=2))
+
+
+def main():
+    wait_ready()
     result = {"environment": "local Java17 production image, 512MiB cgroup, isolated PostgreSQL",
               "startup": memory()}
     identity = account()
@@ -102,4 +123,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cloud", action="store_true", help="Startup/map-only check; never calls paid AI")
+    if parser.parse_args().cloud:
+        API = "http://127.0.0.1:18082"
+        CONTAINER = "ecovision-final-cloud"
+        cloud_startup()
+    else:
+        main()

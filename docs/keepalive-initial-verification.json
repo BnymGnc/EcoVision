@@ -1,0 +1,36 @@
+{
+  "checkedAtUtc": "2026-10-25T16:46:27.529878+00:00",
+  "url": "https://ecovision-backend-wdr0.onrender.com/api/health/live",
+  "credentialsSent": false,
+  "samples": [
+    {
+      "method": "GET",
+      "status": null,
+      "expectedBody": false,
+      "error": "timeout-or-network-error",
+      "durationMs": 30262
+    },
+    {
+      "method": "GET",
+      "status": null,
+      "expectedBody": false,
+      "error": "timeout-or-network-error",
+      "durationMs": 30186
+    },
+    {
+      "method": "GET",
+      "status": null,
+      "expectedBody": false,
+      "error": "timeout-or-network-error",
+      "durationMs": 30098
+    },
+    {
+      "method": "HEAD",
+      "status": 200,
+      "expectedBody": true,
+      "durationMs": 10601
+    }
+  ],
+  "allPassed": false,
+  "caveat": "Short observation only; not proof of uptime or cron-job.org task activation. Errors are not masked."
+}

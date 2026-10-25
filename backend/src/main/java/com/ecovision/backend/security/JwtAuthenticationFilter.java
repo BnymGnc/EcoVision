@@ -30,6 +30,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        boolean probe = "GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod());
+        // A stray/old Authorization header must not turn liveness into a DB lookup.
+        return probe && java.util.Set.of("/api/health", "/api/health/live",
+                "/actuator/health/liveness").contains(request.getServletPath());
+    }
+
+    @Override
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,

@@ -1,0 +1,15 @@
+{
+  "environment": "same local production image, 512MiB/1CPU, ML_ENABLED=false",
+  "startup": {
+    "memory.current": 393060352,
+    "memory.peak": 395038720,
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0"
+  },
+  "liveAiVerified": false,
+  "caveat": "No real Gemini key supplied; external AI access/quota and image-analysis peak were NOT tested.",
+  "afterLoginAndMaps": {
+    "memory.current": 394305536,
+    "memory.peak": 396128256,
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0"
+  }
+}
