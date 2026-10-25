@@ -93,11 +93,11 @@ DOA haritası düğmesi doğrudan görünür. Tanımlı PET, cam ve alüminyumda
 
 ### 5. DOA haritası
 
-Harita `flutter_map`, OpenStreetMap karo katmanı ve `latlong2` kullanır; Google Maps API anahtarı gerekmez. Konum `geolocator` ile alınır. İzin/konum yoksa kullanıcıya bu durum bildirilir ve harita merkezini değiştirerek arama yapılabilir.
+Harita `flutter_map`, OpenStreetMap karo katmanı ve `latlong2` kullanır; Google Maps API anahtarı gerekmez. Konum `geolocator` ile alınır. Yakındaki noktalar GPS konumuna göre aranır; haritayı sürüklemek arama merkezini değiştirmez. Yenile GPS'i yeniden alır. Konum yoksa açık uyarı gösterilir; son bilinen gerçek konum varsa korunur.
 
 - Varsayılan tür DIM yani İade Makinesi'dir. MIN/KIM merkezleri ayrı filtreyle açılır; SDM tüketici makinesi gibi varsayılan önerilmez.
 - PET, cam ve alüminyum seçimleri OR mantığındadır: seçilen malzemelerden herhangi birini destekleyen nokta eşleşir.
-- Arama yarıçapı 1–50 km'dir; sınırsız seçeneği final mobil düzeltmesinde kaldırıldı. Harita yakınlaştırması 3–18, bellekteki nokta sayısı en fazla 300'dür. Noktalar 100'lük sayfalarla gelir; başka bölgeye gidince o bölge sorgulanır. Kaynak kayıtlar silinmedi. [Final mobil testleri](final-mobile-polish-tr.md).
+- Arama yarıçapı 1–50 km'dir; sınırsız seçeneği final mobil düzeltmesinde kaldırıldı. Harita yakınlaştırması 3–18, bellekteki nokta sayısı en fazla 300'dür. Noktalar 100'lük sayfalarla gelir; Sonraki/Önceki noktalar ile diğer sonuçlara erişilir. Kamera hareketinde API isteği veya mesafe hesabı yapılmaz. Kaynak kayıtlar silinmedi. [Güncel GPS ve geri dönüşüm notları](gps-recycling-update-tr.md).
 - Açık noktalar filtresi yalnız programı bilinen açık noktaları getirir. Bilinmeyen saat, kapalı veya 24 saat açık olarak yorumlanmaz.
 - Noktaya dokununca ad, tür, adres, desteklenen malzemeler, kaynak tarihi, program durumu ve ayrıntılar açılır.
 - Uzaklık Haversine ile kuş uçuşudur. Yol Tarifi, Google Maps/Apple Maps/Yandex gibi desteklenen harici uygulamaya gerçek hedef koordinatını gönderir.
@@ -158,6 +158,8 @@ Profil; avatar/uygun özel fotoğraf, kullanıcı adı, seviye, puan, şehir, ro
 Kimlik başlığı mobilde tek hizadadır: avatar ve düzenleme simgesi, isim/kullanıcı adı, konum, Eko Puan ve avatar seviyesi. Ayrı giriş serisi kartı kaldırılmıştır. Başlıktaki “N gün giriş serisi” alanına dokununca aylık takvim açılır; yalnız kişinin kendi hesabına ait kaydedilmiş günler işaretlenir. Önceki aylara geçilebilir, gelecek ay kapalıdır. Takvim sorgusu yeni giriş veya ödül oluşturmaz. Backend henüz güncellenmemişse yalnız mevcut son yedi gün gösterilir ve bu sınır açıkça belirtilir.
 
 Uygulama puanı, geri dönüştürülmüş kilogram veya doğrulanmış karbon tasarrufu değildir. Günlük giriş serisi de fiziksel geri dönüşüm serisinden ayrıdır.
+
+Profilde ayrıca **Toplam geri dönüşüm** kartı vardır: benzersiz ödüllendirilmiş ayrıştırma taramalarını ve ayrı bir CO₂e potansiyelini gösterir. PET/cam/alüminyum açıkça biliniyorsa tarama başına 25/200/15 g uygulama senaryosu ve mevcut EPA WARM katsayıları kullanılır; bunlar tartılmış gramajlar değildir. Genel plastik/metal veya katsayısı bilinmeyen malzemeler toplam tarama sayısında kalır, CO₂e'ye eklenmez. Eski görsel kimliği olmayan kayıtların tekrarları ayırt edilemez; bu sınır açıklanır. Ayrıntı düğmesi hesap varsayımlarını açar. Yıllık karbon anketi ve kullanıcı beyanı kayıtları bu potansiyelle birleştirilmez.
 
 Fotoğraf gizliliği artık yalnız UI'da değil her medya GET'inde sunucuda
 denetlenir. Flutter yetkili bytes yükler; çıkışta görsel önbelleği temizlenir.

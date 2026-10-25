@@ -43,6 +43,8 @@ class _MapScreenState extends State<MapScreen> {
       widget.locationService ?? LocationService();
   final MapController _mapController = MapController();
   LatLng? _currentLocation;
+  bool _usingFallback = true;
+  String? _locationNotice;
   Future<LatLng>? _initialLocation;
   List<MapPin> _pins = [];
   Set<String> _selectedMaterials = {};
@@ -50,7 +52,7 @@ class _MapScreenState extends State<MapScreen> {
   bool _isLoading = true;
   bool _mapReady = false;
   bool _isAddingPin = false;
-  Timer? _cameraDebounce;
+  int _windowOffset = 0;
   int _nextOffset = 0;
   int _requestVersion = 0;
   Completer<void>? _requestAbort;
@@ -60,24 +62,13 @@ class _MapScreenState extends State<MapScreen> {
   bool _totalIsExact = true;
   bool _hasMore = false;
   LatLng? _pageCenter;
-  LatLngBounds? _pageBounds;
 
   @override
   void dispose() {
-    _cameraDebounce?.cancel();
     _requestVersion++;
     if (_requestAbort?.isCompleted == false) _requestAbort!.complete();
     _mapController.dispose();
     super.dispose();
-  }
-
-  void _cameraChanged(MapCamera camera, bool gesture) {
-    if (!gesture) return;
-    _cameraDebounce?.cancel();
-    _cameraDebounce = Timer(
-      const Duration(milliseconds: 550),
-      () => _loadMap(viewport: true),
-    );
   }
 
   bool get _canAddPins => widget.apiService.currentUser?.isAdmin ?? false;
@@ -105,13 +96,13 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<void> _loadMap({bool viewport = false, bool more = false}) async {
+  Future<void> _loadMap({
+    bool more = false,
+    bool refreshLocation = false,
+    int offset = 0,
+  }) async {
     if (!mounted) return;
-    if (more &&
-        (_isLoading ||
-            !_hasMore ||
-            _pageCenter == null ||
-            _pins.length >= DoaMarkerIndex.maxPins)) {
+    if (more && (_isLoading || !_hasMore || _pageCenter == null)) {
       return;
     }
     if (_requestAbort?.isCompleted == false) _requestAbort!.complete();
@@ -120,21 +111,35 @@ class _MapScreenState extends State<MapScreen> {
     final request = ++_requestVersion;
     if (mounted) setState(() => _isLoading = true);
     try {
-      final gps =
-          _currentLocation ??
-          await (_initialLocation ??= _locationService
-              .getCurrentOrFallbackLocation());
+      if (refreshLocation) _initialLocation = null;
+      final lookedUp = refreshLocation || _currentLocation == null;
+      final position = lookedUp
+          ? await (_initialLocation ??= _locationService
+                .getCurrentOrFallbackLocation())
+          : _currentLocation!;
       if (!mounted || request != _requestVersion) return;
-      final location = more
-          ? _pageCenter!
-          : viewport && _mapReady
-          ? _mapController.camera.center
-          : gps;
-      final bounds = more
-          ? _pageBounds
-          : viewport && _mapReady
-          ? _mapController.camera.visibleBounds
-          : null;
+      final keepPrevious =
+          lookedUp &&
+          _locationService.lastLookupUsedFallback &&
+          _currentLocation != null &&
+          !_usingFallback;
+      final gps = keepPrevious ? _currentLocation! : position;
+      if (lookedUp) {
+        setState(() {
+          _currentLocation = gps;
+          _usingFallback =
+              !keepPrevious && _locationService.lastLookupUsedFallback;
+          _locationNotice = keepPrevious
+              ? 'Güncel konum alınamadı; son bilinen konumun kullanılıyor. Konum iznini kontrol edip Yenile’ye dokun.'
+              : _usingFallback
+              ? 'Konum alınamadı; varsayılan bölge gösteriliyor. Konum iznini açıp Yenile’ye dokun.'
+              : null;
+        });
+      }
+      // Nearby always means the user's location, never the camera's center.
+      final location = more ? _pageCenter! : gps;
+      final append = more && _pins.length < DoaMarkerIndex.maxPins;
+      final start = more ? _nextOffset : offset;
       final page = await widget.apiService.searchDoaPoints(
         latitude: location.latitude.clamp(-90, 90),
         longitude: ((location.longitude + 180) % 360) - 180,
@@ -143,32 +148,28 @@ class _MapScreenState extends State<MapScreen> {
         abortTrigger: abort.future,
         pointTypes: _pointTypes,
         openOnly: _openOnly,
-        south: bounds?.south.clamp(-90, 90),
-        north: bounds?.north.clamp(-90, 90),
-        west: bounds?.west.clamp(-180, 180),
-        east: bounds?.east.clamp(-180, 180),
-        offset: more ? _nextOffset : 0,
+        offset: start,
       );
       if (!mounted || request != _requestVersion) return;
       setState(() {
-        _currentLocation ??= gps;
+        _currentLocation = gps;
         _pageCenter = location;
-        _pageBounds = bounds;
+        if (!append) _windowOffset = start;
         _pins = List<MapPin>.unmodifiable(
-          more
+          append
               ? {
                   ...{for (final pin in _pins) pin.id: pin},
                   ...{for (final pin in page.items) pin.id: pin},
                 }.values.take(DoaMarkerIndex.maxPins)
               : page.items.take(DoaMarkerIndex.maxPins),
         );
-        _nextOffset = (more ? _nextOffset : 0) + page.items.length;
+        _nextOffset = start + page.items.length;
         _total = page.total;
         _totalIsExact = page.totalIsExact;
         _hasMore = page.hasMore;
         _isLoading = false;
       });
-      if (!viewport && !more) {
+      if (!more) {
         _moveTo(location);
       }
     } catch (error) {
@@ -590,7 +591,9 @@ class _MapScreenState extends State<MapScreen> {
           ),
           IconButton(
             tooltip: 'Yenile',
-            onPressed: _isLoading ? null : _loadMap,
+            onPressed: _isLoading
+                ? null
+                : () => _loadMap(refreshLocation: true),
             icon: const Icon(Icons.refresh_rounded),
           ),
         ],
@@ -609,7 +612,6 @@ class _MapScreenState extends State<MapScreen> {
                 _moveTo(location);
               },
               onLongPress: (_, point) => _addOfficialPin(point),
-              onPositionChanged: _cameraChanged,
             ),
             children: [
               TileLayer(
@@ -645,13 +647,11 @@ class _MapScreenState extends State<MapScreen> {
             right: 16,
             child: Column(
               children: [
-                if (_locationService.lastLookupUsedFallback)
-                  const Card(
+                if (_locationNotice != null)
+                  Card(
                     child: Padding(
-                      padding: EdgeInsets.all(10),
-                      child: Text(
-                        'Konum alınamadı. Haritayı istediğin bölgeye taşıyıp ara.',
-                      ),
+                      padding: const EdgeInsets.all(10),
+                      child: Text(_locationNotice!),
                     ),
                   ),
               ],
@@ -668,8 +668,16 @@ class _MapScreenState extends State<MapScreen> {
               hasMore: _hasMore,
               loading: _isLoading,
               onMore: () => _loadMap(more: true),
+              windowOffset: _windowOffset,
+              onPrevious: _windowOffset == 0
+                  ? null
+                  : () => _loadMap(
+                      offset: (_windowOffset - DoaMarkerIndex.maxPins).clamp(
+                        0,
+                        _windowOffset,
+                      ),
+                    ),
               radiusKm: _radiusKm,
-              selectedMaterials: _selectedMaterials,
               onTap: _showMachine,
               onFilters: _openFilters,
             ),
@@ -685,7 +693,7 @@ class _MapScreenState extends State<MapScreen> {
       width: 50,
       height: 50,
       child: _MapMarker(
-        icon: _locationService.lastLookupUsedFallback
+        icon: _usingFallback
             ? Icons.center_focus_strong
             : Icons.person_pin_circle_rounded,
         color: Theme.of(context).colorScheme.secondary,
@@ -700,7 +708,6 @@ class _MapScreenState extends State<MapScreen> {
         pins.first.point,
         (zoom + 2).clamp(3, DoaMarkerIndex.maxZoom),
       );
-      _cameraChanged(_mapController.camera, true);
       return;
     }
     final selected = await showEcoGlassSheet<MapPin>(
@@ -797,8 +804,9 @@ class _MachineSummary extends StatelessWidget {
     required this.hasMore,
     required this.loading,
     required this.onMore,
+    required this.windowOffset,
+    required this.onPrevious,
     required this.radiusKm,
-    required this.selectedMaterials,
     required this.onTap,
     required this.onFilters,
   });
@@ -809,8 +817,9 @@ class _MachineSummary extends StatelessWidget {
   final bool hasMore;
   final bool loading;
   final VoidCallback onMore;
+  final int windowOffset;
+  final VoidCallback? onPrevious;
   final double radiusKm;
-  final Set<String> selectedMaterials;
   final ValueChanged<MapPin> onTap;
   final VoidCallback onFilters;
 
@@ -832,7 +841,7 @@ class _MachineSummary extends StatelessWidget {
                 Expanded(
                   child: Text(
                     totalIsExact
-                        ? '${pins.length} / $total DOA noktası'
+                        ? '${pins.isEmpty ? 0 : windowOffset + 1}–${windowOffset + pins.length} / $total DOA noktası'
                         : '${pins.length} DOA noktası yüklendi',
                     style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
@@ -914,14 +923,22 @@ class _MachineSummary extends StatelessWidget {
                   },
                 ),
               ),
-            if (hasMore && pins.length < DoaMarkerIndex.maxPins)
+            if (onPrevious != null)
+              TextButton.icon(
+                onPressed: loading ? null : onPrevious,
+                icon: const Icon(Icons.chevron_left),
+                label: const Text('Önceki noktalar'),
+              ),
+            if (hasMore)
               TextButton.icon(
                 onPressed: loading ? null : onMore,
                 icon: const Icon(Icons.expand_more),
-                label: const Text('100 nokta daha yükle'),
+                label: Text(
+                  pins.length < DoaMarkerIndex.maxPins
+                      ? '100 nokta daha yükle'
+                      : 'Sonraki noktalar',
+                ),
               ),
-            if (hasMore && pins.length >= DoaMarkerIndex.maxPins)
-              const Text('Daha fazla ayrıntı için haritayı yakınlaştır.'),
           ],
         ),
       ),

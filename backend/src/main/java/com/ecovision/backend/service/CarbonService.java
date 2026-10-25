@@ -14,10 +14,13 @@ public class CarbonService {
     private final AppUserRepository users;
     private final GamificationService gamification;
     private final ObjectMapper mapper;
+    private final ScanHistoryRepository scans;
     public CarbonService(CarbonAssessmentRepository assessments, WasteActionRepository actions,
-                         AppUserRepository users, GamificationService gamification, ObjectMapper mapper) {
+                         AppUserRepository users, GamificationService gamification, ObjectMapper mapper,
+                         ScanHistoryRepository scans) {
         this.assessments = assessments; this.actions = actions; this.users = users;
         this.gamification = gamification; this.mapper = mapper;
+        this.scans = scans;
     }
     @Transactional
     public Map<String, Object> assess(AppUser user, CarbonMath.Inputs input) throws Exception {
@@ -83,7 +86,8 @@ public class CarbonService {
             }
         }
         return new Summary(actions.countByUserId(user.getId()), actions.totalForUser(user.getId()),
-                "USER_DECLARED", CarbonMath.VERSION, annualKg, assessmentEvidence);
+                "USER_DECLARED", CarbonMath.VERSION, annualKg, assessmentEvidence,
+                RecyclingPotential.estimate(scans.recyclingCounts(user.getId())));
     }
     @Transactional(readOnly = true)
     public List<ActionResponse> actions(AppUser user) {
@@ -109,7 +113,8 @@ public class CarbonService {
     }
     public record ActionRequest(String actionKey, String material, double massKg, String baseline, String selected) {}
     public record Summary(long declaredActionCount, Double estimatedDifferenceKg, String evidence,
-                          String factorVersion, Double latestAnnualKg, String assessmentEvidence) {}
+                          String factorVersion, Double latestAnnualKg, String assessmentEvidence,
+                          RecyclingPotential.Estimate recyclingPotential) {}
     public record ActionResponse(Long id, String material, double massKg, String baseline, String selected,
                                  Double estimatedDifferenceKg, String evidence, String factorVersion, java.time.Instant createdAt) {
         static ActionResponse from(WasteAction a) { return new ActionResponse(a.getId(), a.getMaterial(), a.getMassKg(),

@@ -37,7 +37,7 @@ void main() {
       await tester.pump();
       final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
       for (var burst = 0; burst < 4; burst++) {
-        map.options.onPositionChanged!(map.mapController!.camera, true);
+        map.mapController!.move(LatLng(38.7 + burst * 0.01, 35.48), 14);
         await tester.pump(const Duration(milliseconds: 550));
       }
       expect(location.calls, 1);
@@ -119,19 +119,20 @@ void main() {
   });
 
   testWidgets(
-    'map caps radius, zoom and loaded pins; gesture burst makes one request',
+    'nearby stays GPS anchored across pan and zoom; bounded pages retain every result',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       final api = _MapApi();
+      final location = _Location();
       await tester.pumpWidget(
         MaterialApp(
           home: MapScreen(
             apiService: api,
             requestedMaterial: 'pet',
-            locationService: _Location(),
+            locationService: location,
             tileProvider: _Tiles(),
           ),
         ),
@@ -146,6 +147,13 @@ void main() {
       }
       expect(api.calls, [(50.0, 0), (50.0, 100), (50.0, 200)]);
       expect(find.text('100 nokta daha yükle'), findsNothing);
+      await tester.tap(find.text('Sonraki noktalar'));
+      await tester.pumpAndSettle();
+      expect(api.calls.last, (50.0, 300));
+      expect(find.text('301–400 / 500 DOA noktası'), findsOneWidget);
+      await tester.tap(find.text('Önceki noktalar'));
+      await tester.pumpAndSettle();
+      expect(api.calls.last, (50.0, 0));
       for (var i = 0; i < 40; i++) {
         map.mapController!.move(
           const LatLng(38.72, 35.48),
@@ -160,13 +168,28 @@ void main() {
       expect(map.mapController!.camera.zoom, 18);
       final before = api.calls.length;
       for (var i = 0; i < 200; i++) {
-        map.options.onPositionChanged!(map.mapController!.camera, true);
+        map.mapController!.move(LatLng(40 + i * 0.001, 29), 13);
       }
       await tester.pump(const Duration(milliseconds: 549));
       expect(api.calls.length, before);
       await tester.pump(const Duration(milliseconds: 1));
       await tester.pumpAndSettle();
-      expect(api.calls.length, before + 1);
+      expect(api.calls.length, before);
+      for (final center in api.centers) {
+        expect(center.latitude, closeTo(38.72, 1e-9));
+        expect(center.longitude, closeTo(35.48, 1e-9));
+      }
+      expect(api.bounds.every((b) => b.every((v) => v == null)), isTrue);
+      await tester.tap(find.byTooltip('Yenile'));
+      await tester.pumpAndSettle();
+      expect(location.calls, 2);
+      expect(api.centers.last.latitude, closeTo(38.73, 1e-9));
+      expect(api.centers.last.longitude, closeTo(35.48, 1e-9));
+      location.fail = true;
+      await tester.tap(find.byTooltip('Yenile'));
+      await tester.pumpAndSettle();
+      expect(api.centers.last.latitude, closeTo(38.73, 1e-9));
+      expect(find.textContaining('son bilinen konumun'), findsOneWidget);
       await tester.tap(find.byTooltip('Filtreler'));
       await tester.pumpAndSettle();
       expect(find.text('Sınırsız mesafe'), findsNothing);
@@ -180,10 +203,15 @@ void main() {
 }
 
 class _Location extends LocationService {
+  int calls = 0;
+  bool fail = false;
   @override
   Future<LatLng> getCurrentOrFallbackLocation() async {
-    lastLookupUsedFallback = false;
-    return const LatLng(38.72, 35.48);
+    lastLookupUsedFallback = fail;
+    if (fail) return const LatLng(37.17, 38.8);
+    return calls++ == 0
+        ? const LatLng(38.72, 35.48)
+        : const LatLng(38.73, 35.48);
   }
 }
 
@@ -206,6 +234,8 @@ class _Tiles extends TileProvider {
 
 class _MapApi extends ApiService {
   final calls = <(double?, int)>[];
+  final centers = <LatLng>[];
+  final bounds = <List<double?>>[];
   @override
   Future<DoaSearchPage> searchDoaPoints({
     required double latitude,
@@ -224,6 +254,8 @@ class _MapApi extends ApiService {
     Future<void>? abortTrigger,
   }) async {
     calls.add((radiusKm, offset));
+    centers.add(LatLng(latitude, longitude));
+    bounds.add([south, north, west, east]);
     return DoaSearchPage(
       [for (var i = 0; i < 100; i++) pin(offset + i + 1)],
       500,

@@ -99,6 +99,7 @@ public class ScanService {
         scan.setRewardStatus(duplicate ? "DUPLICATE_IMAGE" : points > 0 ? "AWARDED" : "NO_REWARD");
         scan.setUser(user);
         scan.setMaterialType(material.displayName());
+        scan.setImpactMaterial(RecyclingPotential.materialKey(prediction));
         scan.setIsRecyclable(material.recyclable());
         scan.setDecayYears(material.decayYears());
         scan.setRecycledInto(material.recycledInto());

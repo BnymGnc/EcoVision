@@ -34,14 +34,40 @@ an uptime guarantee. The preview does not certify physical recycling or DOA acce
 
 The final mobile update fits the scanning animation to all four themes and
 screen sizes, bounds map searches to 1-50 km and zoom to 3-18, and caches
-marker groups with a 300-point display limit. Move/zoom to load another area;
-source records are not deleted. The **All Cities** leaderboard defaults to
+marker groups with a 300-point display limit. The **All Cities** leaderboard defaults to
 all users, with an optional city filter. See the [final mobile fixes and 146-test results](docs/final-mobile-polish-tr.md).
 
 The previous update's mutually exclusive numeric/survey carbon answers and
 saved annual estimate remain included: [carbon and leaderboard notes](docs/leaderboard-carbon-update-tr.md).
 Physical-device frame timing/ANR verification is still required; automated
 map tests and a local clustering benchmark do not guarantee FPS on every phone.
+
+### Latest source update: GPS-based nearby points and recycling potential
+
+Nearby DOA searches now stay anchored to the user's GPS location, not the
+map camera. Panning/zooming does not issue another search or replace nearby
+results. Refresh obtains GPS again; if that fails, a known real position is
+retained with a warning. The 1-50 km radius, bounded tiles and cached clusters
+remain. Results arrive in 100-point pages, in windows of up to 300 markers;
+Next/Previous controls provide access to the rest without loading all points
+into phone memory. No source points were deleted: **4,037 points**, including
+**2,162 DIM machines**, remain in the canonical snapshot.
+
+The profile keeps the annual footprint calculator and adds a separate
+**Total Recycling** card. `/api/carbon/summary` now includes
+`recyclingPotential`: unique rewarded recyclable scans, modeled/unmodeled
+counts, a material breakdown and illustrative CO2e potential. This is **not
+measured recycling or verified emissions savings**. Explicit PET/glass/aluminum
+classes use application-defined scenario masses (25/200/15 g per scan) and
+the existing EPA WARM v13 landfill-to-recycling factors. Generic plastic/metal
+are not guessed; unsupported legacy records remain visible in the count but
+excluded from the CO2e subtotal. The same image hash counts once per user.
+Annual footprint, declared actions and XP are not subtracted or changed.
+
+The additive V7 migration preserves existing rows and introduces only a
+nullable material key. Updated backend deployment and an updated client build
+are required; the APK linked above represents its separately verified release.
+See [GPS and recycling update notes](docs/gps-recycling-update-tr.md).
 
 EcoVision is a full-stack Green Tech platform that turns everyday sustainability into an accessible, social, and rewarding experience. Its Flutter application lets users analyze waste images with AI, discover compatible reverse-vending and recycling machines, learn through an interactive Eco-Academy, track environmental impact, complete quests, evolve avatars, and participate in community groups and cleanup events.
 

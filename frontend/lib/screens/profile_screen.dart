@@ -9,6 +9,7 @@ import '../widgets/premium_ui.dart';
 import '../models/login_activity.dart';
 import '../widgets/profile_identity_header.dart';
 import '../widgets/login_activity_sheet.dart';
+import '../widgets/recycling_summary_card.dart';
 import 'avatar_selection_screen.dart';
 import 'scan_history_screen.dart';
 import 'settings_screen.dart';
@@ -207,6 +208,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onCarbonTap: impact['loadFailed'] == true
                         ? _refresh
                         : _openCarbon,
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              FutureBuilder<Map<String, dynamic>>(
+                future: _impactFuture,
+                builder: (context, snapshot) {
+                  final value = snapshot.data?['recyclingPotential'];
+                  return RecyclingSummaryCard(
+                    summary: value is Map<String, dynamic> ? value : null,
+                    loading: snapshot.connectionState != ConnectionState.done,
+                    failed: snapshot.data?['loadFailed'] == true,
+                    onRetry: _refresh,
                   );
                 },
               ),

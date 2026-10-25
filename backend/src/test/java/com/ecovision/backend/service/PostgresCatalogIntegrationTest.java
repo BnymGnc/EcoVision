@@ -38,11 +38,47 @@ class PostgresCatalogIntegrationTest {
     @Autowired QuestCatalogService quests;
     @Autowired QuestRepository questRepository;
     @Autowired CarbonService carbon;
+    @Autowired ScanHistoryRepository scans;
     @Autowired LeaderboardService leaderboard;
     @Autowired LoginActivityService logins;
     @Autowired DoaLocationService locations;
     @Autowired org.springframework.boot.test.web.client.TestRestTemplate http;
     @Autowired org.springframework.context.ApplicationContext context;
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void recyclingSummaryAggregatesUniqueRewardedScansWithoutChangingUsersOrActions() throws Exception {
+        String suffix = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+        var response = auth.register(new com.ecovision.backend.dto.RegisterRequest(
+                "Recycling", "Test", "recycling_" + suffix + "@ecovision.invalid",
+                "LocalTest!" + suffix + "8aA", java.time.LocalDate.of(2000, 1, 1),
+                "Kayseri", "Talas", "recycling_" + suffix, true, true));
+        var user = users.findById(required(response.user().id())).orElseThrow();
+        for (int i = 0; i < 6; i++) {
+            var scan = new com.ecovision.backend.model.ScanHistory();
+            scan.setUser(user);
+            scan.setMaterialType(i == 2 ? "Cam Atık" : i == 3 ? "Metal Atık" : "Plastik Atık");
+            scan.setImpactMaterial(i == 2 || i == 3 ? null : "pet");
+            scan.setImageHash((i <= 1 ? "a" : Integer.toString(i)).repeat(64));
+            scan.setPointsAwarded(i == 4 ? 0 : 10);
+            scan.setIsRecyclable(i != 5);
+            scans.save(scan);
+        }
+        scans.flush();
+        var result = carbon.summary(user).recyclingPotential();
+        assertEquals(3, result.recyclableScanCount());
+        assertEquals(2, result.modeledScanCount());
+        assertEquals(1, result.unmodeledScanCount());
+        assertEquals(CarbonMath.wasteDifference("pet", 0.025, "LANDFILL", "RECYCLING")
+                + CarbonMath.wasteDifference("glass", 0.2, "LANDFILL", "RECYCLING"), result.potentialKgCo2e(), 1e-12);
+        assertEquals(0, carbon.summary(user).declaredActionCount());
+        assertEquals(0, user.getTotalPoints());
+        try (var input = new ClassPathResource("db/migration/V7__scan_recycling_potential_material.sql").getInputStream()) {
+            String sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+            jdbc.execute(sql); jdbc.execute(sql);
+        }
+        assertEquals(3, carbon.summary(user).recyclingPotential().recyclableScanCount());
+    }
 
     @Test void cityInventoryAndPagedApiPreserveAllSourceIdsAndDistrictFilters() throws Exception {
         var inventory = locations.inventory();

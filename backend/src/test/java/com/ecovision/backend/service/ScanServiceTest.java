@@ -1,6 +1,7 @@
 package com.ecovision.backend.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -103,5 +104,15 @@ class ScanServiceTest {
         var uncertain = scanService.saveVerifiedAnalysis(user,"plastic",false,"c".repeat(64));
         assertEquals(0,uncertain.pointsAwarded());
         org.mockito.Mockito.verifyNoInteractions(applicationEventPublisher);
+    }
+
+    @Test void preservesSpecificImpactMaterialWithoutTreatingGenericMetalAsAluminum() {
+        when(scanHistoryRepository.save(any(ScanHistory.class))).thenAnswer(i -> i.getArgument(0));
+        scanService.saveVerifiedAnalysis(user, "PET", true, "d".repeat(64));
+        scanService.saveVerifiedAnalysis(user, "metal", true, "e".repeat(64));
+        var saved = org.mockito.ArgumentCaptor.forClass(ScanHistory.class);
+        org.mockito.Mockito.verify(scanHistoryRepository, org.mockito.Mockito.times(2)).save(saved.capture());
+        assertEquals("pet", saved.getAllValues().get(0).getImpactMaterial());
+        assertNull(saved.getAllValues().get(1).getImpactMaterial());
     }
 }

@@ -27,6 +27,12 @@ public class ScanHistory {
     @Column(nullable = false)
     private String materialType;
 
+    @Column(length = 20)
+    private String impactMaterial;
+
+    public String getImpactMaterial() { return impactMaterial; }
+    public void setImpactMaterial(String value) { impactMaterial = value; }
+
     @Column(name = "is_recyclable", nullable = false)
     private Boolean isRecyclable;
 

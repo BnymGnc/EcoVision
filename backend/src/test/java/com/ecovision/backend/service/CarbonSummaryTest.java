@@ -14,7 +14,7 @@ class CarbonSummaryTest {
     private final CarbonAssessmentRepository assessments = mock(CarbonAssessmentRepository.class);
     private final GamificationService gamification = mock(GamificationService.class);
     private final CarbonService service = new CarbonService(assessments, mock(WasteActionRepository.class),
-            mock(AppUserRepository.class), gamification, new ObjectMapper());
+            mock(AppUserRepository.class), gamification, new ObjectMapper(), mock(ScanHistoryRepository.class));
 
     private AppUser user() { var u = new AppUser(); u.setId(10L); return u; }
 
