@@ -31,6 +31,8 @@ try {
     & robocopy $output $destination /E /XJ /R:1 /W:1 /NP /NFL /NDL
     if ($LASTEXITCODE -ge 8) { throw "Build copy failed: $LASTEXITCODE" }
     Write-Host "Verified release web bundle: $destination"
+    # Robocopy 1-7 are successful copy statuses, not a failed build.
+    $global:LASTEXITCODE = 0
 } finally {
     Pop-Location
 }

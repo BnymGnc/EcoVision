@@ -68,3 +68,27 @@ Nihai ARM64 release APK derlemesi basarili (542,7 saniye; eszamanli yerel
 derleme/test yukunde). Imza `apksigner verify` ile dogrulandi, exit 0.
 Boyut 27.563.346 byte, SHA256:
 `4882b968a350091da9f5bd36a73b5628f8510c938ac1c90c273905776c6251bb`.
+
+Web JS release paketi 69,9 saniyede derlendi. WASM eklenti uyumsuzlugu
+uyarilari logda tutulur; uretilen paket WASM degildir. Robocopy'nin basarili
+1-7 cikti kodlari script sonucunda 0 olarak normalize edilir; derleme veya
+kopyalama hatasi basarili sayilmaz.
+
+## GitHub ve canli durum
+
+Kod `2e74510f3ffc9f159dd7308a89f7ea7a73b9035f` ile EcoVision main dalina
+gonderildi; GitHub ref API'si ayni SHA'yi dogruladi.
+[CI 40220348211](https://github.com/BnymGnc/EcoVision/actions/runs/40220348211)
+completed/success. Sir/anahtar taramasi ve staged whitespace kontrolu gecti.
+Ilgisiz veri export'lari ve K8s dosyalari yerelde korundu, commit'e alinmadi.
+
+[Guncel APK indir](https://github.com/BnymGnc/EcoVision/releases/download/jury-2026-10-25-update1/EcoVision-jury-arm64.apk).
+Public URL, kimlik bilgisi gondermeden yeniden indirildi: HTTP 200, ayni
+27.563.346 byte ve SHA256. Onceki release korunur.
+
+Son canli kontrolde `/api/health/live` 200, ancak public OpenAPI'de
+`/api/leaderboard/global` yoktu. Bu, kodun canliya ulasmis oldugunun
+dogrulanmadigi anlamina gelir; CI/push basarisi deploy kaniti degildir.
+Render paneline erisim yok. Auto-deploy kapaliysa operator yalniz
+`Manual Deploy -> Deploy latest commit` secmelidir; Neon sifirlanmaz ve
+mevcut AI/DB ortam degiskenleri degistirilmez. Eski APK endpoint'leri korunur.

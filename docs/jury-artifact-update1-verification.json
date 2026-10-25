@@ -1,0 +1,23 @@
+{
+  "releaseUrl": "https://github.com/BnymGnc/EcoVision/releases/tag/jury-2026-10-25-update1",
+  "downloadUrl": "https://github.com/BnymGnc/EcoVision/releases/download/jury-2026-10-25-update1/EcoVision-jury-arm64.apk",
+  "sourceCommit": "2e74510f3ffc9f159dd7308a89f7ea7a73b9035f",
+  "buildMode": "release",
+  "flutterTarget": "android-arm64",
+  "minimumAndroidApi": 24,
+  "signer": "Existing Android Debug key; not Play Store production signing",
+  "signatureVerificationExitCode": 0,
+  "publicDownloadHttp": 200,
+  "bytes": 27563346,
+  "sha256": "4882b968a350091da9f5bd36a73b5628f8510c938ac1c90c273905776c6251bb",
+  "publicDownloadHashMatches": true,
+  "backendTests": {"javaMajor": 17, "database": "isolated PostgreSQL", "classes": 43, "tests": 124, "failures": 0, "errors": 0, "skipped": 0},
+  "flutterTests": {"passed": 137, "failed": 0},
+  "dartAnalyze": "No issues found",
+  "webBuild": "JS release succeeded; WASM dry-run plugin warnings retained",
+  "ciRun": "https://github.com/BnymGnc/EcoVision/actions/runs/40220348211",
+  "ciConclusion": "success",
+  "renderCommit": null,
+  "renderNewLeaderboardRouteObserved": false,
+  "limits": "Public APK download verified. New backend route was not yet visible during the live check; deployment must be verified separately. No physical phone installation in this step."
+}

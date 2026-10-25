@@ -133,7 +133,7 @@ Kullanıcı kazandığı uygulama puanını avatar/çerçeve gibi sanal ürünle
 
 ### 11. Liderlik
 
-Şehrim ve Arkadaşlarım listeleri backend'deki puan sırasına dayanır. Arkadaş listesi yalnız kabul edilmiş ilişkileri ve kişinin kendisini içerir. Kendi satırı vurgulanır; profil açma yolu gizlilik kurallarını izler.
+Genel ve Arkadaşlarım listeleri backend'deki puan sırasına dayanır. Genel liste varsayılan olarak tüm şehirlerdeki kullanıcıları kapsar; 81 ilden biri seçilerek filtrelenebilir. Sonuçlar 50'lik sayfalarda gelir, Diğer kullanıcılar düğmesi sonraki sayfayı yükler. Arkadaş listesi yalnız kabul edilmiş ilişkileri ve kişinin kendisini içerir. Kendi satırı vurgulanır; profil açma yolu gizlilik kurallarını izler. Bu değişikliğin canlıya alınması ve APK doğrulaması [güncelleme notlarında](leaderboard-carbon-update-tr.md) ayrı tutulur.
 
 ### 12. Topluluk keşfi ve arkadaşlar
 
