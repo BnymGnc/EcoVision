@@ -7,6 +7,7 @@ import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/leaderboard")
@@ -25,6 +26,14 @@ public class LeaderboardController {
     @GetMapping("/city")
     public List<CityLeaderboardEntry> cityLeaderboard() {
         return leaderboardService.cityLeaderboard(currentUserService.currentUser());
+    }
+
+    @GetMapping("/global")
+    public LeaderboardService.LeaderboardPage globalLeaderboard(
+            @RequestParam(required = false) String city,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return leaderboardService.globalLeaderboard(currentUserService.currentUser(), city, page, size);
     }
 
     @GetMapping("/friends")

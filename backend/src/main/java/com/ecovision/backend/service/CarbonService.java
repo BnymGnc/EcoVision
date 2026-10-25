@@ -34,6 +34,21 @@ public class CarbonService {
             catch (Exception failure) { throw new IllegalStateException("Karbon kaydı okunamadı", failure); }
         }).toList();
     }
+
+    @Transactional
+    public com.ecovision.backend.dto.GamificationResponse completeSurvey(AppUser user, int annualKg) {
+        if (annualKg < 0 || annualKg > 50_000_000) {
+            throw new IllegalArgumentException("Geçersiz karbon tahmini");
+        }
+        // Keep the existing fixed, one-time reward; each new survey stores its latest estimate.
+        var reward = gamification.completeCarbonFootprint(user, annualKg);
+        var result = mapper.createObjectNode();
+        result.put("annualKnownKg", annualKg);
+        result.put("evidence", "SURVEY_ESTIMATE");
+        result.put("scope", "Yaklaşık yıllık anket tahmini; ölçülmüş karbon tasarrufu değildir.");
+        assessments.save(new CarbonAssessment(user, "{\"source\":\"SURVEY\"}", result.toString()));
+        return reward;
+    }
     @Transactional
     public ActionResponse saveAction(AppUser user, ActionRequest request) {
         users.findByIdForUpdate(user.getId()).orElseThrow();
@@ -52,7 +67,23 @@ public class CarbonService {
     }
     @Transactional(readOnly = true)
     public Summary summary(AppUser user) {
-        return new Summary(actions.countByUserId(user.getId()), actions.totalForUser(user.getId()), "USER_DECLARED", CarbonMath.VERSION);
+        Double annualKg = null;
+        String assessmentEvidence = null;
+        var latest = assessments.findTopByUserIdOrderByCreatedAtDescIdDesc(user.getId());
+        if (latest.isPresent()) {
+            try {
+                var result = mapper.readTree(latest.get().getResultJson());
+                var amount = result.path("annualKnownKg");
+                if (amount.isNumber() && Double.isFinite(amount.asDouble()) && amount.asDouble() >= 0) {
+                    annualKg = amount.asDouble();
+                    assessmentEvidence = result.path("evidence").asText("CONSUMPTION_ESTIMATE");
+                }
+            } catch (com.fasterxml.jackson.core.JsonProcessingException failure) {
+                throw new IllegalStateException("Karbon kaydı okunamadı", failure);
+            }
+        }
+        return new Summary(actions.countByUserId(user.getId()), actions.totalForUser(user.getId()),
+                "USER_DECLARED", CarbonMath.VERSION, annualKg, assessmentEvidence);
     }
     @Transactional(readOnly = true)
     public List<ActionResponse> actions(AppUser user) {
@@ -77,7 +108,8 @@ public class CarbonService {
         actions.delete(action);
     }
     public record ActionRequest(String actionKey, String material, double massKg, String baseline, String selected) {}
-    public record Summary(long declaredActionCount, Double estimatedDifferenceKg, String evidence, String factorVersion) {}
+    public record Summary(long declaredActionCount, Double estimatedDifferenceKg, String evidence,
+                          String factorVersion, Double latestAnnualKg, String assessmentEvidence) {}
     public record ActionResponse(Long id, String material, double massKg, String baseline, String selected,
                                  Double estimatedDifferenceKg, String evidence, String factorVersion, java.time.Instant createdAt) {
         static ActionResponse from(WasteAction a) { return new ActionResponse(a.getId(), a.getMaterial(), a.getMassKg(),

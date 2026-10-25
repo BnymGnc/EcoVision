@@ -29,6 +29,7 @@ enum _CarbonStage { survey, calculating, result }
 class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
   final PageController _pageController = PageController();
   final Map<int, int> _selectedOptions = {};
+  final Map<int, int> _numericContexts = {};
   final _numbers = {
     for (final q in carbonQuestions) q.id: TextEditingController(),
   };
@@ -59,10 +60,20 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
     if (!(_numberForms[question.id]?.currentState?.validate() ?? true)) return;
     final spec = CarbonNumericInputs.fields[question.id]!;
     final hasNumber = _numbers[question.id]!.text.trim().isNotEmpty;
-    if (!_selectedOptions.containsKey(question.id) &&
-        (!hasNumber || spec.requiresOption)) {
+    if ((!hasNumber && !_selectedOptions.containsKey(question.id)) ||
+        (hasNumber &&
+            spec.requiresOption &&
+            !_numericContexts.containsKey(question.id))) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Devam etmek için bir yanıt seç.')),
+        SnackBar(
+          content: Text(
+            hasNumber && spec.requiresOption
+                ? (question.id == 9
+                      ? 'Isınma kaynağını seç.'
+                      : 'Ulaşım türünü seç.')
+                : 'Devam etmek için bir yanıt seç.',
+          ),
+        ),
       );
       return;
     }
@@ -85,7 +96,7 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
   Future<void> _calculate() async {
     final result = CarbonFootprintCalculator.calculate(
       questions: carbonQuestions,
-      selectedOptionIndexes: _selectedOptions,
+      selectedOptionIndexes: {..._selectedOptions, ..._numericContexts},
       consumption: CarbonConsumptionData(householdMembers: _householdMembers),
       numericAnswers: {
         for (final entry in _numbers.entries)
@@ -138,11 +149,23 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
   }
 
   void _select(CarbonQuestion question, int optionIndex) {
+    if (_numbers[question.id]!.text.trim().isNotEmpty) return;
     EcoHaptics.selection();
-    if (!CarbonNumericInputs.fields[question.id]!.requiresOption) {
-      _numbers[question.id]!.clear();
-    }
     setState(() => _selectedOptions[question.id] = optionIndex);
+  }
+
+  void _numberChanged(CarbonQuestion question, String value) {
+    setState(() {
+      if (value.trim().isNotEmpty) {
+        final previous = _selectedOptions.remove(question.id);
+        if (CarbonNumericInputs.fields[question.id]!.requiresOption &&
+            previous != null) {
+          _numericContexts[question.id] = previous;
+        }
+      } else {
+        _numericContexts.remove(question.id);
+      }
+    });
   }
 
   Widget _extraDataFor(CarbonQuestion question) {
@@ -154,13 +177,48 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
           TextFormField(
             key: ValueKey('carbon-number-${question.id}'),
             controller: _numbers[question.id],
+            onChanged: (value) => _numberChanged(question, value),
             validator: spec.validate,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               labelText: '${spec.label} (isteğe bağlı)',
               suffixText: spec.unit,
+              suffixIcon: _numbers[question.id]!.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Özel değeri temizle',
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () {
+                        _numbers[question.id]!.clear();
+                        _numberChanged(question, '');
+                      },
+                    ),
             ),
           ),
+          if (spec.requiresOption &&
+              _numbers[question.id]!.text.trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              key: ValueKey(
+                'carbon-context-${question.id}-${_numericContexts[question.id]}',
+              ),
+              initialValue: _numericContexts[question.id],
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: question.id == 9 ? 'Isınma kaynağı' : 'Ulaşım türü',
+              ),
+              items: [
+                for (var i = 0; i < question.options.length; i++)
+                  DropdownMenuItem(
+                    value: i,
+                    child: Text(question.options[i].label, maxLines: 2),
+                  ),
+              ],
+              onChanged: (value) => setState(() {
+                if (value != null) _numericContexts[question.id] = value;
+              }),
+            ),
+          ],
           if (question.id == 11) ...[
             const SizedBox(height: 12),
             DropdownButtonFormField<int>(
@@ -261,6 +319,7 @@ class _CarbonFootprintScreenState extends State<CarbonFootprintScreen> {
               return _QuestionPage(
                 question: question,
                 selectedIndex: _selectedOptions[question.id],
+                optionsEnabled: _numbers[question.id]!.text.trim().isEmpty,
                 onSelected: (optionIndex) => _select(question, optionIndex),
                 extraData: _extraDataFor(question),
               );
@@ -319,12 +378,14 @@ class _QuestionPage extends StatelessWidget {
     required this.question,
     required this.selectedIndex,
     required this.onSelected,
+    required this.optionsEnabled,
     this.extraData,
   });
 
   final CarbonQuestion question;
   final int? selectedIndex;
   final ValueChanged<int> onSelected;
+  final bool optionsEnabled;
   final Widget? extraData;
 
   @override
@@ -379,15 +440,20 @@ class _QuestionPage extends StatelessWidget {
             for (var index = 0; index < question.options.length; index++) ...[
               Semantics(
                 button: true,
+                enabled: optionsEnabled,
                 selected: selectedIndex == index,
                 label: 'Yanıt ${index + 1}: ${question.options[index].label}',
-                onTap: () => onSelected(index),
+                onTap: optionsEnabled ? () => onSelected(index) : null,
                 excludeSemantics: true,
-                child: _CarbonOptionCard(
-                  option: question.options[index],
-                  accent: visual.color,
-                  selected: selectedIndex == index,
-                  onTap: () => onSelected(index),
+                child: AnimatedOpacity(
+                  opacity: optionsEnabled ? 1 : 0.4,
+                  duration: const Duration(milliseconds: 160),
+                  child: _CarbonOptionCard(
+                    option: question.options[index],
+                    accent: visual.color,
+                    selected: selectedIndex == index,
+                    onTap: optionsEnabled ? () => onSelected(index) : null,
+                  ),
                 ),
               ),
               if (index < question.options.length - 1)
@@ -455,7 +521,7 @@ class _CarbonOptionCard extends StatefulWidget {
   final CarbonAnswerOption option;
   final Color accent;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   State<_CarbonOptionCard> createState() => _CarbonOptionCardState();
@@ -511,9 +577,15 @@ class _CarbonOptionCardState extends State<_CarbonOptionCard> {
               type: MaterialType.transparency,
               child: InkWell(
                 onTap: widget.onTap,
-                onTapDown: (_) => setState(() => _pressed = true),
-                onTapUp: (_) => setState(() => _pressed = false),
-                onTapCancel: () => setState(() => _pressed = false),
+                onTapDown: widget.onTap == null
+                    ? null
+                    : (_) => setState(() => _pressed = true),
+                onTapUp: widget.onTap == null
+                    ? null
+                    : (_) => setState(() => _pressed = false),
+                onTapCancel: widget.onTap == null
+                    ? null
+                    : () => setState(() => _pressed = false),
                 borderRadius: BorderRadius.circular(16),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(

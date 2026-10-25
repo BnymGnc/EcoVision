@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../models/leaderboard_entry.dart';
+import '../core/turkey_locations.dart';
 import '../services/api_service.dart';
 import '../widgets/premium_ui.dart';
 import '../widgets/privacy_aware_avatar.dart';
 import 'public_profile_screen.dart';
 
-class LeaderboardScreen extends StatelessWidget {
+class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({required this.apiService, super.key});
 
   final ApiService apiService;
+
+  @override
+  State<LeaderboardScreen> createState() => _LeaderboardScreenState();
+}
+
+class _LeaderboardScreenState extends State<LeaderboardScreen> {
+  String? _city;
 
   @override
   Widget build(BuildContext context) => DefaultTabController(
@@ -22,22 +30,54 @@ class LeaderboardScreen extends StatelessWidget {
         ),
         bottom: const TabBar(
           tabs: [
-            Tab(icon: Icon(Icons.location_city_outlined), text: 'Şehrim'),
+            Tab(icon: Icon(Icons.public_rounded), text: 'Genel'),
             Tab(icon: Icon(Icons.people_outline_rounded), text: 'Arkadaşlarım'),
           ],
         ),
       ),
       body: TabBarView(
         children: [
-          _LeaderboardTab(
-            apiService: apiService,
-            loader: apiService.fetchCityLeaderboard,
-            emptyMessage: 'Şehir sıralaması henüz oluşmadı.',
-            leagueLabel: 'Şehir Ligi',
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                child: DropdownButtonFormField<String>(
+                  key: ValueKey('leaderboard-city-${_city ?? 'all'}'),
+                  initialValue: _city ?? '',
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Şehir',
+                    prefixIcon: Icon(Icons.location_city_outlined),
+                  ),
+                  items: [
+                    const DropdownMenuItem(
+                      value: '',
+                      child: Text('Tüm şehirler'),
+                    ),
+                    for (final city in TurkishLocations.provinces.keys)
+                      DropdownMenuItem(value: city, child: Text(city)),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => _city = value == '' ? null : value),
+                ),
+              ),
+              Expanded(
+                child: _LeaderboardTab(
+                  key: ValueKey(_city),
+                  apiService: widget.apiService,
+                  global: true,
+                  city: _city,
+                  emptyMessage: 'Bu sıralamada henüz kullanıcı yok.',
+                  leagueLabel: _city == null
+                      ? 'Genel Sıralama'
+                      : 'Şehir Sıralaması',
+                ),
+              ),
+            ],
           ),
           _LeaderboardTab(
-            apiService: apiService,
-            loader: apiService.fetchFriendsLeaderboard,
+            apiService: widget.apiService,
+            loader: widget.apiService.fetchFriendsLeaderboard,
             emptyMessage: 'Arkadaş sıralaman için önce arkadaş eklemelisin.',
             leagueLabel: 'Arkadaş Ligi',
           ),
@@ -50,13 +90,18 @@ class LeaderboardScreen extends StatelessWidget {
 class _LeaderboardTab extends StatefulWidget {
   const _LeaderboardTab({
     required this.apiService,
-    required this.loader,
+    this.loader,
+    this.global = false,
+    this.city,
     required this.emptyMessage,
     required this.leagueLabel,
+    super.key,
   });
 
   final ApiService apiService;
-  final Future<List<LeaderboardEntry>> Function() loader;
+  final Future<List<LeaderboardEntry>> Function()? loader;
+  final bool global;
+  final String? city;
   final String emptyMessage;
   final String leagueLabel;
 
@@ -67,6 +112,11 @@ class _LeaderboardTab extends StatefulWidget {
 class _LeaderboardTabState extends State<_LeaderboardTab>
     with AutomaticKeepAliveClientMixin {
   late Future<List<LeaderboardEntry>> _future;
+  final List<LeaderboardEntry> _more = [];
+  bool _hasMore = false;
+  bool _loadingMore = false;
+  int _page = 0;
+  int _generation = 0;
 
   @override
   bool get wantKeepAlive => true;
@@ -74,11 +124,56 @@ class _LeaderboardTabState extends State<_LeaderboardTab>
   @override
   void initState() {
     super.initState();
-    _future = widget.loader();
+    _future = _load();
+  }
+
+  Future<List<LeaderboardEntry>> _load() async {
+    if (!widget.global) return widget.loader!();
+    final generation = _generation;
+    final result = await widget.apiService.fetchLeaderboard(city: widget.city);
+    if (mounted && generation == _generation) _hasMore = result.hasMore;
+    return result.items;
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    final generation = _generation;
+    setState(() => _loadingMore = true);
+    try {
+      final result = await widget.apiService.fetchLeaderboard(
+        city: widget.city,
+        page: _page + 1,
+      );
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _page++;
+        _more.addAll(result.items);
+        _hasMore = result.hasMore;
+      });
+    } catch (_) {
+      if (mounted && generation == _generation) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Diğer kullanıcılar yüklenemedi. Tekrar deneyebilirsin.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted && generation == _generation) {
+        setState(() => _loadingMore = false);
+      }
+    }
   }
 
   Future<void> _refresh() async {
-    final next = widget.loader();
+    _generation++;
+    _more.clear();
+    _page = 0;
+    _hasMore = false;
+    _loadingMore = false;
+    final next = _load();
     setState(() {
       _future = next;
     });
@@ -118,7 +213,7 @@ class _LeaderboardTabState extends State<_LeaderboardTab>
         if (snapshot.hasError) {
           return _LeaderboardError(onRetry: _refresh);
         }
-        final entries = snapshot.data ?? const [];
+        final entries = [...?snapshot.data, ..._more];
         if (entries.isEmpty) {
           return RefreshIndicator(
             onRefresh: _refresh,
@@ -138,15 +233,26 @@ class _LeaderboardTabState extends State<_LeaderboardTab>
           child: ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
-            itemCount: entries.length + 1,
+            itemCount: entries.length + 1 + (_hasMore ? 1 : 0),
             separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               if (index == 0) {
                 return _LeaderboardHero(
                   label: widget.leagueLabel,
-                  city: entries.first.city,
+                  city: widget.global
+                      ? (widget.city ?? 'Türkiye')
+                      : 'Arkadaşlarım',
                   rank: current?.rank,
                   points: current?.totalPoints,
+                );
+              }
+              if (index == entries.length + 1) {
+                return TextButton.icon(
+                  onPressed: _loadingMore ? null : _loadMore,
+                  icon: const Icon(Icons.expand_more_rounded),
+                  label: Text(
+                    _loadingMore ? 'Yükleniyor…' : 'Diğer kullanıcılar',
+                  ),
                 );
               }
               final entry = entries[index - 1];
@@ -197,7 +303,7 @@ class _LeaderboardHero extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  rank == null ? 'Sıralamaya katıl' : 'Sıran: #$rank',
+                  rank == null ? 'Eko Puan sıralaması' : 'Sıran: #$rank',
                   style: TextStyle(
                     color: colors.onPrimary,
                     fontWeight: FontWeight.w900,

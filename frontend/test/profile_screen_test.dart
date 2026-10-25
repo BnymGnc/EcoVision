@@ -17,6 +17,44 @@ import 'package:ecovision/widgets/profile_identity_header.dart';
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
   testWidgets(
+    'profile displays stored annual estimate, zero, missing and failure explicitly',
+    (tester) async {
+      final api = _FakeApiService();
+      for (final value in <num?>[4210, 0, null]) {
+        api.impact = {
+          'latestAnnualKg': value,
+          'assessmentEvidence': 'SURVEY_ESTIMATE',
+        };
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ProfileScreen(key: ValueKey(value), apiService: api),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.text(
+            value == null
+                ? 'Hesapla'
+                : value == 0
+                ? '0,0 kg/yıl'
+                : '4,21 t/yıl',
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('Ölçülen CO₂'), findsNothing);
+        expect(tester.takeException(), isNull);
+      }
+      api.failImpact = true;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ProfileScreen(key: const ValueKey('failure'), apiService: api),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Tekrar Dene'), findsOneWidget);
+    },
+  );
+  testWidgets(
     'profil sekmesi yeniden etkinleşince sunucudaki güncel veriyi gösterir',
     (tester) async {
       final api = _FakeApiService();
@@ -258,6 +296,8 @@ void main() {
 }
 
 class _FakeApiService extends ApiService {
+  Map<String, dynamic> impact = {};
+  bool failImpact = false;
   String name = 'Ada';
   String surname = 'Green';
   int avatarLevel = 1;
@@ -298,7 +338,10 @@ class _FakeApiService extends ApiService {
   };
 
   @override
-  Future<Map<String, dynamic>> fetchCarbonSummary() async => {};
+  Future<Map<String, dynamic>> fetchCarbonSummary() async {
+    if (failImpact) throw ApiException('Bağlantı hatası', statusCode: 503);
+    return impact;
+  }
 
   @override
   Future<LoginActivityMonth> fetchLoginHistory({String? month}) async {

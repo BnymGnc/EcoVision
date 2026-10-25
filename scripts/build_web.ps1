@@ -17,8 +17,16 @@ if ($output -match '[^\x00-\x7F]') {
 $flutter = (Get-Command flutter -ErrorAction Stop).Source
 Push-Location -LiteralPath $frontend
 try {
-    & $flutter build web --release --no-pub "--output=$output" "--dart-define=API_BASE_URL=$ApiBaseUrl"
-    if ($LASTEXITCODE -ne 0) { throw "Web build failed: $LASTEXITCODE" }
+    # Windows PowerShell can promote native stderr warnings to terminating
+    # errors when output is redirected. Keep the output and check the exit code.
+    try {
+        $ErrorActionPreference = 'Continue'
+        & $flutter build web --release --no-pub "--output=$output" "--dart-define=API_BASE_URL=$ApiBaseUrl"
+        $buildExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = 'Stop'
+    }
+    if ($buildExitCode -ne 0) { throw "Web build failed: $buildExitCode" }
     $destination = Join-Path $frontend 'build/web'
     & robocopy $output $destination /E /XJ /R:1 /W:1 /NP /NFL /NDL
     if ($LASTEXITCODE -ge 8) { throw "Build copy failed: $LASTEXITCODE" }

@@ -1,5 +1,24 @@
 import '../core/media_url.dart';
 
+class LeaderboardPage {
+  const LeaderboardPage({required this.items, required this.hasMore});
+
+  final List<LeaderboardEntry> items;
+  final bool hasMore;
+
+  factory LeaderboardPage.fromJson(
+    Map<String, dynamic> json,
+  ) => LeaderboardPage(
+    items: (json['items'] as List)
+        .map(
+          (item) =>
+              LeaderboardEntry.fromJson(Map<String, dynamic>.from(item as Map)),
+        )
+        .toList(),
+    hasMore: json['hasMore'] == true,
+  );
+}
+
 class LeaderboardEntry {
   const LeaderboardEntry({
     required this.rank,

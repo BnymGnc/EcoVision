@@ -12,6 +12,7 @@ import '../widgets/login_activity_sheet.dart';
 import 'avatar_selection_screen.dart';
 import 'scan_history_screen.dart';
 import 'settings_screen.dart';
+import 'carbon_footprint_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
@@ -62,8 +63,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       return await widget.apiService.fetchCarbonSummary();
     } catch (_) {
-      return const {};
+      return const {'loadFailed': true};
     }
+  }
+
+  Future<void> _openCarbon() async {
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CarbonFootprintScreen(apiService: widget.apiService),
+      ),
+    );
+    if (mounted) await _refresh();
   }
 
   Future<_ProfileData> _fetch() async {
@@ -178,16 +189,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onEditAvatar: () => _openAvatarSelection(data.user),
               ),
               const SizedBox(height: 14),
-              _EcoImpactDashboard(
-                streak: data.user.streakCount,
-                badgeCount: data.publicProfile.badges.length,
+              FutureBuilder<Map<String, dynamic>>(
+                future: _impactFuture,
+                builder: (context, snapshot) {
+                  final impact = snapshot.data ?? const <String, dynamic>{};
+                  final kg = impact['latestAnnualKg'] as num?;
+                  return _EcoImpactDashboard(
+                    streak: data.user.streakCount,
+                    badgeCount: data.publicProfile.badges.length,
+                    annualKg: kg != null && kg.isFinite && kg >= 0
+                        ? kg.toDouble()
+                        : null,
+                    loading: snapshot.connectionState != ConnectionState.done,
+                    failed: impact['loadFailed'] == true,
+                    partial:
+                        impact['assessmentEvidence'] == 'CONSUMPTION_ESTIMATE',
+                    onCarbonTap: impact['loadFailed'] == true
+                        ? _refresh
+                        : _openCarbon,
+                  );
+                },
               ),
               const SizedBox(height: 16),
               FutureBuilder<Map<String, dynamic>>(
                 future: _impactFuture,
                 builder: (context, snapshot) {
                   final impact = snapshot.data;
-                  if (impact == null || impact.isEmpty) {
+                  if (impact == null ||
+                      impact.isEmpty ||
+                      impact['loadFailed'] == true ||
+                      (impact['declaredActionCount'] as num? ?? 0) == 0) {
                     return const SizedBox.shrink();
                   }
                   final difference = impact['estimatedDifferenceKg'] as num?;
@@ -262,10 +293,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 class _EcoImpactDashboard extends StatelessWidget {
-  const _EcoImpactDashboard({required this.streak, required this.badgeCount});
+  const _EcoImpactDashboard({
+    required this.streak,
+    required this.badgeCount,
+    required this.annualKg,
+    required this.loading,
+    required this.failed,
+    required this.partial,
+    required this.onCarbonTap,
+  });
 
   final int streak;
   final int badgeCount;
+  final double? annualKg;
+  final bool loading;
+  final bool failed;
+  final bool partial;
+  final VoidCallback onCarbonTap;
 
   @override
   Widget build(BuildContext context) {
@@ -318,11 +362,23 @@ class _EcoImpactDashboard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _ImpactCard(
-                  icon: Icons.cloud_outlined,
-                  value: '—',
-                  label: 'Ölçülen CO₂',
-                  color: colors.primary,
+                child: InkWell(
+                  onTap: loading ? null : onCarbonTap,
+                  borderRadius: BorderRadius.circular(16),
+                  child: _ImpactCard(
+                    icon: Icons.cloud_outlined,
+                    value: loading
+                        ? 'Yükleniyor'
+                        : failed
+                        ? 'Tekrar Dene'
+                        : annualKg == null
+                        ? 'Hesapla'
+                        : annualKg! >= 1000
+                        ? '${(annualKg! / 1000).toStringAsFixed(2).replaceAll('.', ',')} t/yıl'
+                        : '${annualKg!.toStringAsFixed(1).replaceAll('.', ',')} kg/yıl',
+                    label: partial ? 'Kısmi CO₂e' : 'Tahmini CO₂e',
+                    color: colors.primary,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),

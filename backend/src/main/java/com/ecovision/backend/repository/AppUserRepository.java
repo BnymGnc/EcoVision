@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Page;
 
 public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     @EntityGraph(attributePaths = "ownedMarketItems")
@@ -45,6 +46,13 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     );
 
     List<AppUser> findByCityIgnoreCaseOrderByTotalPointsDescNameAsc(String city);
+
+    @Query("""
+            select user from AppUser user
+            where (:city = '' or lower(user.city) = lower(:city))
+            order by user.totalPoints desc, user.name asc, user.id asc
+            """)
+    Page<AppUser> findRankedUsers(@Param("city") String city, Pageable pageable);
 
     List<AppUser> findByCityIgnoreCase(String city);
 

@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.PageRequest;
 
 @Service
 public class LeaderboardService {
@@ -25,6 +26,31 @@ public class LeaderboardService {
         this.userRepository = userRepository;
         this.friendshipRepository = friendshipRepository;
     }
+
+    @Transactional(readOnly = true)
+    public LeaderboardPage globalLeaderboard(AppUser currentUser, String city, int page, int size) {
+        if (page < 0 || page > 100000 || size < 1 || size > 100
+                || (city != null && city.length() > 80)) {
+            throw new IllegalArgumentException("Geçersiz sıralama filtresi");
+        }
+        // A bound null can be inferred as bytea by PostgreSQL inside lower().
+        String filter = city == null ? "" : city.trim();
+        var users = userRepository.findRankedUsers(filter, PageRequest.of(page, size));
+        var friendIds = friendshipRepository.findForUser(currentUser.getId(), FriendshipStatus.ACCEPTED)
+                .stream().map(friendship -> friendship.getRequester().getId().equals(currentUser.getId())
+                        ? friendship.getAddressee().getId() : friendship.getRequester().getId())
+                .collect(java.util.stream.Collectors.toSet());
+        List<CityLeaderboardEntry> entries = new ArrayList<>(users.getNumberOfElements());
+        int offset = page * size;
+        for (int index = 0; index < users.getContent().size(); index++) {
+            var user = users.getContent().get(index);
+            entries.add(CityLeaderboardEntry.from(user, offset + index + 1,
+                    currentUser.getId(), friendIds.contains(user.getId())));
+        }
+        return new LeaderboardPage(entries, users.hasNext(), users.getTotalElements());
+    }
+
+    public record LeaderboardPage(List<CityLeaderboardEntry> items, boolean hasMore, long total) {}
 
     @Transactional(readOnly = true)
     public List<CityLeaderboardEntry> cityLeaderboard(AppUser currentUser) {

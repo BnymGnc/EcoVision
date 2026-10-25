@@ -7,6 +7,7 @@ import com.ecovision.backend.dto.UserResponse;
 import com.ecovision.backend.dto.RewardRedemptionRequest;
 import com.ecovision.backend.service.CurrentUserService;
 import com.ecovision.backend.service.GamificationService;
+import com.ecovision.backend.service.CarbonService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,13 +23,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class GamificationController {
     private final GamificationService gamificationService;
     private final CurrentUserService currentUserService;
+    private final CarbonService carbonService;
 
     public GamificationController(
             GamificationService gamificationService,
-            CurrentUserService currentUserService
+            CurrentUserService currentUserService,
+            CarbonService carbonService
     ) {
         this.gamificationService = gamificationService;
         this.currentUserService = currentUserService;
+        this.carbonService = carbonService;
     }
 
     @GetMapping
@@ -50,7 +54,7 @@ public class GamificationController {
     public GamificationResponse completeCarbonFootprint(
             @Valid @RequestBody CarbonFootprintRequest request
     ) {
-        return gamificationService.completeCarbonFootprint(
+        return carbonService.completeSurvey(
                 currentUserService.currentUser(),
                 request.score()
         );

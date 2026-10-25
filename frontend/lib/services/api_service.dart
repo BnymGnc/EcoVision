@@ -244,6 +244,19 @@ class ApiService {
     return json.map(LeaderboardEntry.fromJson).toList();
   }
 
+  Future<LeaderboardPage> fetchLeaderboard({String? city, int page = 0}) async {
+    final query = Uri(
+      queryParameters: {
+        'page': '$page',
+        'size': '50',
+        if (city != null && city.isNotEmpty) 'city': city,
+      },
+    ).query;
+    return LeaderboardPage.fromJson(
+      await _getJson('/api/leaderboard/global?$query'),
+    );
+  }
+
   Future<List<LeaderboardEntry>> fetchFriendsLeaderboard() async {
     final json = await _getJsonList('/api/leaderboard/friends');
     return json.map(LeaderboardEntry.fromJson).toList();

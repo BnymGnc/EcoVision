@@ -13,6 +13,34 @@ void main() {
   const secureStorageChannel = MethodChannel(
     'plugins.it_nomads.com/flutter_secure_storage',
   );
+  test('global leaderboard encodes selected Turkish city and page', () async {
+    final service = ApiService(
+      client: MockClient((request) async {
+        if (request.url.path == '/api/auth/login') {
+          return http.Response(
+            jsonEncode({
+              'accessToken': 'test-access',
+              'refreshToken': 'test-refresh',
+              'user': {'id': 1, 'name': 'Ada', 'surname': 'Eco'},
+            }),
+            200,
+          );
+        }
+        expect(request.url.path, '/api/leaderboard/global');
+        expect(request.url.queryParameters, {
+          'city': 'Şanlıurfa',
+          'page': '2',
+          'size': '50',
+        });
+        return http.Response(jsonEncode({'items': [], 'hasMore': true}), 200);
+      }),
+    );
+    await service.login(email: 'ada@ecovision.test', password: 'Local!8aA');
+    expect(
+      (await service.fetchLeaderboard(city: 'Şanlıurfa', page: 2)).hasMore,
+      isTrue,
+    );
+  });
   setUp(() {
     binding.defaultBinaryMessenger.setMockMethodCallHandler(
       secureStorageChannel,

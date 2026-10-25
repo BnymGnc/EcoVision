@@ -38,6 +38,7 @@ class PostgresCatalogIntegrationTest {
     @Autowired QuestCatalogService quests;
     @Autowired QuestRepository questRepository;
     @Autowired CarbonService carbon;
+    @Autowired LeaderboardService leaderboard;
     @Autowired LoginActivityService logins;
     @Autowired DoaLocationService locations;
     @Autowired org.springframework.boot.test.web.client.TestRestTemplate http;
@@ -132,6 +133,28 @@ class PostgresCatalogIntegrationTest {
         var today = java.time.LocalDate.now(java.time.ZoneId.of("Europe/Istanbul"));
         assertEquals(java.util.List.of(today), logins.history(user.getId(), null).loginDates());
         assertTrue(logins.history(user.getId(), java.time.YearMonth.from(today).minusMonths(1).toString()).loginDates().isEmpty());
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void surveyUpdatesProfileEstimateWithoutRepeatingRewardAndLeaderboardPagesAcrossCities() {
+        String suffix = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+        var response = auth.register(new com.ecovision.backend.dto.RegisterRequest(
+                "Survey", "Test", "survey_" + suffix + "@ecovision.invalid",
+                "LocalTest!" + suffix + "8aA", java.time.LocalDate.of(2000, 1, 1),
+                "Kayseri", "Talas", "survey_" + suffix, true, true));
+        var user = users.findById(required(response.user().id())).orElseThrow();
+        int before = user.getTotalPoints();
+        assertEquals(75, carbon.completeSurvey(user, 4200).pointsAwarded());
+        assertEquals(0, carbon.completeSurvey(user, 3100).pointsAwarded());
+        assertEquals(3100.0, carbon.summary(user).latestAnnualKg());
+        assertEquals(before + 75, users.findById(required(user.getId())).orElseThrow().getTotalPoints());
+        var global = leaderboard.globalLeaderboard(user, null, 0, 1);
+        assertEquals(1, global.items().size());
+        assertEquals(users.count(), global.total());
+        var city = leaderboard.globalLeaderboard(user, "Kayseri", 0, 100);
+        assertTrue(city.items().stream().allMatch(entry -> "Kayseri".equals(entry.city())));
+        assertTrue(city.items().stream().anyMatch(entry -> required(user.getId()).equals(entry.userId())));
     }
 
     @Test void protectedApisRejectAnonymousAccessAndHealthRemainsPublic() {

@@ -3,6 +3,11 @@ package com.ecovision.backend.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import com.ecovision.backend.dto.CityLeaderboardEntry;
 import com.ecovision.backend.model.AppUser;
@@ -63,5 +68,36 @@ class LeaderboardServiceTest {
         user.setCity(AppUser.DEFAULT_CITY);
         user.setTotalPoints(points);
         return user;
+    }
+
+    @Test
+    void globalLeaderboardDoesNotDefaultToCurrentUsersCityAndPreservesPageRanks() {
+        var current = user(1L, "ada", 120);
+        var another = user(2L, "deniz", 240);
+        another.setCity("İzmir");
+        when(userRepository.findRankedUsers(eq(""), eq(PageRequest.of(1, 1))))
+                .thenReturn(new PageImpl<>(List.of(another), PageRequest.of(1, 1), 3));
+        when(friendshipRepository.findForUser(1L, FriendshipStatus.ACCEPTED)).thenReturn(List.of());
+        var result = service.globalLeaderboard(current, null, 1, 1);
+        assertEquals(2, result.items().get(0).rank());
+        assertEquals("İzmir", result.items().get(0).city());
+        assertTrue(result.hasMore());
+        assertEquals(3, result.total());
+    }
+
+    @Test
+    void explicitCityFilterIsTrimmedAndDoesNotLoadAllUsers() {
+        var current = user(1L, "ada", 120);
+        when(userRepository.findRankedUsers("Adana", PageRequest.of(0, 50)))
+                .thenReturn(new PageImpl<>(List.of(current)));
+        when(friendshipRepository.findForUser(1L, FriendshipStatus.ACCEPTED)).thenReturn(List.of());
+        service.globalLeaderboard(current, " Adana ", 0, 50);
+        verify(userRepository).findRankedUsers("Adana", PageRequest.of(0, 50));
+    }
+
+    @Test
+    void invalidPaginationIsRejected() {
+        assertThrows(IllegalArgumentException.class, () -> service.globalLeaderboard(user(1L, "a", 0), null, -1, 50));
+        assertThrows(IllegalArgumentException.class, () -> service.globalLeaderboard(user(1L, "a", 0), null, 0, 1000));
     }
 }

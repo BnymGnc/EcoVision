@@ -6,6 +6,55 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('every numeric answer disables cards; clearing restores them', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 1050);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(home: CarbonFootprintScreen(apiService: _FakeApiService())),
+    );
+    for (final question in carbonQuestions) {
+      final field = find.byKey(ValueKey('carbon-number-${question.id}'));
+      await tester.tap(find.text(question.options.first.label));
+      await tester.pump();
+      await tester.enterText(field, '1');
+      await tester.pump();
+      final options = find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            (widget.properties.label?.startsWith('Yanıt ') ?? false),
+      );
+      expect(options, findsNWidgets(question.options.length));
+      for (final element in options.evaluate()) {
+        expect((element.widget as Semantics).properties.enabled, isFalse);
+        expect((element.widget as Semantics).properties.selected, isFalse);
+        expect((element.widget as Semantics).properties.onTap, isNull);
+      }
+      if (question.id == 1) {
+        await tester.tap(find.byTooltip('Özel değeri temizle'));
+        await tester.pump();
+        for (final element in options.evaluate()) {
+          expect((element.widget as Semantics).properties.enabled, isTrue);
+        }
+        await tester.tap(find.text(question.options.first.label));
+        await tester.pump();
+        await tester.enterText(field, '1');
+        await tester.pump();
+      }
+      await tester.tap(
+        find.text(question.id == 20 ? 'Karbonumu Hesapla' : 'Devam Et'),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      if (question.id != 20) await tester.pumpAndSettle();
+    }
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('yirmi hızlı yanıt eski sonucu korur', (tester) async {
     tester.view.physicalSize = const Size(430, 932);
     tester.view.devicePixelRatio = 1;
@@ -94,6 +143,17 @@ void main() {
             expect(find.text('0–10000 arasında bir sayı gir.'), findsOneWidget);
           }
           await tester.enterText(field, question.id == 2 ? '250' : '200');
+          await tester.pump();
+          final options = find.byWidgetPredicate(
+            (widget) =>
+                widget is Semantics &&
+                (widget.properties.label?.startsWith('Yanıt ') ?? false),
+          );
+          expect(options, findsNWidgets(question.options.length));
+          for (final element in options.evaluate()) {
+            expect((element.widget as Semantics).properties.enabled, isFalse);
+            expect((element.widget as Semantics).properties.selected, isFalse);
+          }
         }
         await tester.tap(
           find.text(question.id == 20 ? 'Karbonumu Hesapla' : 'Devam Et'),
