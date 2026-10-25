@@ -64,3 +64,22 @@ olcumudur; telefon frame suresi, tam uygulama hizi veya FPS iddiasi degildir.
 Backend/Neon/AI modeli degismedi. Bir onceki backend teslimindeki 124 test
 bu turun yeni backend testi diye sunulmaz. APK 1.0.1+2, Android ARM64,
 release modu/mevcut debug imzasi; Play Store production imzasi degildir.
+
+## Son paket ve yayin
+
+- Kod commit'i: `245b2c4ac20a5ffaa08c5baaefaf2f51487cec34`, EcoVision main.
+- [CI 40223607093](https://github.com/BnymGnc/EcoVision/actions/runs/40223607093): success.
+- Son APK derlemesi: 293,3 saniye, exit 0; versionName=1.0.1, versionCode=2,
+  API24+, ARM64. `aapt dump badging` ve `apksigner verify` exit 0.
+- Boyut 27.563.350 byte. SHA256:
+  `c06c76ed17c9400d5ad41e12019ba1528dfbbc1f2859b80d72e14891af8257fa`.
+- [Final APK indir](https://github.com/BnymGnc/EcoVision/releases/download/jury-2026-10-25-final/EcoVision-jury-arm64.apk).
+  Public indirme kimlik bilgisi gonderilmeden tamamlandi: HTTP 200, ayni
+  boyut ve SHA256. Onceki GitHub Releases dosyalari degistirilmedi/silinmedi.
+- Web JS release: 219,5 saniye, exit 0. WASM dry-run uyumsuzluk uyarilari
+  logda korundu; uretilen paket WASM degildir. Yerel sunucu HTTP 200,
+  Brave `http://127.0.0.1:7357/?build=1.0.1-final` ile yeniden acildi.
+- Son canli GET `/api/health/live`: 200 ve gercek uygulama metni;
+  `/actuator/health/readiness`: 200, status UP. Render panelindeki calisan
+  SHA bu turda bagimsiz okunmadi. Backend davranisi/model secimi degismedi.
+- APK'nin bu turda fiziksel telefona kurulumu/ANR profiler olcumu yapilmadi.

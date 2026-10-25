@@ -20,19 +20,28 @@
 
 ### Jury Preview
 
-[Download the Android APK](https://github.com/BnymGnc/EcoVision/releases/download/jury-2026-10-25-update1/EcoVision-jury-arm64.apk)
-or open the [release notes](https://github.com/BnymGnc/EcoVision/releases/tag/jury-2026-10-25-update1).
+**Latest APK: 1.0.1 (build 2), 25 October 2026.**
+
+[Download the latest Android APK](https://github.com/BnymGnc/EcoVision/releases/download/jury-2026-10-25-final/EcoVision-jury-arm64.apk)
+or open the [final release notes](https://github.com/BnymGnc/EcoVision/releases/tag/jury-2026-10-25-final).
 Android 7.0+ ARM64, internet required. Create a normal account in the app;
 no administrator credentials are needed. This release-mode preview uses the
 project's existing debug signing key, not Play Store production signing.
 The public download was verified against the build's SHA256; see the
-[artifact verification](docs/jury-artifact-update1-verification.json).
+[final artifact verification](docs/jury-artifact-final-verification.json).
 Backend cold starts or service interruptions remain possible; this is not
 an uptime guarantee. The preview does not certify physical recycling or DOA acceptance.
 
-This update adds a paginated global leaderboard with an optional city filter,
-mutually exclusive numeric/survey carbon answers, and a saved annual carbon
-estimate on the profile. See the [update and test notes](docs/leaderboard-carbon-update-tr.md).
+The final mobile update fits the scanning animation to all four themes and
+screen sizes, bounds map searches to 1-50 km and zoom to 3-18, and caches
+marker groups with a 300-point display limit. Move/zoom to load another area;
+source records are not deleted. The **All Cities** leaderboard defaults to
+all users, with an optional city filter. See the [final mobile fixes and 146-test results](docs/final-mobile-polish-tr.md).
+
+The previous update's mutually exclusive numeric/survey carbon answers and
+saved annual estimate remain included: [carbon and leaderboard notes](docs/leaderboard-carbon-update-tr.md).
+Physical-device frame timing/ANR verification is still required; automated
+map tests and a local clustering benchmark do not guarantee FPS on every phone.
 
 EcoVision is a full-stack Green Tech platform that turns everyday sustainability into an accessible, social, and rewarding experience. Its Flutter application lets users analyze waste images with AI, discover compatible reverse-vending and recycling machines, learn through an interactive Eco-Academy, track environmental impact, complete quests, evolve avatars, and participate in community groups and cleanup events.
 
