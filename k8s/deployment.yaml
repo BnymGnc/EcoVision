@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecovision-backend
+  labels:
+    app.kubernetes.io/name: ecovision-backend
+    app.kubernetes.io/part-of: ecovision
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ecovision-backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ecovision-backend
+        app.kubernetes.io/part-of: ecovision
+    spec:
+      containers:
+        - name: ecovision-backend
+          # Build and push this image to your registry before deployment, then
+          # replace the image value with that registry path and immutable tag.
+          image: ecovision-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "8080"
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: ecovision-secrets
+                  key: POSTGRES_DB
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://postgres-service:5432/$(POSTGRES_DB)"
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: ecovision-secrets
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ecovision-secrets
+                  key: POSTGRES_PASSWORD
+            - name: DB_POOL_MAX_SIZE
+              value: "5"
+            - name: DB_POOL_MIN_IDLE
+              value: "0"
+            - name: DB_CONNECTION_TIMEOUT_MS
+              value: "10000"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ecovision-secrets
+                  key: JWT_SECRET
+            - name: JWT_EXPIRATION_MS
+              value: "900000"
+            - name: JWT_REFRESH_EXPIRATION_MS
+              value: "2592000000"
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ecovision-secrets
+                  key: GEMINI_API_KEY
+            - name: GEMINI_MODEL
+              value: "gemini-3.6-flash"
+            - name: GEMINI_CONNECT_TIMEOUT_MS
+              value: "5000"
+            - name: GEMINI_READ_TIMEOUT_MS
+              value: "30000"
+            - name: CORS_ALLOWED_ORIGIN_PATTERNS
+              value: "*"
+            - name: GOOGLE_CLIENT_ID
+              value: "dummy-client-id.apps.googleusercontent.com"
+            - name: PUBLIC_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ecovision-secrets
+                  key: PUBLIC_BASE_URL
+            - name: UPLOAD_DIR
+              value: "/tmp/uploads"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/health/live
+              port: http
+            initialDelaySeconds: 45
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /api/health/live
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 60
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1024Mi"

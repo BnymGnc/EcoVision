@@ -407,6 +407,10 @@ Configure these encrypted GitHub Actions secrets before enabling image publicati
 
 The `k8s/` directory contains manifests for a replicated backend deployment, external service exposure, PostgreSQL deployment, persistent storage, and ClusterIP database access. Kubernetes credentials are read from the `ecovision-secrets` Secret and must never be embedded directly in version-controlled manifests.
 
+Read the [cluster deployment prerequisites and limitations](k8s/README.md)
+before applying these optional templates. They do not migrate the live Neon
+database, and two replicas alone do not provide cross-replica STOMP messaging.
+
 ```bash
 kubectl apply -f k8s/
 kubectl get pods

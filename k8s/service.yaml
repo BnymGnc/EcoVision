@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecovision-backend
+  labels:
+    app.kubernetes.io/name: ecovision-backend
+    app.kubernetes.io/part-of: ecovision
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: ecovision-backend
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: http

@@ -1,0 +1,11 @@
+# Preserve the published DOA bundle's byte-level SHA256 checksums on Windows.
+backend/src/main/resources/data/README_TR.md -text
+backend/src/main/resources/data/collect_doa_points.py -text
+backend/src/main/resources/data/SHA256SUMS.txt -text
+backend/src/main/resources/data/data/doa_points.json -text
+backend/src/main/resources/data/data/doa_points_raw.json -text
+backend/src/main/resources/data/data/doa_points.csv -text
+backend/src/main/resources/data/data/doa_machines_dim.csv -text
+backend/src/main/resources/data/data/doa_machines_dim.json -text
+backend/src/main/resources/data/data/doa_points.geojson -text
+backend/src/main/resources/data/data/manifest.json -text
