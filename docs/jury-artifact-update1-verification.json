@@ -18,6 +18,8 @@
   "ciRun": "https://github.com/BnymGnc/EcoVision/actions/runs/40220348211",
   "ciConclusion": "success",
   "renderCommit": null,
-  "renderNewLeaderboardRouteObserved": false,
-  "limits": "Public APK download verified. New backend route was not yet visible during the live check; deployment must be verified separately. No physical phone installation in this step."
+  "renderNewLeaderboardRouteObserved": true,
+  "renderDeploymentCommitReportedByUser": "2e74510f3ffc9f159dd7308a89f7ea7a73b9035f",
+  "liveAcceptance": {"registrationHttp": 200, "firstSurveyPoints": 75, "secondSurveyPoints": 0, "latestAnnualKg": 3100.0, "globalLeaderboardHttp": 200, "cityLeaderboardHttp": 200, "loginHttp": 200, "pointsAfterRelogin": 75, "allPassed": true},
+  "limits": "Public APK download and new live API behaviors verified. Production check created one normal test account only; existing users were not changed. Running Render commit not independently queried through its private dashboard/API. No physical phone installation in this step."
 }

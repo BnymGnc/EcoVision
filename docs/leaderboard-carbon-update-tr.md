@@ -86,9 +86,21 @@ Ilgisiz veri export'lari ve K8s dosyalari yerelde korundu, commit'e alinmadi.
 Public URL, kimlik bilgisi gondermeden yeniden indirildi: HTTP 200, ayni
 27.563.346 byte ve SHA256. Onceki release korunur.
 
-Son canli kontrolde `/api/health/live` 200, ancak public OpenAPI'de
-`/api/leaderboard/global` yoktu. Bu, kodun canliya ulasmis oldugunun
-dogrulanmadigi anlamina gelir; CI/push basarisi deploy kaniti degildir.
-Render paneline erisim yok. Auto-deploy kapaliysa operator yalniz
-`Manual Deploy -> Deploy latest commit` secmelidir; Neon sifirlanmaz ve
-mevcut AI/DB ortam degiskenleri degistirilmez. Eski APK endpoint'leri korunur.
+Ilk canli kontrolde `/api/health/live` 200, ancak public OpenAPI'de
+`/api/leaderboard/global` yoktu. Kullanici panelden `2e74510` Auto-Deploy'unun
+devam ettigini bildirdi. Bekleyen deploy iptal edilmedi veya ayarlari
+degistirilmedi. Sonraki OpenAPI sorgusunda yeni endpoint gorundu.
+
+Ardindan gercek production API kabul testi yapildi: yalniz bir yeni normal
+test hesabi, mevcut kullanicilara degisiklik yok. Kayit 200; ilk anket 4200 kg
+ve 75 puan, ikinci anket 3100 kg ve **0 ek puan**. `/api/carbon/summary` 200,
+`latestAnnualKg=3100.0`, `assessmentEvidence=SURVEY_ESTIMATE`. Tekrar giris
+200 ve bakiye 75: sonuc ve odul kaliciligi dogrulandi. Genel liderlik 200,
+2 kayit/sayfa, toplam 15, hasMore=true; Kayseri filtresi 200 ve yalniz secilen
+sehirdeki satirlar. Bu bir tam telefon UI gezintisi degil, gercek API testidir.
+
+Render paneline dogrudan erisim yok; calisan SHA API'den bagimsiz okunamadi.
+Yeni davranis canlida dogrulandi; sadece CI/push'a dayanarak deploy basarisi
+iddia edilmedi. Neon sifirlanmadi; mevcut AI/DB ortam degiskenleri degismedi.
+Eski APK endpoint'leri korunur. Brave mobil boyutta giris ekrani ekran
+goruntusuyle incelendi; JS sayfa hatasi yok.
