@@ -18,6 +18,18 @@
 
 ## Overview
 
+### Jury Preview
+
+[Download the Android APK](https://github.com/BnymGnc/EcoVision/releases/download/jury-2026-10-25/EcoVision-jury-arm64.apk)
+or open the [release notes](https://github.com/BnymGnc/EcoVision/releases/tag/jury-2026-10-25).
+Android 7.0+ ARM64, internet required. Create a normal account in the app;
+no administrator credentials are needed. This release-mode preview uses the
+project's existing debug signing key, not Play Store production signing.
+The public download was verified against the build's SHA256; see the
+[artifact verification](docs/jury-artifact-verification.json).
+Backend cold starts or service interruptions remain possible; this is not
+an uptime guarantee. The preview does not certify physical recycling or DOA acceptance.
+
 EcoVision is a full-stack Green Tech platform that turns everyday sustainability into an accessible, social, and rewarding experience. Its Flutter application lets users analyze waste images with AI, discover compatible reverse-vending and recycling machines, learn through an interactive Eco-Academy, track environmental impact, complete quests, evolve avatars, and participate in community groups and cleanup events.
 
 The platform combines a cross-platform Flutter client with a Spring Boot 3 REST and WebSocket backend. Data is stored in PostgreSQL (Neon in the deployment configuration). Image analysis supports server-side Gemini or a packaged, actually trained MobileNetV2/TrashNet ONNX classifier. XP rewards in-app participation; it is not evidence of a physical return or measured emissions savings.

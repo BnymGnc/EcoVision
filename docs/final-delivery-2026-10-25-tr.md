@@ -186,6 +186,22 @@ JVM, Gradle/JDK surumleri ve uygulama mantigi degismedi. Yeni ARM64 release
 APK 27.563.298 byte, SHA256:
 `42906765f1bde3c6614abc2a30379ef393e854860998a85330a7b28bd109b9b5`.
 Projenin mevcut debug anahtariyla imzalidir; magazaya hazir imzali surum degildir.
-GitHub Releases yayini kullanici tarafindan ayrica onaylandi; indirme dogrulamasi
-sonrasinda baglanti asagidaki teslim notuna eklenecektir. Swagger uygulama
-frontend'i degildir; yerel Brave adresi internetten acilabilen bir urun linki degildir.
+GitHub Releases yayini kullanici tarafindan ayrica onaylandi ve tamamlandi:
+[Juri onizlemesi](https://github.com/BnymGnc/EcoVision/releases/tag/jury-2026-10-25),
+[APK indir](https://github.com/BnymGnc/EcoVision/releases/download/jury-2026-10-25/EcoVision-jury-arm64.apk).
+Dosya kimlik bilgisi gonderilmeden public URL'den yeniden indirildi: HTTP 200,
+27.563.298 byte, ayni SHA256. Android 7.0/API24 ve ustu ARM64 telefon icindir.
+Kurulumda mevcut debug imzasi uyusmazsa veri silme/onaysiz kaldirma yapilmaz.
+Normal kullanici hesabi acilabilir; yonetici hesabi/sirri paylasilmaz.
+
+Son kod commit'i `991a00eabd101e04d1f3eec183a1090b6f16d316`, uzak main
+GitHub ref API'sinden dogrulandi. [CI 40213880415](https://github.com/BnymGnc/EcoVision/actions/runs/40213880415)
+completed/success. Render'in bu commit'i calistirdigi kanitlanmadi; panel
+erisimi yok. Release etiketi bu kod commit'ine baglidir.
+
+Yerel uygulama Brave ile `http://127.0.0.1:7357` adresinde acildi. Brave
+Playwright kontrolunde giris ekrani goruntusu incelendi; sayfa JS hatasi yok.
+Ilk 6 saniyelik goruntu bostu; daha uzun ilk motor yuklemesinden sonra giris
+ekrani geldi. Bu ilk acilis gecikmesi kaldirilmis veya tum UI akislari
+dogrulanmis sayilmaz. Swagger uygulama frontend'i degildir; yerel Brave
+adresi internetten acilabilen bir urun linki degildir.

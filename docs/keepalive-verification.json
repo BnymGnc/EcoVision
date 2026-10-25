@@ -1,5 +1,5 @@
 {
-  "checkedAtUtc": "2026-10-25T16:49:20.059286+00:00",
+  "checkedAtUtc": "2026-10-25T16:54:51.249790+00:00",
   "url": "https://ecovision-backend-wdr0.onrender.com/api/health/live",
   "credentialsSent": false,
   "samples": [
@@ -7,25 +7,13 @@
       "method": "GET",
       "status": 200,
       "expectedBody": true,
-      "durationMs": 401
-    },
-    {
-      "method": "GET",
-      "status": 200,
-      "expectedBody": true,
-      "durationMs": 319
-    },
-    {
-      "method": "GET",
-      "status": 200,
-      "expectedBody": true,
-      "durationMs": 642
+      "durationMs": 331
     },
     {
       "method": "HEAD",
       "status": 200,
       "expectedBody": true,
-      "durationMs": 607
+      "durationMs": 387
     }
   ],
   "allPassed": true,

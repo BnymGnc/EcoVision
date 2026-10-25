@@ -84,8 +84,10 @@ inference eszamanlilik siniri 1'dir ve diger istekler kontrollu 503 alabilir.
 Ilk olcumde uc GET zaman asimina ugradi; sonraki HEAD 10,6 saniyede 200 dondu.
 Bu kayit `keepalive-initial-verification.json` dosyasinda korunur. Ardindan
 tekrarlanan uc GET (401/319/642 ms) ve HEAD (607 ms) gercek uygulama yanitiyla
-200 dondu: `keepalive-verification.json`. Bu gozlem cold start/toparlanmayla
-uyumludur; Render loglari gorulmediginden kesin kok neden sayilmaz.
+200 dondu. Son kontrol (25 Ekim 16:54:51 UTC) GET 331 ms / HEAD 387 ms,
+200 ve beklenen govde: `keepalive-verification.json`. Bu gozlem cold
+start/toparlanmayla uyumludur; Render loglari gorulmediginden kesin kok neden
+sayilmaz.
 
 `HealthControllerTest, JwtLivenessIsolationTest, JwtCredentialRevocationTest,
 JwtSessionIdentityTest` odakli kosusu: 7 test, 0 hata/basarisizlik. Bu kosu

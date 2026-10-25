@@ -1,0 +1,18 @@
+{
+  "releaseUrl": "https://github.com/BnymGnc/EcoVision/releases/tag/jury-2026-10-25",
+  "downloadUrl": "https://github.com/BnymGnc/EcoVision/releases/download/jury-2026-10-25/EcoVision-jury-arm64.apk",
+  "sourceCommit": "991a00eabd101e04d1f3eec183a1090b6f16d316",
+  "buildMode": "release",
+  "flutterTarget": "android-arm64",
+  "minimumAndroidApi": 24,
+  "package": "com.example.ecovision",
+  "versionName": "1.0.0",
+  "versionCode": 1,
+  "signer": "Android Debug (existing project configuration; not store signing)",
+  "signatureVerification": "apksigner verify --print-certs: exit 0",
+  "publicDownloadHttp": 200,
+  "bytes": 27563298,
+  "sha256": "42906765f1bde3c6614abc2a30379ef393e854860998a85330a7b28bd109b9b5",
+  "publicDownloadHashMatches": true,
+  "limits": "Release-mode jury preview, not Play Store production release. No physical phone install was performed in this step. Requires the live backend; no uptime guarantee."
+}
