@@ -1,5 +1,9 @@
 # Final mobil duzeltme - 25 Ekim 2026
 
+Bu belge 1.0.1 surumunun test kaydidir. Harita kamera sorgusu davranisi
+1.0.2'de GPS'e sabitlendi; guncel davranis ve yeni APK icin
+[GPS ve geri donusum notlarina](gps-recycling-update-tr.md) bakiniz.
+
 ## Tarama animasyonu
 
 Tarama durumu artik kok Overlay uzerinde tam ekrandir: alt navigasyon ve

@@ -84,3 +84,29 @@ Yeni özet için backend'in yeni commit ile dağıtılması, Flutter istemcisini
 yeniden derlenmesi gerekir. Eski APK yeni ekranı içermez. Push işlemi tek
 başına Render dağıtım başarısı olarak değerlendirilmez. Canlı Neon'a manuel
 SQL, veri silme veya sıfırlama uygulanmadı.
+
+### Doğrulanmış paket ve GitHub
+
+- Kod commit'i: `d143db38119299f6e37462f6c9e1f488e19d3868`, doğru
+  `BnymGnc/EcoVision` deposunun `origin/main` dalında doğrulandı.
+- GitHub Actions [40226200918](https://github.com/BnymGnc/EcoVision/actions/runs/40226200918): başarılı.
+- Release APK **1.0.2+3**, `flutter build apk --release --no-pub
+  --target-platform android-arm64 --build-name=1.0.2 --build-number=3`:
+  486,5 saniye, exit 0. Mevcut debug anahtarıyla imzalı release modu;
+  Play Store üretim imzası değildir. `aapt` sürüm/API 24 ve `apksigner` imza kontrolü geçti.
+- [APK indir](https://github.com/BnymGnc/EcoVision/releases/download/jury-2026-10-25-gps/EcoVision-jury-arm64.apk).
+  Herkese açık indirme HTTP 200, 27.628.886 bayt; SHA256 yerel paketle eşleşti:
+  `2494f8b21fa1c3eeee19bd309e1d213c006cf56ff430dae27b74d4b2c772cc15`.
+- `powershell -File scripts/build_web.ps1`: JavaScript release, 172,9 saniye,
+  exit 0. Eklentilerin Wasm dry-run uyumsuzluk uyarıları var; Wasm paketi
+  yayımlanmadı, JavaScript paketi başarılı üretildi.
+- Yerel web HTTP 200, `version.json` 1.0.2. Brave 390×844 açılış kontrolü:
+  HTTP 200, yakalanmamış JavaScript hatası 0. Giriş yapılarak bütün canlı
+  akışlar gezilmiş gibi değerlendirilmez.
+- Son genel sağlık kontrolü HTTP 200 döndü. Bir OpenAPI okuması 25 saniyede
+  zaman aşımına uğradı; sonraki kontrol başarılı oldu ve canlı `Summary`
+  şemasında **recyclingPotential** alanı görüldü. Kullanıcının paylaştığı
+  Render paneli de `d143db3` Auto-Deploy kaydını gösteriyor. Özel panele
+  bağımsız erişim veya canlı kullanıcı hesabıyla özet sorgusu bu adımda yok;
+  alanın yayımlanması tüm hesap verilerinin test edildiği anlamına gelmez.
+- Telefon üzerinde kurulum/FPS/ANR ölçümü bu adımda yapılmadı.

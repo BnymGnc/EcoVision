@@ -20,19 +20,19 @@
 
 ### Jury Preview
 
-**Latest APK: 1.0.1 (build 2), 25 October 2026.**
+**Latest APK: 1.0.2 (build 3), 25 October 2026.**
 
-[Download the latest Android APK](https://github.com/BnymGnc/EcoVision/releases/download/jury-2026-10-25-final/EcoVision-jury-arm64.apk)
-or open the [final release notes](https://github.com/BnymGnc/EcoVision/releases/tag/jury-2026-10-25-final).
+[Download the latest Android APK](https://github.com/BnymGnc/EcoVision/releases/download/jury-2026-10-25-gps/EcoVision-jury-arm64.apk)
+or open the [GPS and recycling release](https://github.com/BnymGnc/EcoVision/releases/tag/jury-2026-10-25-gps).
 Android 7.0+ ARM64, internet required. Create a normal account in the app;
 no administrator credentials are needed. This release-mode preview uses the
 project's existing debug signing key, not Play Store production signing.
 The public download was verified against the build's SHA256; see the
-[final artifact verification](docs/jury-artifact-final-verification.json).
+[GPS/recycling artifact verification](docs/jury-artifact-gps-verification.json).
 Backend cold starts or service interruptions remain possible; this is not
 an uptime guarantee. The preview does not certify physical recycling or DOA acceptance.
 
-The final mobile update fits the scanning animation to all four themes and
+The mobile update retains the scanning animation fitted to all four themes and
 screen sizes, bounds map searches to 1-50 km and zoom to 3-18, and caches
 marker groups with a 300-point display limit. The **All Cities** leaderboard defaults to
 all users, with an optional city filter. See the [final mobile fixes and 146-test results](docs/final-mobile-polish-tr.md).
@@ -65,8 +65,9 @@ excluded from the CO2e subtotal. The same image hash counts once per user.
 Annual footprint, declared actions and XP are not subtracted or changed.
 
 The additive V7 migration preserves existing rows and introduces only a
-nullable material key. Updated backend deployment and an updated client build
-are required; the APK linked above represents its separately verified release.
+nullable material key. The APK linked above includes this client update;
+the new summary field was also observed in the live backend's OpenAPI schema
+after deployment. Health HTTP 200 alone is not used as deployment proof.
 See [GPS and recycling update notes](docs/gps-recycling-update-tr.md).
 
 EcoVision is a full-stack Green Tech platform that turns everyday sustainability into an accessible, social, and rewarding experience. Its Flutter application lets users analyze waste images with AI, discover compatible reverse-vending and recycling machines, learn through an interactive Eco-Academy, track environmental impact, complete quests, evolve avatars, and participate in community groups and cleanup events.
