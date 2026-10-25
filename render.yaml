@@ -19,13 +19,6 @@ services:
         sync: false
       - key: GEMINI_MODEL
         value: gemini-3.6-flash
-      # Free-tier default: do not load ONNX native memory without a measured budget.
-      - key: AI_PROVIDER
-        value: gemini
-      - key: ML_ENABLED
-        value: "false"
-      - key: GEMINI_ON_UNCERTAIN_ENABLED
-        value: "false"
       - key: GEMINI_CONNECT_TIMEOUT_MS
         value: 10000
       - key: GEMINI_READ_TIMEOUT_MS
