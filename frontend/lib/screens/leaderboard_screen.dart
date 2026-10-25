@@ -30,7 +30,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         ),
         bottom: const TabBar(
           tabs: [
-            Tab(icon: Icon(Icons.public_rounded), text: 'Genel'),
+            Tab(icon: Icon(Icons.public_rounded), text: 'Tüm şehirler'),
             Tab(icon: Icon(Icons.people_outline_rounded), text: 'Arkadaşlarım'),
           ],
         ),

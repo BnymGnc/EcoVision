@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -35,6 +36,19 @@ class _HomeScreenState extends State<HomeScreen> {
   final ImagePicker _imagePicker = ImagePicker();
   bool _isScanning = false;
   String _scanStatus = 'Yapay zeka analiz ediyor...';
+  OverlayEntry? _scanOverlay;
+
+  void _hideScanOverlay() {
+    _scanOverlay?.remove();
+    _scanOverlay?.dispose();
+    _scanOverlay = null;
+  }
+
+  @override
+  void dispose() {
+    _hideScanOverlay();
+    super.dispose();
+  }
 
   Future<void> _pickAndAnalyze(ImageSource source) async {
     if (_isScanning) return;
@@ -55,6 +69,14 @@ class _HomeScreenState extends State<HomeScreen> {
         _isScanning = true;
         _scanStatus = 'Fotoğraf güvenli biçimde yükleniyor...';
       });
+      _scanOverlay = OverlayEntry(
+        builder: (_) => Positioned.fill(
+          child: BlockSemantics(
+            child: AbsorbPointer(child: ScanningOverlay(message: _scanStatus)),
+          ),
+        ),
+      );
+      Overlay.of(context, rootOverlay: true).insert(_scanOverlay!);
       final bytes = await image.readAsBytes();
       if (bytes.length > 5 * 1024 * 1024) {
         throw const ApiException(
@@ -67,6 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       setState(() => _scanStatus = 'Yapay zeka atığı tanıyor...');
+      _scanOverlay?.markNeedsBuild();
       final previousPoints = widget.apiService.pointsListenable.value;
       final result = await widget.apiService.analyzeWasteImage(
         bytes: bytes,
@@ -83,6 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       await EcoHaptics.heavy();
       if (!mounted) return;
+      _hideScanOverlay();
       setState(() => _isScanning = false);
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -95,6 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     } catch (error) {
+      _hideScanOverlay();
       if (!mounted) {
         return;
       }
@@ -102,6 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
+      _hideScanOverlay();
       if (mounted) {
         setState(() => _isScanning = false);
       }
@@ -110,66 +136,61 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Scaffold(
-          appBar: AppBar(
-            title: const Text('EcoVision'),
-            actions: [
-              if (widget.onNotifications != null)
-                NotificationBell(
-                  count: widget.notificationCount,
-                  onPressed: widget.onNotifications!,
-                ),
-              IconButton(
-                tooltip: 'Geri dönüşüm kutularını aç',
-                onPressed: () {
-                  EcoHaptics.light();
-                  widget.onOpenMap(null);
-                },
-                icon: const Icon(Icons.map_outlined),
+    return PopScope(
+      canPop: !_isScanning,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('EcoVision'),
+          actions: [
+            if (widget.onNotifications != null)
+              NotificationBell(
+                count: widget.notificationCount,
+                onPressed: widget.onNotifications!,
               ),
+            IconButton(
+              tooltip: 'Geri dönüşüm kutularını aç',
+              onPressed: () {
+                EcoHaptics.light();
+                widget.onOpenMap(null);
+              },
+              icon: const Icon(Icons.map_outlined),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              _HeroPanel(pointsListenable: widget.apiService.pointsListenable),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: _isScanning
+                    ? null
+                    : () => _pickAndAnalyze(ImageSource.camera),
+                icon: const Icon(Icons.photo_camera_outlined),
+                label: const Text('Fotoğraf Çek'),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _isScanning
+                    ? null
+                    : () => _pickAndAnalyze(ImageSource.gallery),
+                icon: const Icon(Icons.photo_library_outlined),
+                label: const Text('Galeriden Seç'),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Fotoğrafın sunucuda analiz edilir; bulut modunda Gemini’ye iletilir.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 24),
+              _EcoCenter(apiService: widget.apiService),
+              const SizedBox(height: 18),
+              const _HowItWorksCard(),
             ],
           ),
-          body: SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                _HeroPanel(
-                  pointsListenable: widget.apiService.pointsListenable,
-                ),
-                const SizedBox(height: 20),
-                FilledButton.icon(
-                  onPressed: _isScanning
-                      ? null
-                      : () => _pickAndAnalyze(ImageSource.camera),
-                  icon: const Icon(Icons.photo_camera_outlined),
-                  label: const Text('Fotoğraf Çek'),
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: _isScanning
-                      ? null
-                      : () => _pickAndAnalyze(ImageSource.gallery),
-                  icon: const Icon(Icons.photo_library_outlined),
-                  label: const Text('Galeriden Seç'),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Fotoğrafın sunucuda analiz edilir; bulut modunda Gemini’ye iletilir.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 24),
-                _EcoCenter(apiService: widget.apiService),
-                const SizedBox(height: 18),
-                const _HowItWorksCard(),
-              ],
-            ),
-          ),
         ),
-        if (_isScanning)
-          Positioned.fill(child: ScanningOverlay(message: _scanStatus)),
-      ],
+      ),
     );
   }
 }
@@ -471,144 +492,178 @@ class _ScanningOverlayState extends State<ScanningOverlay>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.stop();
+      _controller.value = 0.5;
+    } else if (!_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final accent = colors.primary;
     return Material(
-      color: colors.inverseSurface.withValues(alpha: 0.96),
+      key: const ValueKey('scanner-surface'),
+      color: colors.surface,
       child: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, viewport) => SingleChildScrollView(
-            child: SizedBox(
-              height: viewport.maxHeight < 600 ? 600 : viewport.maxHeight,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
-                child: Column(
-                  children: [
-                    Text(
-                      'EcoVision AI Tarayıcı',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: colors.onInverseSurface,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Fotoğraf güvenli biçimde analiz ediliyor',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colors.onInverseSurface.withValues(alpha: 0.72),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Expanded(
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 360),
-                          child: AspectRatio(
-                            aspectRatio: 0.82,
-                            child: LayoutBuilder(
-                              builder: (context, constraints) => Stack(
-                                children: [
-                                  Positioned.fill(
-                                    child: CustomPaint(
-                                      painter: _ScannerFramePainter(
-                                        color: accent,
-                                      ),
-                                    ),
-                                  ),
-                                  AnimatedBuilder(
-                                    animation: _controller,
-                                    builder: (context, _) => Positioned(
-                                      left: 24,
-                                      right: 24,
-                                      top:
-                                          32 +
-                                          _controller.value *
-                                              (constraints.maxHeight - 64),
-                                      child: Container(
-                                        height: 3,
-                                        decoration: BoxDecoration(
-                                          color: accent,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: accent.withValues(
-                                                alpha: 0.9,
-                                              ),
-                                              blurRadius: 16,
-                                              spreadRadius: 3,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  Center(
-                                    child: Icon(
-                                      Icons.recycling_rounded,
-                                      color: colors.onInverseSurface.withValues(
-                                        alpha: 0.24,
-                                      ),
-                                      size: 84,
-                                    ),
-                                  ),
-                                ],
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Text(
+                'EcoVision AI Tarayıcı',
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: colors.onSurface,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Fotoğraf güvenli biçimde analiz ediliyor',
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: RepaintBoundary(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 360),
+                      child: AspectRatio(
+                        aspectRatio: 0.82,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) => Stack(
+                            children: [
+                              Positioned.fill(
+                                child: CustomPaint(
+                                  painter: _ScannerFramePainter(color: accent),
+                                ),
                               ),
-                            ),
+                              Positioned.fill(
+                                child: CustomPaint(
+                                  key: const ValueKey('scanner-sweep'),
+                                  painter: _ScannerSweepPainter(
+                                    color: accent,
+                                    progress: _controller,
+                                  ),
+                                ),
+                              ),
+                              Center(
+                                child: Icon(
+                                  Icons.recycling_rounded,
+                                  color: colors.primary.withValues(alpha: 0.28),
+                                  size: math.min(
+                                    84,
+                                    math.min(
+                                          constraints.maxWidth,
+                                          constraints.maxHeight,
+                                        ) *
+                                        0.32,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: colors.primary.withValues(alpha: 0.24),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: accent,
                       ),
-                      decoration: BoxDecoration(
-                        color: colors.onInverseSurface.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: colors.onInverseSurface.withValues(
-                            alpha: 0.24,
-                          ),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        widget.message,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: colors.onPrimaryContainer,
+                          fontWeight: FontWeight.w800,
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: accent,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Flexible(
-                            child: Text(
-                              widget.message,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: colors.onInverseSurface,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),
     );
   }
+}
+
+class _ScannerSweepPainter extends CustomPainter {
+  _ScannerSweepPainter({required this.color, required this.progress})
+    : super(repaint: progress);
+  final Color color;
+  final Animation<double> progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    final inset = math.min(20.0, size.shortestSide * 0.12);
+    final y = inset + progress.value * math.max(0, size.height - 2 * inset);
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+    canvas.drawLine(
+      Offset(inset, y),
+      Offset(size.width - inset, y),
+      Paint()
+        ..color = color.withValues(alpha: 0.4)
+        ..strokeWidth = 7
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
+    );
+    canvas.drawLine(
+      Offset(inset, y),
+      Offset(size.width - inset, y),
+      Paint()
+        ..color = color
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScannerSweepPainter oldDelegate) =>
+      color != oldDelegate.color || progress != oldDelegate.progress;
 }
 
 class _ScannerFramePainter extends CustomPainter {
@@ -623,7 +678,7 @@ class _ScannerFramePainter extends CustomPainter {
       ..strokeWidth = 5
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
-    const length = 44.0;
+    final length = math.min(36.0, size.shortestSide * 0.22);
     final paths = <Path>[
       Path()
         ..moveTo(0, length)

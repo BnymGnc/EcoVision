@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -7,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/constants.dart';
 import '../models/map_pin.dart';
+import '../models/doa_marker_index.dart';
 import '../services/api_service.dart';
 import '../services/location_service.dart';
 import '../widgets/notification_bell.dart';
@@ -19,6 +19,8 @@ class MapScreen extends StatefulWidget {
     this.requestVersion = 0,
     this.notificationCount = 0,
     this.onNotifications,
+    this.locationService,
+    this.tileProvider,
     super.key,
   });
 
@@ -27,6 +29,8 @@ class MapScreen extends StatefulWidget {
   final int requestVersion;
   final int notificationCount;
   final VoidCallback? onNotifications;
+  final LocationService? locationService;
+  final TileProvider? tileProvider;
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -35,17 +39,19 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   static const _materials = ['pet', 'glass', 'aluminum'];
 
-  final LocationService _locationService = LocationService();
+  late final LocationService _locationService =
+      widget.locationService ?? LocationService();
   final MapController _mapController = MapController();
   LatLng? _currentLocation;
+  Future<LatLng>? _initialLocation;
   List<MapPin> _pins = [];
   Set<String> _selectedMaterials = {};
-  double? _radiusKm = 10;
+  double _radiusKm = 10;
   bool _isLoading = true;
   bool _mapReady = false;
   bool _isAddingPin = false;
   Timer? _cameraDebounce;
-  double? _clusterZoom;
+  int _nextOffset = 0;
   int _requestVersion = 0;
   Completer<void>? _requestAbort;
   bool _openOnly = false;
@@ -66,14 +72,10 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _cameraChanged(MapCamera camera, bool gesture) {
-    if (_clusterZoom != camera.zoom.floorToDouble()) {
-      _clusterZoom = camera.zoom.floorToDouble();
-      if (mounted) setState(() {});
-    }
     if (!gesture) return;
     _cameraDebounce?.cancel();
     _cameraDebounce = Timer(
-      const Duration(milliseconds: 450),
+      const Duration(milliseconds: 550),
       () => _loadMap(viewport: true),
     );
   }
@@ -85,7 +87,7 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     if (widget.requestedMaterial != null) {
       _selectedMaterials = {widget.requestedMaterial!};
-      _radiusKm = null;
+      _radiusKm = 50;
     }
     _loadMap();
   }
@@ -98,13 +100,20 @@ class _MapScreenState extends State<MapScreen> {
       _selectedMaterials = widget.requestedMaterial == null
           ? {}
           : {widget.requestedMaterial!};
-      _radiusKm = null;
+      _radiusKm = 50;
       _loadMap();
     }
   }
 
   Future<void> _loadMap({bool viewport = false, bool more = false}) async {
-    if (more && (_isLoading || !_hasMore || _pageCenter == null)) return;
+    if (!mounted) return;
+    if (more &&
+        (_isLoading ||
+            !_hasMore ||
+            _pageCenter == null ||
+            _pins.length >= DoaMarkerIndex.maxPins)) {
+      return;
+    }
     if (_requestAbort?.isCompleted == false) _requestAbort!.complete();
     final abort = Completer<void>();
     _requestAbort = abort;
@@ -113,7 +122,9 @@ class _MapScreenState extends State<MapScreen> {
     try {
       final gps =
           _currentLocation ??
-          await _locationService.getCurrentOrFallbackLocation();
+          await (_initialLocation ??= _locationService
+              .getCurrentOrFallbackLocation());
+      if (!mounted || request != _requestVersion) return;
       final location = more
           ? _pageCenter!
           : viewport && _mapReady
@@ -136,7 +147,7 @@ class _MapScreenState extends State<MapScreen> {
         north: bounds?.north.clamp(-90, 90),
         west: bounds?.west.clamp(-180, 180),
         east: bounds?.east.clamp(-180, 180),
-        offset: more ? _pins.length : 0,
+        offset: more ? _nextOffset : 0,
       );
       if (!mounted || request != _requestVersion) return;
       setState(() {
@@ -148,9 +159,10 @@ class _MapScreenState extends State<MapScreen> {
               ? {
                   ...{for (final pin in _pins) pin.id: pin},
                   ...{for (final pin in page.items) pin.id: pin},
-                }.values
-              : page.items,
+                }.values.take(DoaMarkerIndex.maxPins)
+              : page.items.take(DoaMarkerIndex.maxPins),
         );
+        _nextOffset = (more ? _nextOffset : 0) + page.items.length;
         _total = page.total;
         _totalIsExact = page.totalIsExact;
         _hasMore = page.hasMore;
@@ -259,9 +271,7 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                       const Spacer(),
                       Text(
-                        draftRadius == null
-                            ? 'Sınırsız'
-                            : '${draftRadius!.round()} km',
+                        '${draftRadius.round()} km',
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.w900,
@@ -269,27 +279,15 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                     ],
                   ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: draftRadius == null,
-                    title: const Text('Sınırsız mesafe'),
-                    subtitle: const Text(
-                      'Mesafe sınırı yok; harita alanına ve sonuç limitine göre ara',
-                    ),
-                    secondary: const Icon(Icons.public_rounded),
+                  Slider(
+                    value: draftRadius,
+                    min: 1,
+                    max: 50,
+                    divisions: 49,
+                    label: '${draftRadius.round()} km',
                     onChanged: (value) =>
-                        setSheetState(() => draftRadius = value ? null : 10),
+                        setSheetState(() => draftRadius = value),
                   ),
-                  if (draftRadius != null)
-                    Slider(
-                      value: draftRadius!,
-                      min: 1,
-                      max: 50,
-                      divisions: 49,
-                      label: '${draftRadius!.round()} km',
-                      onChanged: (value) =>
-                          setSheetState(() => draftRadius = value),
-                    ),
                   const SizedBox(height: 14),
                   Row(
                     children: [
@@ -551,7 +549,14 @@ class _MapScreenState extends State<MapScreen> {
         latitude: point.latitude,
         longitude: point.longitude,
       );
-      if (mounted) setState(() => _pins = [pin, ..._pins]);
+      if (mounted) {
+        setState(
+          () => _pins = [
+            pin,
+            ..._pins,
+          ].take(DoaMarkerIndex.maxPins).toList(growable: false),
+        );
+      }
     } catch (error) {
       if (mounted) _showError(error);
     } finally {
@@ -598,6 +603,7 @@ class _MapScreenState extends State<MapScreen> {
               initialCenter: location,
               initialZoom: 13.5,
               minZoom: 3,
+              maxZoom: DoaMarkerIndex.maxZoom,
               onMapReady: () {
                 _mapReady = true;
                 _moveTo(location);
@@ -609,6 +615,16 @@ class _MapScreenState extends State<MapScreen> {
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.ecovision.app',
+                maxNativeZoom: 18,
+                maxZoom: 18,
+                panBuffer: 0,
+                keepBuffer: 1,
+                tileProvider: widget.tileProvider,
+              ),
+              _DoaPinsLayer(
+                pins: _pins,
+                onTap: _showMachine,
+                onCluster: _openCluster,
               ),
               MarkerLayer(markers: _markers(location)),
               const RichAttributionWidget(
@@ -675,48 +691,34 @@ class _MapScreenState extends State<MapScreen> {
         color: Theme.of(context).colorScheme.secondary,
       ),
     ),
-    ..._clusterMarkers(),
   ];
 
-  List<Marker> _clusterMarkers() {
-    final zoom = _mapReady ? _mapController.camera.zoom.floorToDouble() : 13.0;
-    final cell = 55 / (256 * math.pow(2, zoom));
-    final groups = <String, List<MapPin>>{};
-    for (final pin in _pins) {
-      final x = (pin.longitude + 180) / 360;
-      final sinLat = math.sin(pin.latitude * math.pi / 180);
-      final y = 0.5 - math.log((1 + sinLat) / (1 - sinLat)) / (4 * math.pi);
-      groups
-          .putIfAbsent('${(x / cell).floor()}:${(y / cell).floor()}', () => [])
-          .add(pin);
+  Future<void> _openCluster(List<MapPin> pins) async {
+    final zoom = _mapController.camera.zoom;
+    if (zoom < DoaMarkerIndex.maxZoom) {
+      _mapController.move(
+        pins.first.point,
+        (zoom + 2).clamp(3, DoaMarkerIndex.maxZoom),
+      );
+      _cameraChanged(_mapController.camera, true);
+      return;
     }
-    return [
-      for (final cluster in groups.values)
-        Marker(
-          point: cluster.first.point,
-          width: 54,
-          height: 54,
-          child: GestureDetector(
-            onTap: () => cluster.length == 1
-                ? _showMachine(cluster.first)
-                : _mapController.move(
-                    cluster.first.point,
-                    (zoom + 2).clamp(3, 18).toDouble(),
-                  ),
-            child: cluster.length > 1
-                ? CircleAvatar(
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.primaryContainer,
-                    child: Text('${cluster.length}'),
-                  )
-                : _MapMarker(
-                    icon: Icons.recycling_rounded,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+    final selected = await showEcoGlassSheet<MapPin>(
+      context: context,
+      builder: (context) => SizedBox(
+        height: 380,
+        child: ListView.builder(
+          itemCount: pins.length,
+          itemBuilder: (context, index) => ListTile(
+            leading: const Icon(Icons.recycling_rounded),
+            title: Text(pins[index].title),
+            subtitle: Text(pins[index].address),
+            onTap: () => Navigator.pop(context, pins[index]),
           ),
         ),
-    ];
+      ),
+    );
+    if (mounted && selected != null) await _showMachine(selected);
   }
 
   void _showError(Object error) {
@@ -726,6 +728,64 @@ class _MapScreenState extends State<MapScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+}
+
+class _DoaPinsLayer extends StatefulWidget {
+  const _DoaPinsLayer({
+    required this.pins,
+    required this.onTap,
+    required this.onCluster,
+  });
+  final List<MapPin> pins;
+  final ValueChanged<MapPin> onTap;
+  final ValueChanged<List<MapPin>> onCluster;
+
+  @override
+  State<_DoaPinsLayer> createState() => _DoaPinsLayerState();
+}
+
+class _DoaPinsLayerState extends State<_DoaPinsLayer> {
+  final _index = DoaMarkerIndex();
+  List<List<MapPin>>? _groups;
+  ColorScheme? _colors;
+  List<Marker> _markers = const [];
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = _index.groups(widget.pins, MapCamera.of(context).zoom);
+    final colors = Theme.of(context).colorScheme;
+    if (!identical(groups, _groups) || colors != _colors) {
+      _groups = groups;
+      _colors = colors;
+      _markers = [
+        for (final group in groups)
+          Marker(
+            key: ValueKey('doa-marker-${group.first.id}'),
+            point: group.first.point,
+            width: 48,
+            height: 48,
+            child: RepaintBoundary(
+              child: GestureDetector(
+                onTap: () => group.length == 1
+                    ? widget.onTap(group.first)
+                    : widget.onCluster(group),
+                child: group.length == 1
+                    ? _MapMarker(
+                        icon: Icons.recycling_rounded,
+                        color: colors.primary,
+                      )
+                    : CircleAvatar(
+                        backgroundColor: colors.primaryContainer,
+                        foregroundColor: colors.onPrimaryContainer,
+                        child: Text('${group.length}'),
+                      ),
+              ),
+            ),
+          ),
+      ];
+    }
+    return MarkerLayer(markers: _markers);
   }
 }
 
@@ -749,7 +809,7 @@ class _MachineSummary extends StatelessWidget {
   final bool hasMore;
   final bool loading;
   final VoidCallback onMore;
-  final double? radiusKm;
+  final double radiusKm;
   final Set<String> selectedMaterials;
   final ValueChanged<MapPin> onTap;
   final VoidCallback onFilters;
@@ -780,17 +840,10 @@ class _MachineSummary extends StatelessWidget {
                 TextButton.icon(
                   onPressed: onFilters,
                   icon: const Icon(Icons.tune_rounded, size: 18),
-                  label: Text(
-                    radiusKm == null ? 'Sınırsız' : '${radiusKm!.round()} km',
-                  ),
+                  label: Text('${radiusKm.round()} km'),
                 ),
               ],
             ),
-            if (radiusKm == null)
-              Text(
-                'Mesafe sınırı yok. Sonuçlar 100 kayıtlık sayfalarla gelir.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
             if (pins.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -861,13 +914,13 @@ class _MachineSummary extends StatelessWidget {
                   },
                 ),
               ),
-            if (hasMore && pins.length < 1000)
+            if (hasMore && pins.length < DoaMarkerIndex.maxPins)
               TextButton.icon(
                 onPressed: loading ? null : onMore,
                 icon: const Icon(Icons.expand_more),
                 label: const Text('100 nokta daha yükle'),
               ),
-            if (hasMore && pins.length >= 1000)
+            if (hasMore && pins.length >= DoaMarkerIndex.maxPins)
               const Text('Daha fazla ayrıntı için haritayı yakınlaştır.'),
           ],
         ),
@@ -1018,7 +1071,7 @@ class _MapFilters {
   final bool includeSdm;
 
   final Set<String> materials;
-  final double? radiusKm;
+  final double radiusKm;
 }
 
 IconData _materialIcon(String material) {

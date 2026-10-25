@@ -5,6 +5,7 @@ import 'package:ecovision/models/quest_progress.dart';
 import 'package:ecovision/screens/home_screen.dart';
 import 'package:ecovision/screens/missions_screen.dart';
 import 'package:ecovision/services/api_service.dart';
+import 'package:ecovision/theme/theme_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,6 +28,7 @@ void main() {
     const Size(930, 830),
     const Size(320, 480),
     const Size(390, 844),
+    const Size(700, 320),
   ]) {
     testWidgets('scanner stays bounded at $size', (tester) async {
       tester.view.physicalSize = size;
@@ -50,6 +52,48 @@ void main() {
       );
       await tester.pump(const Duration(seconds: 2));
       expect(find.text('EcoVision AI Tarayıcı'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  for (final kind in AppThemeKind.values) {
+    testWidgets('scanner fits the visible screen and theme: $kind', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 480);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final theme = AppThemes.forKind(kind);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(320, 480),
+              textScaler: TextScaler.linear(1.8),
+            ),
+            child: const ScanningOverlay(
+              message:
+                  'Yapay zeka fotoğrafını güvenli biçimde analiz ediyor...',
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 700));
+      final surface = tester.widget<Material>(
+        find.byKey(const ValueKey('scanner-surface')),
+      );
+      expect(surface.color, theme.colorScheme.surface);
+      final sweep = tester.getRect(find.byKey(const ValueKey('scanner-sweep')));
+      final status = tester.getRect(
+        find.text('Yapay zeka fotoğrafını güvenli biçimde analiz ediyor...'),
+      );
+      expect(sweep.top, greaterThanOrEqualTo(0));
+      expect(sweep.bottom, lessThanOrEqualTo(status.top));
+      expect(status.bottom, lessThanOrEqualTo(480));
+      expect(find.byType(SingleChildScrollView), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });

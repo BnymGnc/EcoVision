@@ -97,7 +97,7 @@ Harita `flutter_map`, OpenStreetMap karo katmanı ve `latlong2` kullanır; Googl
 
 - Varsayılan tür DIM yani İade Makinesi'dir. MIN/KIM merkezleri ayrı filtreyle açılır; SDM tüketici makinesi gibi varsayılan önerilmez.
 - PET, cam ve alüminyum seçimleri OR mantığındadır: seçilen malzemelerden herhangi birini destekleyen nokta eşleşir.
-- Mesafe sınırlı veya sınırsız olabilir. Harita görüntü alanı ve sonuç sınırı nedeniyle tüm kayıtlar aynı anda ekranda çizilmez; başka bölgeye gidince o bölge sorgulanır.
+- Arama yarıçapı 1–50 km'dir; sınırsız seçeneği final mobil düzeltmesinde kaldırıldı. Harita yakınlaştırması 3–18, bellekteki nokta sayısı en fazla 300'dür. Noktalar 100'lük sayfalarla gelir; başka bölgeye gidince o bölge sorgulanır. Kaynak kayıtlar silinmedi. [Final mobil testleri](final-mobile-polish-tr.md).
 - Açık noktalar filtresi yalnız programı bilinen açık noktaları getirir. Bilinmeyen saat, kapalı veya 24 saat açık olarak yorumlanmaz.
 - Noktaya dokununca ad, tür, adres, desteklenen malzemeler, kaynak tarihi, program durumu ve ayrıntılar açılır.
 - Uzaklık Haversine ile kuş uçuşudur. Yol Tarifi, Google Maps/Apple Maps/Yandex gibi desteklenen harici uygulamaya gerçek hedef koordinatını gönderir.

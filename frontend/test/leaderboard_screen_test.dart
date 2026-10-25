@@ -14,8 +14,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(api.requests, [(null, 0)]);
-      expect(find.text('Genel'), findsOneWidget);
-      expect(find.text('Tüm şehirler'), findsOneWidget);
+      expect(find.text('Tüm şehirler'), findsNWidgets(2));
       expect(find.text('Global User'), findsOneWidget);
       await tester.ensureVisible(find.text('Diğer kullanıcılar'));
       await tester.tap(find.text('Diğer kullanıcılar'));
@@ -29,6 +28,12 @@ void main() {
       expect(api.requests.last, ('Adana', 0));
       expect(find.text('City User'), findsOneWidget);
       expect(find.text('Global User'), findsNothing);
+      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tüm şehirler').last);
+      await tester.pumpAndSettle();
+      expect(api.requests.last, (null, 0));
+      expect(find.text('Global User'), findsOneWidget);
       await tester.tap(find.text('Arkadaşlarım').first);
       await tester.pumpAndSettle();
       expect(find.text('Friend User'), findsOneWidget);
