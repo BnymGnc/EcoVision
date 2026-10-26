@@ -32,6 +32,11 @@ The public download was verified against the build's SHA256; see the
 Backend cold starts or service interruptions remain possible; this is not
 an uptime guarantee. The preview does not certify physical recycling or DOA acceptance.
 
+For the 26 October keep-alive incident, actual shutdown/restart evidence,
+JVM startup defaults and cron recovery instructions, see the
+[incident report](docs/incident-2026-10-26-tr.md). Render Free can spin down
+or restart; an external ping is not an always-on service guarantee.
+
 The mobile update retains the scanning animation fitted to all four themes and
 screen sizes, bounds map searches to 1-50 km and zoom to 3-18, and caches
 marker groups with a 300-point display limit. The **All Cities** leaderboard defaults to

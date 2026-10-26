@@ -1,0 +1,47 @@
+{
+  "checkedAtUtc": "2026-10-26T18:29:24.041642+00:00",
+  "url": "https://ecovision-backend-wdr0.onrender.com/api/health/live",
+  "credentialsSent": false,
+  "samples": [
+    {
+      "method": "GET",
+      "url": "https://ecovision-backend-wdr0.onrender.com/api/health/live",
+      "status": 200,
+      "expectedBody": true,
+      "headers": {
+        "Content-Type": "text/plain;charset=UTF-8",
+        "Server": "cloudflare",
+        "Date": "Mon, 26 Oct 2026 18:29:28 GMT",
+        "X-Render-Origin-Server": "Render"
+      },
+      "durationMs": 2586
+    },
+    {
+      "method": "GET",
+      "url": "https://ecovision-backend-wdr0.onrender.com/api/health/live",
+      "status": 200,
+      "expectedBody": true,
+      "headers": {
+        "Content-Type": "text/plain;charset=UTF-8",
+        "Server": "cloudflare",
+        "Date": "Mon, 26 Oct 2026 18:29:58 GMT",
+        "X-Render-Origin-Server": "Render"
+      },
+      "durationMs": 961
+    },
+    {
+      "method": "HEAD",
+      "url": "https://ecovision-backend-wdr0.onrender.com/api/health/live",
+      "status": 200,
+      "expectedBody": true,
+      "headers": {
+        "Server": "cloudflare",
+        "Date": "Mon, 26 Oct 2026 18:30:29 GMT",
+        "X-Render-Origin-Server": "Render"
+      },
+      "durationMs": 369
+    }
+  ],
+  "allPassed": true,
+  "caveat": "Short observation only; not proof of uptime or cron-job.org task activation. Errors are not masked."
+}

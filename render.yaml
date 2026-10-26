@@ -35,4 +35,4 @@ services:
       # instance's cgroup limit. Render can override this value if its plan
       # provides a different memory limit.
       - key: JAVA_TOOL_OPTIONS
-        value: -Xmx128m -XX:MaxMetaspaceSize=112m -XX:MaxDirectMemorySize=16m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -Xss512k
+        value: -Xmx128m -XX:MaxMetaspaceSize=112m -XX:MaxDirectMemorySize=16m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -Xss512k -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError

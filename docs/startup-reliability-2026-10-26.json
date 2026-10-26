@@ -1,0 +1,72 @@
+{
+  "checkedAtUtc": "2026-10-26T18:37:38.298829+00:00",
+  "environment": "Local Java17 runtime, current JAR, isolated PostgreSQL15, 512MiB, 1CPU",
+  "jarSha256": "806e352af43322da802be069364d4915dbe778c9d402c4ee4f930e58b813b0b8",
+  "runs": [
+    {
+      "mode": "baseline",
+      "readySeconds": 149.292,
+      "startupMemoryBytes": 426795008,
+      "getHeadVerified": true,
+      "springStartedSeconds": 104.526,
+      "peakMemoryBytes": 427843584,
+      "memoryEvents": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+      "memoryLimitBytes": 536870912
+    },
+    {
+      "mode": "c1",
+      "readySeconds": 75.942,
+      "startupMemoryBytes": 326930432,
+      "getHeadVerified": true,
+      "springStartedSeconds": 52.501,
+      "peakMemoryBytes": 328658944,
+      "memoryEvents": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+      "memoryLimitBytes": 536870912
+    },
+    {
+      "mode": "baseline",
+      "readySeconds": 179.019,
+      "startupMemoryBytes": 377593856,
+      "getHeadVerified": true,
+      "springStartedSeconds": 140.345,
+      "peakMemoryBytes": 378617856,
+      "memoryEvents": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+      "memoryLimitBytes": 536870912
+    },
+    {
+      "mode": "c1",
+      "readySeconds": 74.039,
+      "startupMemoryBytes": 325406720,
+      "getHeadVerified": true,
+      "springStartedSeconds": 45.705,
+      "peakMemoryBytes": 326975488,
+      "memoryEvents": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+      "memoryLimitBytes": 536870912
+    },
+    {
+      "mode": "c1-local-model",
+      "readySeconds": 107.717,
+      "startupMemoryBytes": 396185600,
+      "getHeadVerified": true,
+      "springStartedSeconds": 69.731,
+      "photos": [
+        {
+          "status": 200,
+          "provider": "ONNX_CPU"
+        },
+        {
+          "status": 200,
+          "provider": "ONNX_CPU"
+        },
+        {
+          "status": 200,
+          "provider": "ONNX_CPU"
+        }
+      ],
+      "peakMemoryBytes": 426356736,
+      "memoryEvents": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+      "memoryLimitBytes": 536870912
+    }
+  ],
+  "caveat": "Short sequential local trials, shared filesystem cache; not Render startup timing, SLA or an OOM exclusion for longer workloads. No cloud AI called."
+}

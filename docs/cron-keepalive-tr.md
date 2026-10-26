@@ -1,5 +1,13 @@
 # EcoVision - cron-job.org canlilik kontrolu
 
+## 26 Ekim guncellemesi
+
+Yeni olay, kapanis/baslangic zamanlari ve gercek toparlanma olcumleri:
+[26 Ekim olay incelemesi](incident-2026-10-26-tr.md).
+26 Ekim 21:29-21:30 Turkiye saatinde iki GET ve bir HEAD dogru govdeyle
+200 dondu; bu, 7/24 uptime garantisi veya cron gorevinin tekrar acildigi anlamina gelmez.
+Asagidaki 25 Ekim olcumleri tarihsel kayit olarak korunmustur.
+
 ## Gorev ayari
 
 | Alan | Deger |
@@ -62,6 +70,17 @@ Kaynaklar:
 ```powershell
 python scripts/check_keepalive.py --samples 3
 ```
+
+Onceki raporu degistirmeden ve sorgular arasinda bekleyerek kontrol:
+
+```powershell
+python scripts/check_keepalive.py --samples 2 --interval 30 --output docs/keepalive-new-check.json
+```
+
+Betik hata yanitinin en fazla 256 baytini ve sinirli altyapi basliklarini
+kaydeder; 503 veya zaman asimini basariya cevirmez. Cookie/Authorization
+gondermez veya kaydetmez. `--timeout` yalniz yerel teshis betiginin butcesidir;
+cron-job.org sunucularinin 30 saniyelik butcesini degistirmez.
 
 Varsayilan 3 GET ve 1 HEAD istegi, her biri 30 saniye sinirli. Sir gondermez.
 Sonuc `docs/keepalive-verification.json` dosyasina yazilir. Basarisiz olursa
